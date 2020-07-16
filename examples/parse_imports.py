@@ -12,7 +12,7 @@ def create_build_dir():
     return build_dir
 
 
-@alk.recipe(ingredients=[alk.Map(input_files), create_build_dir])
+@alk.repeat_recipe(input_files, ingredients=[create_build_dir])
 def process_imports(file: Path, build_dir: Path):
     output_file = build_dir / str(file.name).replace('.py', '.txt')
     with file.open('r') as fin, output_file.open('w') as fout:
