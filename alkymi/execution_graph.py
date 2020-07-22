@@ -1,8 +1,8 @@
+# coding=utf-8
 from inspect import signature
 from enum import Enum
 import os.path
-from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, Optional, Iterable, List
 
 
 class Status(Enum):
@@ -14,14 +14,14 @@ class Status(Enum):
 
 
 class Recipe(object):
-    def __init__(self, ingredients: List['Recipe'], func: Callable, name: str, transient: bool):
+    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool):
         self._ingredients = []
         for ingredient in ingredients:
             self._ingredients.append(ingredient)
         self._func = func
         self._name = name
         self._transient = transient
-        self._outputs: Optional[List[Path]] = None
+        self._outputs = None
         print('Func {} signature: {}'.format(name, signature(func)))
 
     @property
@@ -54,7 +54,7 @@ class Recipe(object):
         return [os.path.getmtime(str(path)) for path in self._outputs]
 
     def __call__(self, *args, **kwargs):
-        self._outputs =  self._func(*args, **kwargs)
+        self._outputs = self._func(*args, **kwargs)
         return self._outputs
 
     def brew(self):
@@ -67,12 +67,12 @@ class Recipe(object):
         return self._name
 
     @property
-    def ingredients(self) -> List['Recipe']:
+    def ingredients(self) -> Iterable['Recipe']:
         return self._ingredients
 
 
 class RepeatedRecipe(Recipe):
-    def __init__(self, inputs: Callable[[], List[Recipe]], ingredients: List[Recipe], func: Callable, name: str,
+    def __init__(self, inputs: Callable[[], Iterable[Recipe]], ingredients: Iterable[Recipe], func: Callable, name: str,
                  transient: bool):
         super().__init__(ingredients, func, name, transient)
         self._inputs = inputs
