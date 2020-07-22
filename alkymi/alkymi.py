@@ -1,4 +1,3 @@
-import functools
 import subprocess
 import logging
 from pathlib import Path
@@ -11,16 +10,16 @@ _logger = logging.getLogger('alkymi')
 _logger.setLevel(logging.DEBUG)
 
 
-def recipe(ingredients=()):
-    def _decorator(func):
-        return Recipe(ingredients, func, func.__name__)
+def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False):
+    def _decorator(func: Callable):
+        return Recipe(ingredients, func, func.__name__, transient)
 
     return _decorator
 
 
-def repeat_recipe(inputs: Iterable[Callable], ingredients: Iterable[Recipe] = ()):
-    def _decorator(func):
-        return RepeatedRecipe(inputs, ingredients, func, func.__name__)
+def repeat_recipe(inputs: Iterable[Callable], ingredients: Iterable[Recipe] = (), transient: bool = False):
+    def _decorator(func: Callable):
+        return RepeatedRecipe(inputs, ingredients, func, func.__name__, transient)
 
     return _decorator
 
@@ -34,9 +33,7 @@ def brew(_recipe: Recipe):
     return _recipe.brew()
 
 
-def glob_files(directory: Path, pattern: str) -> Callable[[], List[Path]]:
+def glob_files(directory: Path, pattern: str) -> Recipe:
     def _glob_recipe() -> List[Path]:
-        matched_files = glob.glob(str(directory / pattern))
-        return [Path(f) for f in matched_files]
-
-    return Recipe([], _glob_recipe, 'glob_files')
+        return list(directory.glob(pattern))
+    return Recipe([], _glob_recipe, 'glob_files', transient=False)

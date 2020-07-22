@@ -1,15 +1,61 @@
+from inspect import signature
+from enum import Enum
+import os.path
+from pathlib import Path
+from typing import Callable, List, Optional
+
+
+class Status(Enum):
+    Ok = 0
+    IngredientDirty = 1
+    NotEvaluatedYet = 2
+    Dirty = 3
+    BoundFunctionChanged = 4
 
 
 class Recipe(object):
-    def __init__(self, ingredients, func, name):
+    def __init__(self, ingredients: List['Recipe'], func: Callable, name: str, transient: bool):
         self._ingredients = []
         for ingredient in ingredients:
             self._ingredients.append(ingredient)
         self._func = func
         self._name = name
+        self._transient = transient
+        self._outputs: Optional[List[Path]] = None
+        print('Func {} signature: {}'.format(name, signature(func)))
+
+    @property
+    def status(self) -> Status:
+        # This recipe is dirty if:
+        # 1. One or more ingredients are dirty and need to be reevaluated
+        # 2. There's no cached output for this recipe
+        # 3. The cached output for this recipe is older than the output of any ingredient
+        # 3. The bound function has changed (later)
+        for ingredient in self._ingredients:
+            if ingredient.status != Status.Ok:
+                return Status.IngredientDirty
+
+            if self.output_timestamps is not None and len(self.output_timestamps) > 0:
+                stamps = ingredient.output_timestamps
+                if stamps is not None:
+                    for stamp in stamps:
+                        if stamp > self.output_timestamps[0]:
+                            return Status.Dirty
+
+        if self._transient or self._outputs is None:
+            return Status.NotEvaluatedYet
+
+        # TODO(mathias): Add handling of bound function hash change
+
+    @property
+    def output_timestamps(self) -> Optional[List[float]]:
+        if self._outputs is None:
+            return None
+        return [os.path.getmtime(str(path)) for path in self._outputs]
 
     def __call__(self, *args, **kwargs):
-        return self._func(*args, **kwargs)
+        self._outputs =  self._func(*args, **kwargs)
+        return self._outputs
 
     def brew(self):
         # Evaluate DAG to get output
@@ -17,17 +63,18 @@ class Recipe(object):
         return dag.run()
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def ingredients(self):
+    def ingredients(self) -> List['Recipe']:
         return self._ingredients
 
 
 class RepeatedRecipe(Recipe):
-    def __init__(self, inputs, ingredients, func, name):
-        super().__init__(ingredients, func, name)
+    def __init__(self, inputs: Callable[[], List[Recipe]], ingredients: List[Recipe], func: Callable, name: str,
+                 transient: bool):
+        super().__init__(ingredients, func, name, transient)
         self._inputs = inputs
 
     @property
@@ -36,7 +83,7 @@ class RepeatedRecipe(Recipe):
 
 
 class ExecutionGraph(object):
-    def __init__(self, recipe):
+    def __init__(self, recipe: Recipe):
         self._recipe = recipe
 
     @staticmethod
