@@ -1,34 +1,47 @@
 # coding=utf-8
 import subprocess
-import logging
-from pathlib import Path
-from typing import List, Callable, Iterable
-
-from alkymi.execution_graph import Recipe, RepeatedRecipe
-
-_logger = logging.getLogger('alkymi')
-_logger.setLevel(logging.DEBUG)
+from inspect import signature
+from typing import Iterable, Callable, List
 
 
-def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False):
-    def _decorator(func: Callable):
-        return Recipe(ingredients, func, func.__name__, transient)
+class Recipe(object):
+    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool):
+        self._ingredients = list(ingredients)
+        self._func = func
+        self._name = name
+        self._transient = transient
+        print('Func {} signature: {}'.format(name, signature(func)))
 
-    return _decorator
+    def __call__(self, *args, **kwargs):
+        return self._func(*args, **kwargs)
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def ingredients(self) -> List['Recipe']:
+        return self._ingredients
+
+    @property
+    def transient(self) -> bool:
+        return self._transient
+
+    def __str__(self):
+        return self.name
 
 
-def repeat_recipe(inputs: Iterable[Callable], ingredients: Iterable[Recipe] = (), transient: bool = False):
-    def _decorator(func: Callable):
-        return RepeatedRecipe(inputs, ingredients, func, func.__name__, transient)
+class RepeatedRecipe(Recipe):
+    def __init__(self, inputs: Callable[[], Iterable[Recipe]], ingredients: Iterable[Recipe], func: Callable, name: str,
+                 transient: bool):
+        super().__init__(ingredients, func, name, transient)
+        self._inputs = inputs
 
-    return _decorator
+    @property
+    def inputs(self):
+        return self._inputs
 
 
 def call(command_line, results):
     subprocess.call(command_line)
     return results
-
-
-def brew(_recipe: Recipe):
-    return _recipe.brew()
-

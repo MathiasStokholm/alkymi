@@ -17,7 +17,7 @@ def create_build_dir() -> Path:
     return build_dir
 
 
-@lab.repeat_recipe(input_files, ingredients=[create_build_dir])
+@lab.foreach(input_files, ingredients=[create_build_dir])
 def process_imports(file: Path, build_dir: Path) -> Path:
     output_file = build_dir / str(file.name).replace('.py', '.txt')
     with file.open('r') as fin, output_file.open('w') as fout:
@@ -26,7 +26,7 @@ def process_imports(file: Path, build_dir: Path) -> Path:
     return output_file
 
 
-@lab.recipe(ingredients=[process_imports])
+@lab.recipe(ingredients=[process_imports], transient=True)
 def print_results(imports: List[Path]) -> None:
     for import_file in imports:
         with import_file.open('r') as f:
@@ -36,6 +36,7 @@ def print_results(imports: List[Path]) -> None:
 def main():
     print(lab)
     lab.brew(print_results)
+    print(lab)
 
 
 if __name__ == '__main__':
