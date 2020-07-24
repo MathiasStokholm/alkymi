@@ -1,21 +1,23 @@
 # coding=utf-8
 from typing import List
 
-import alkymi as alk
+from alkymi import Lab
+from alkymi.recipes import glob_files
 from pathlib import Path
 
 
-input_files = alk.glob_files(Path('alkymi'), '*.py')
+lab = Lab()
+input_files = lab.add_recipe(glob_files(Path('alkymi'), '*.py'))
 
 
-@alk.recipe()
+@lab.recipe()
 def create_build_dir() -> Path:
     build_dir = Path('build')
     build_dir.mkdir(exist_ok=True)
     return build_dir
 
 
-@alk.repeat_recipe(input_files, ingredients=[create_build_dir])
+@lab.repeat_recipe(input_files, ingredients=[create_build_dir])
 def process_imports(file: Path, build_dir: Path) -> Path:
     output_file = build_dir / str(file.name).replace('.py', '.txt')
     with file.open('r') as fin, output_file.open('w') as fout:
@@ -24,7 +26,7 @@ def process_imports(file: Path, build_dir: Path) -> Path:
     return output_file
 
 
-@alk.recipe(ingredients=[process_imports])
+@lab.recipe(ingredients=[process_imports])
 def print_results(imports: List[Path]) -> None:
     for import_file in imports:
         with import_file.open('r') as f:
@@ -32,7 +34,8 @@ def print_results(imports: List[Path]) -> None:
 
 
 def main():
-    alk.brew(print_results)
+    print(lab)
+    lab.brew(print_results)
 
 
 if __name__ == '__main__':

@@ -32,8 +32,3 @@ def call(command_line, results):
 def brew(_recipe: Recipe):
     return _recipe.brew()
 
-
-def glob_files(directory: Path, pattern: str) -> Recipe:
-    def _glob_recipe() -> List[Path]:
-        return list(directory.glob(pattern))
-    return Recipe([], _glob_recipe, 'glob_files', transient=False)

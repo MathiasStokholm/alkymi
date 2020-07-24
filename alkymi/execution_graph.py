@@ -70,6 +70,9 @@ class Recipe(object):
     def ingredients(self) -> Iterable['Recipe']:
         return self._ingredients
 
+    def __str__(self):
+        return '{}: {}'.format(self.name, self.status)
+
 
 class RepeatedRecipe(Recipe):
     def __init__(self, inputs: Callable[[], Iterable[Recipe]], ingredients: Iterable[Recipe], func: Callable, name: str,
