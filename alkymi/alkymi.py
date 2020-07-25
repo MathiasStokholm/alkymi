@@ -10,7 +10,7 @@ class Recipe(object):
         self._func = func
         self._name = name
         self._transient = transient
-        print('Func {} signature: {}'.format(name, signature(func)))
+        # print('Func {} signature: {}'.format(name, signature(func)))
 
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)

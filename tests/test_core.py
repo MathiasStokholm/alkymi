@@ -20,7 +20,7 @@ def test_builtin_glob():
 
 
 def test_recipe_decorator():
-    lab = Lab()
+    lab = Lab('test')
 
     @lab.recipe(transient=True)
     def should_be_a_recipe():
@@ -33,7 +33,7 @@ def test_recipe_decorator():
 
 
 def test_execution():
-    lab = Lab()
+    lab = Lab('test')
 
     execution_counts = dict(
         produces_build_dir=0,

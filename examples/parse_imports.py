@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # coding=utf-8
 from typing import List
 
@@ -6,7 +7,7 @@ from alkymi.recipes import glob_files
 from pathlib import Path
 
 
-lab = Lab()
+lab = Lab('Import parsing')
 input_files = lab.add_recipe(glob_files(Path('alkymi'), '*.py'))
 
 
@@ -34,9 +35,7 @@ def print_results(imports: List[Path]) -> None:
 
 
 def main():
-    print(lab)
-    lab.brew(print_results)
-    print(lab)
+    lab.open()
 
 
 if __name__ == '__main__':
