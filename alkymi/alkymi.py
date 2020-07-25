@@ -36,13 +36,13 @@ class Recipe(object):
 
 
 class RepeatedRecipe(Recipe):
-    def __init__(self, inputs: Callable[[], Iterable[Recipe]], ingredients: Iterable[Recipe], func: Callable, name: str,
+    def __init__(self, inputs: Recipe, ingredients: Iterable[Recipe], func: Callable, name: str,
                  transient: bool):
         super().__init__(ingredients, func, name, transient)
         self._inputs = inputs
 
     @property
-    def inputs(self):
+    def inputs(self) -> Recipe:
         return self._inputs
 
 

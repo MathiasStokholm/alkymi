@@ -84,7 +84,7 @@ class Lab:
 
         return _decorator
 
-    def foreach(self, inputs: Callable[[], Iterable[Recipe]], ingredients: Iterable[Recipe] = (),
+    def foreach(self, inputs: Recipe, ingredients: Iterable[Recipe] = (),
                 transient: bool = False):
         def _decorator(func: Callable):
             return self.add_recipe(RepeatedRecipe(inputs, ingredients, func, func.__name__, transient))
@@ -200,6 +200,7 @@ class Lab:
         if isinstance(recipe, RepeatedRecipe):
             results = []
             recipe_inputs = recipe.inputs()
+            self._outputs[recipe.inputs.name].output = recipe_inputs
             for item in recipe_inputs:
                 if len(ingredient_inputs) > 0:
                     results.append(recipe(item, *ingredient_inputs))
