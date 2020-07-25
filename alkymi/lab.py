@@ -1,5 +1,6 @@
 # coding=utf-8
-
+import copy
+import json
 import os
 import argparse
 from collections import OrderedDict
@@ -17,36 +18,91 @@ class Status(Enum):
     BoundFunctionChanged = 4
 
 
+class Output:
+    def __init__(self, function_name: str, function_hash: int, output: Optional[Union[Path, List[Path]]]):
+        self.function_name = function_name
+        self.function_hash = function_hash
+        self.output = output
+
+    @staticmethod
+    def from_recipe(recipe: Recipe, output: Optional[Union[Path, List[Path]]]):
+        return Output(recipe.name, recipe.function_hash, output)
+
+    def to_dict(self):
+        results = copy.copy(self.__dict__)
+
+        if results['output'] is not None:
+            if isinstance(results['output'], Iterable):
+                results['output'] = [str(output) for output in results['output']]
+            else:
+                results['output'] = str(results['output'])
+        return results
+
+    @staticmethod
+    def from_dict(json_data):
+        paths = json_data['output']
+        if paths is not None:
+            if isinstance(paths, str):
+                paths = Path(paths)
+            else:
+                paths = [Path(path) for path in paths]
+        return Output(json_data['function_name'], json_data['function_hash'], paths)
+
+
 class Lab:
-    def __init__(self, name: str):
+    def __init__(self, name: str, disable_caching=False):
         self._name = name
+        self.cache_path = Path('.alkymi/{}.json'.format(self.name))
         self._recipes = OrderedDict()  # type: OrderedDict[str, Recipe]
-        self._outputs = dict()  # type: Dict[Recipe, List[Path]]
+        self._outputs = dict()  # type: Dict[str, Output]
+
+        # Try to load pre-existing state from cache file
+        self._disable_caching = disable_caching
+        self._try_load_state()
+
+    def _try_load_state(self) -> None:
+        if self._disable_caching or not self.cache_path.exists():
+            return
+
+        with self.cache_path.open('r') as f:
+            json_items = json.loads(f.read())
+            for name, item in json_items.items():
+                self._outputs[name] = Output.from_dict(item)
+
+    def _save_state(self) -> None:
+        if self._disable_caching:
+            return
+
+        self.cache_path.parent.mkdir(exist_ok=True)
+        with self.cache_path.open('w') as f:
+            outputs = {key: output.to_dict() for key, output in self._outputs.items()}
+            f.write(json.dumps(outputs, indent=4))
 
     def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
         def _decorator(func: Callable) -> Recipe:
-            recipe = Recipe(ingredients, func, func.__name__, transient)
-            self._recipes[recipe.name] = recipe
-            return recipe
+            return self.add_recipe(Recipe(ingredients, func, func.__name__, transient))
 
         return _decorator
-
-    def add_recipe(self, recipe: Recipe) -> Recipe:
-        self._recipes[recipe.name] = recipe
-        return recipe
 
     def foreach(self, inputs: Callable[[], Iterable[Recipe]], ingredients: Iterable[Recipe] = (),
                 transient: bool = False):
         def _decorator(func: Callable):
-            recipe = RepeatedRecipe(inputs, ingredients, func, func.__name__, transient)
-            self._recipes[recipe.name] = recipe
-            return recipe
+            return self.add_recipe(RepeatedRecipe(inputs, ingredients, func, func.__name__, transient))
 
         return _decorator
 
+    def add_recipe(self, recipe: Union[Recipe, RepeatedRecipe]) -> Union[Recipe, RepeatedRecipe]:
+        self._recipes[recipe.name] = recipe
+
+        if recipe.name not in self._outputs:
+            self._outputs[recipe.name] = Output.from_recipe(recipe, None)
+        return recipe
+
     def brew(self, target_recipe: Union[Recipe, str]):
         recipe_name = target_recipe if isinstance(target_recipe, str) else target_recipe.name
-        self.evaluate_recipe(self._recipes[recipe_name], self.build_status())
+        result = self.evaluate_recipe(self._recipes[recipe_name], self.build_status())
+        self._save_state()
+        return result
 
     @property
     def name(self) -> str:
@@ -57,13 +113,13 @@ class Lab:
         return self._recipes
 
     def output_timestamps(self, recipe) -> Optional[List[float]]:
-        results = self._outputs.get(recipe, None)
+        results = self._outputs[recipe.name].output
         if results is None:
             return None
 
-        if isinstance(results, Iterable):
-            return [os.path.getmtime(str(path)) for path in results]
-        return [os.path.getmtime(str(results))]
+        if isinstance(results, Path):
+            return [os.path.getmtime(str(results))]
+        return [os.path.getmtime(str(path)) for path in results]
 
     def build_status(self) -> Dict[Recipe, Status]:
         status = {}  # type: Dict[Recipe, Status]
@@ -82,7 +138,7 @@ class Lab:
         # 2. There's no cached output for this recipe
         # 3. The cached output for this recipe is older than the output of any ingredient
         # 3. The bound function has changed (later)
-        if recipe.transient or recipe not in self._outputs:
+        if recipe.transient or self._outputs[recipe.name].output is None:
             status[recipe] = Status.NotEvaluatedYet
             return status[recipe]
 
@@ -124,20 +180,21 @@ class Lab:
 
         def _print_and_return():
             print('Finished evaluating {}'.format(recipe.name))
-            return self._outputs[recipe]
+            return self._outputs[recipe.name].output
 
-        if status[recipe] == Status.Ok and recipe in self._outputs:
+        if status[recipe] == Status.Ok and recipe.name in self._outputs:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
-            self._outputs[recipe] = recipe()
+            self._outputs[recipe.name].output = recipe()
             return _print_and_return()
 
         # Load ingredient inputs
         ingredient_inputs = []
         for ingredient in recipe.ingredients:
-            self._outputs[ingredient] = self.evaluate_recipe(ingredient, status)
-            ingredient_inputs.append(self._outputs[ingredient])
+            result = self.evaluate_recipe(ingredient, status)
+            self._outputs[ingredient.name].output = result
+            ingredient_inputs.append(result)
 
         # Process repeated inputs
         if isinstance(recipe, RepeatedRecipe):
@@ -148,11 +205,11 @@ class Lab:
                     results.append(recipe(item, *ingredient_inputs))
                 else:
                     results.append(recipe(item))
-            self._outputs[recipe] = results
+            self._outputs[recipe.name].output = results
             return _print_and_return()
 
         # Process non-repeated input
-        self._outputs[recipe] = recipe(*ingredient_inputs)
+        self._outputs[recipe.name].output = recipe(*ingredient_inputs)
         return _print_and_return()
 
     def __repr__(self) -> str:

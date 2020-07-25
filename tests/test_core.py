@@ -33,7 +33,7 @@ def test_recipe_decorator():
 
 
 def test_execution():
-    lab = Lab('test')
+    lab = Lab('test', disable_caching=True)
 
     execution_counts = dict(
         produces_build_dir=0,

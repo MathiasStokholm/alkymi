@@ -27,6 +27,10 @@ class Recipe(object):
     def transient(self) -> bool:
         return self._transient
 
+    @property
+    def function_hash(self) -> int:
+        return hash(self._func)
+
     def __str__(self):
         return self.name
 
