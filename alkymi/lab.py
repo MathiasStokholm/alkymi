@@ -4,8 +4,9 @@ import os
 import argparse
 from collections import OrderedDict
 from enum import Enum
+from pathlib import Path
 from typing import Iterable, Callable, Optional, List, Dict, Union
-from alkymi import Recipe, RepeatedRecipe
+from .alkymi import Recipe, RepeatedRecipe
 
 
 class Status(Enum):
@@ -19,8 +20,8 @@ class Status(Enum):
 class Lab:
     def __init__(self, name: str):
         self._name = name
-        self._recipes = OrderedDict()
-        self._outputs = dict()
+        self._recipes = OrderedDict()  # type: OrderedDict[str, Recipe]
+        self._outputs = dict()  # type: Dict[Recipe, List[Path]]
 
     def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
         def _decorator(func: Callable) -> Recipe:
@@ -65,7 +66,7 @@ class Lab:
         return [os.path.getmtime(str(results))]
 
     def build_status(self) -> Dict[Recipe, Status]:
-        status = {}
+        status = {}  # type: Dict[Recipe, Status]
         for _, recipe in self._recipes.items():
             self.compute_status(recipe, status)
         return status
