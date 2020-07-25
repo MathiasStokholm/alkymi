@@ -2,9 +2,9 @@
 
 import os
 import argparse
-import collections
+from collections import OrderedDict
 from enum import Enum
-from typing import Iterable, Callable, OrderedDict, Optional, List, Dict, Union
+from typing import Iterable, Callable, Optional, List, Dict, Union
 from alkymi import Recipe, RepeatedRecipe
 
 
@@ -19,7 +19,7 @@ class Status(Enum):
 class Lab:
     def __init__(self, name: str):
         self._name = name
-        self._recipes = collections.OrderedDict()
+        self._recipes = OrderedDict()
         self._outputs = dict()
 
     def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
@@ -52,7 +52,7 @@ class Lab:
         return self._name
 
     @property
-    def recipes(self) -> OrderedDict[str, Recipe]:
+    def recipes(self) -> 'OrderedDict[str, Recipe]':
         return self._recipes
 
     def output_timestamps(self, recipe) -> Optional[List[float]]:
