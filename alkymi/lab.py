@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import argparse
+import shutil
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
@@ -257,7 +258,15 @@ class Lab:
         subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
 
         # Create the parser for the "status" command
-        status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab')
+        subparsers.add_parser('status', help='Prints the detailed status of the lab')
+
+        # Create the parser for the "clean-cache" command
+        subparsers.add_parser('clean-cache', help='Cleans the cache of the lab')
+
+        # Create the parser for the "clean" command
+        clean_parser = subparsers.add_parser('clean', help='Cleans the outputs of a provided recipe')
+        clean_parser.add_argument('recipe', choices=[name for name, recipe in self._recipes.items()],
+                                  help='Recipe to clean')
 
         # Create the parser for the "command_b" command
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
@@ -267,5 +276,17 @@ class Lab:
         args = parser.parse_args()
         if args.subparser_name == 'status':
             print(self)
+        elif args.subparser_name == 'clean-cache':
+            shutil.rmtree(self.cache_path.parent)
+        elif args.subparser_name == 'clean':
+            print('Cleaning outputs for {}'.format(args.recipe))
+            for output in self._outputs[args.recipe].output:
+                if isinstance(output, Path):
+                    output.unlink(missing_ok=True)
+                    print('Removed {}'.format(output))
+                else:
+                    for path in output:
+                        path.unlink(missing_ok=True)
+                        print('Removed {}'.format(output))
         elif args.subparser_name == 'brew':
             self.brew(args.recipe)
