@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
+import shutil
 from pathlib import Path
 
 import alkymi as alk
@@ -80,3 +81,17 @@ def test_execution():
         assert execution_counts['produces_build_dir'] == 1
         assert execution_counts['produces_a_single_file'] == 1
         assert execution_counts['reads_a_file'] == 1 + i
+
+    # Changing an output should cause reevaluation
+    build_dir.touch(exist_ok=True)
+    lab.brew(reads_a_file)
+    assert execution_counts['produces_build_dir'] == 1
+    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['reads_a_file'] == 5
+
+    # Deleting the build dir should cause full reevaluation
+    shutil.rmtree(build_dir)
+    lab.brew(reads_a_file)
+    assert execution_counts['produces_build_dir'] == 2
+    assert execution_counts['produces_a_single_file'] == 3
+    assert execution_counts['reads_a_file'] == 6
