@@ -123,11 +123,23 @@ class Lab:
         if results is None:
             return None
 
+        def _get_timestamp(path: Path) -> Optional[float]:
+            # Return None if output doesn't exist
+            if not path.exists():
+                return None
+
+            # For directories, we care about creation timestamp
+            if path.is_dir():
+                return os.path.getctime(str(path))
+
+            # For files, we care about modification timestamp
+            return os.path.getmtime(str(path))
+
         if isinstance(results, Path):
-            return [os.path.getmtime(str(results))] if results.exists() else [None]
+            return [_get_timestamp(results)]
 
         # List of output files
-        return [os.path.getmtime(str(path)) if path.exists() else None for path in results]
+        return [_get_timestamp(path) for path in results]
 
     def build_status(self) -> Dict[Recipe, Status]:
         status = {}  # type: Dict[Recipe, Status]
@@ -157,6 +169,11 @@ class Lab:
                 status[recipe] = Status.Dirty
                 return status[recipe]
 
+        # Run custom cleanliness check if necessary
+        if not recipe.is_clean(self._outputs[recipe.name].output):
+            status[recipe] = Status.Dirty
+            return status[recipe]
+
         for ingredient in recipe.ingredients:
             if self.compute_status(ingredient, status) != Status.Ok:
                 status[recipe] = Status.IngredientDirty
@@ -166,7 +183,7 @@ class Lab:
             if recipe_timestamps is not None and len(recipe_timestamps) > 0:
                 if ingredient_timestamps is not None:
                     for stamp in ingredient_timestamps:
-                        if stamp is not None and stamp > recipe_timestamps[0]:
+                        if stamp is not None and stamp > min(recipe_timestamps):
                             status[recipe] = Status.Dirty
                             return status[recipe]
 
@@ -180,7 +197,7 @@ class Lab:
             if recipe_timestamps is not None and len(recipe_timestamps) > 0:
                 if ingredient_timestamps is not None:
                     for stamp in ingredient_timestamps:
-                        if stamp > recipe_timestamps[0]:
+                        if stamp is not None and stamp > min(recipe_timestamps):
                             status[recipe] = Status.Dirty
                             return status[recipe]
 

@@ -39,11 +39,13 @@ def test_execution():
     execution_counts = dict(
         produces_build_dir=0,
         produces_a_single_file=0,
+        copies_a_file=0,
         reads_a_file=0
     )
 
     build_dir = Path('build')
     file = Path('build') / 'file.txt'
+    copied_file = Path('build') / 'file_copy.txt'
 
     @lab.recipe()
     def produces_build_dir() -> Path:
@@ -58,7 +60,14 @@ def test_execution():
             f.write('testing')
         return file
 
-    @lab.recipe(ingredients=[produces_a_single_file], transient=True)
+    @lab.recipe(ingredients=[produces_a_single_file])
+    def copies_a_file(_: Path) -> Path:
+        execution_counts['copies_a_file'] += 1
+        with file.open('r') as infile, copied_file.open('w') as outfile:
+            outfile.write(infile.read())
+        return copied_file
+
+    @lab.recipe(ingredients=[copies_a_file], transient=True)
     def reads_a_file(test_file: Path) -> None:
         execution_counts['reads_a_file'] += 1
         with test_file.open('r') as f:
@@ -67,12 +76,14 @@ def test_execution():
     # Upon definition, no functions should have been executed
     assert execution_counts['produces_build_dir'] == 0
     assert execution_counts['produces_a_single_file'] == 0
+    assert execution_counts['copies_a_file'] == 0
     assert execution_counts['reads_a_file'] == 0
 
     # On first brew, all functions should have been executed once
     lab.brew(reads_a_file)
     assert execution_counts['produces_build_dir'] == 1
     assert execution_counts['produces_a_single_file'] == 1
+    assert execution_counts['copies_a_file'] == 1
     assert execution_counts['reads_a_file'] == 1
 
     # On subsequent brews, only the transient "reads_a_file" function should be executed again
@@ -80,18 +91,21 @@ def test_execution():
         lab.brew(reads_a_file)
         assert execution_counts['produces_build_dir'] == 1
         assert execution_counts['produces_a_single_file'] == 1
+        assert execution_counts['copies_a_file'] == 1
         assert execution_counts['reads_a_file'] == 1 + i
 
     # Changing an output should cause reevaluation
-    build_dir.touch(exist_ok=True)
+    file.touch(exist_ok=True)
     lab.brew(reads_a_file)
     assert execution_counts['produces_build_dir'] == 1
-    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['produces_a_single_file'] == 1
+    assert execution_counts['copies_a_file'] == 2
     assert execution_counts['reads_a_file'] == 5
 
     # Deleting the build dir should cause full reevaluation
     shutil.rmtree(build_dir)
     lab.brew(reads_a_file)
     assert execution_counts['produces_build_dir'] == 2
-    assert execution_counts['produces_a_single_file'] == 3
+    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['copies_a_file'] == 3
     assert execution_counts['reads_a_file'] == 6
