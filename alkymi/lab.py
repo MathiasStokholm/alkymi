@@ -281,12 +281,13 @@ class Lab:
         elif args.subparser_name == 'clean':
             print('Cleaning outputs for {}'.format(args.recipe))
             for output in self._outputs[args.recipe].output:
-                if isinstance(output, Path):
-                    output.unlink(missing_ok=True)
+                if isinstance(output, Path) and output.exists():
+                    output.unlink()
                     print('Removed {}'.format(output))
                 else:
                     for path in output:
-                        path.unlink(missing_ok=True)
-                        print('Removed {}'.format(output))
+                        if path.exists():
+                            path.unlink(missing_ok=True)
+                            print('Removed {}'.format(output))
         elif args.subparser_name == 'brew':
             self.brew(args.recipe)
