@@ -1,8 +1,11 @@
 # coding=utf-8
+import os
 import subprocess
 from inspect import signature
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional
+from typing import Iterable, Callable, List, Optional, Any
+
+from .metadata import get_metadata
 
 
 class Recipe(object):
@@ -18,12 +21,36 @@ class Recipe(object):
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
 
-    def is_clean(self, last_outputs: Optional[List[Path]]) -> bool:
+    def is_clean(self, last_inputs: Optional[List[Path]], input_metadata, new_inputs: Optional[List[Path]],
+                 last_outputs: Optional[List[Path]]) -> bool:
         # Assume that function is pure by default
         if self._cleanliness_func is None:
-            return True
+            print('Last/new: {}/{} - metadata: {}'.format(last_inputs, new_inputs, input_metadata))
+            if last_outputs is None:
+                return False
 
-        # Non-pure function may have been changed by external circumstances, use custom check
+            # Check if all outputs still exist
+            all_outputs_exists = [output.exists() for output in last_outputs] if isinstance(last_outputs,
+                                                                                            Iterable) else last_outputs.exists()
+            if not all_outputs_exists:
+                return False
+
+            if last_inputs is None:
+                return last_inputs == new_inputs
+
+            all_new_inputs_exists = [inp.exists() for inp in new_inputs] if isinstance(new_inputs,
+                                                                                       Iterable) else new_inputs.exists()
+            if not all_new_inputs_exists:
+                return False
+
+            new_input_metadata = []
+            for inp in new_inputs:
+                new_input_metadata.append(get_metadata(inp))
+
+            print('Metadata check: {} == {}'.format(input_metadata, new_input_metadata))
+            return input_metadata == new_input_metadata
+
+            # Non-pure function may have been changed by external circumstances, use custom check
         return self._cleanliness_func(last_outputs)
 
     @property

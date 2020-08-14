@@ -8,6 +8,8 @@ from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
 from typing import Iterable, Callable, Optional, List, Dict, Union
+
+from .metadata import get_metadata
 from .alkymi import Recipe, RepeatedRecipe
 
 
@@ -19,35 +21,78 @@ class Status(Enum):
     BoundFunctionChanged = 4
 
 
-class Output:
-    def __init__(self, function_name: str, function_hash: int, output: Optional[Union[Path, List[Path]]]):
+class RecipeState:
+    def __init__(self, function_name: str, function_hash: int, inputs: Optional[Union[Path, List[Path]]],
+                 outputs: Optional[Union[Path, List[Path]]]):
         self.function_name = function_name
         self.function_hash = function_hash
-        self.output = output
+        self._outputs = outputs
+        self._inputs = None
+        self._input_metadata = None
+        self.inputs = inputs
 
     @staticmethod
-    def from_recipe(recipe: Recipe, output: Optional[Union[Path, List[Path]]]):
-        return Output(recipe.name, recipe.function_hash, output)
+    def from_recipe(recipe: Recipe, inputs: Optional[Union[Path, List[Path]]],
+                    outputs: Optional[Union[Path, List[Path]]]):
+        return RecipeState(recipe.name, recipe.function_hash, inputs, outputs)
+
+    @property
+    def inputs(self):
+        return self._inputs
+
+    @inputs.setter
+    def inputs(self, inputs: Optional[Union[Path, List[Path]]]):
+        if inputs is None:
+            return
+
+        self._input_metadata = []
+        for inp in inputs:
+            self._input_metadata.append(get_metadata(inp))
+        self._inputs = inputs
+
+    @property
+    def input_metadata(self):
+        return self._input_metadata
+
+    @property
+    def outputs(self):
+        return self._outputs
+
+    @outputs.setter
+    def outputs(self, value):
+        self._outputs = value
 
     def to_dict(self):
         results = copy.copy(self.__dict__)
 
-        if results['output'] is not None:
-            if isinstance(results['output'], Iterable):
-                results['output'] = [str(output) for output in results['output']]
+        if results['_inputs'] is not None:
+            if isinstance(results['_inputs'], Iterable):
+                results['_inputs'] = [str(item) for item in results['_inputs']]
             else:
-                results['output'] = str(results['output'])
+                results['_inputs'] = str(results['_inputs'])
+
+        if results['_outputs'] is not None:
+            if isinstance(results['_outputs'], Iterable):
+                results['_outputs'] = [str(output) for output in results['_outputs']]
+            else:
+                results['_outputs'] = str(results['_outputs'])
         return results
 
     @staticmethod
     def from_dict(json_data):
-        paths = json_data['output']
-        if paths is not None:
-            if isinstance(paths, str):
-                paths = Path(paths)
+        input_paths = json_data['_inputs']
+        if input_paths is not None:
+            if isinstance(input_paths, str):
+                input_paths = Path(input_paths)
             else:
-                paths = [Path(path) for path in paths]
-        return Output(json_data['function_name'], json_data['function_hash'], paths)
+                input_paths = [Path(path) for path in input_paths]
+        output_paths = json_data['_outputs']
+        if output_paths is not None:
+            if isinstance(output_paths, str):
+                output_paths = Path(output_paths)
+            else:
+                output_paths = [Path(path) for path in output_paths]
+        return RecipeState(json_data['function_name'], json_data['function_hash'], input_paths, output_paths)
 
 
 class Lab:
@@ -55,7 +100,7 @@ class Lab:
         self._name = name
         self.cache_path = Path('.alkymi/{}.json'.format(self.name))
         self._recipes = OrderedDict()  # type: OrderedDict[str, Recipe]
-        self._outputs = dict()  # type: Dict[str, Output]
+        self._recipe_states = dict()  # type: Dict[str, RecipeState]
 
         # Try to load pre-existing state from cache file
         self._disable_caching = disable_caching
@@ -68,7 +113,7 @@ class Lab:
         with self.cache_path.open('r') as f:
             json_items = json.loads(f.read())
             for name, item in json_items.items():
-                self._outputs[name] = Output.from_dict(item)
+                self._recipe_states[name] = RecipeState.from_dict(item)
 
     def _save_state(self) -> None:
         if self._disable_caching:
@@ -76,8 +121,8 @@ class Lab:
 
         self.cache_path.parent.mkdir(exist_ok=True)
         with self.cache_path.open('w') as f:
-            outputs = {key: output.to_dict() for key, output in self._outputs.items()}
-            f.write(json.dumps(outputs, indent=4))
+            states = {key: state.to_dict() for key, state in self._recipe_states.items()}
+            f.write(json.dumps(states, indent=4))
 
     def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
         def _decorator(func: Callable) -> Recipe:
@@ -95,8 +140,8 @@ class Lab:
     def add_recipe(self, recipe: Union[Recipe, RepeatedRecipe]) -> Union[Recipe, RepeatedRecipe]:
         self._recipes[recipe.name] = recipe
 
-        if recipe.name not in self._outputs:
-            self._outputs[recipe.name] = Output.from_recipe(recipe, None)
+        if recipe.name not in self._recipe_states:
+            self._recipe_states[recipe.name] = RecipeState.from_recipe(recipe, None, None)
         return recipe
 
     def brew(self, target_recipe: Union[Recipe, str]):
@@ -112,35 +157,6 @@ class Lab:
     @property
     def recipes(self) -> 'OrderedDict[str, Recipe]':
         return self._recipes
-
-    def output_timestamps(self, recipe) -> Optional[List[Optional[float]]]:
-        """
-        Find the timestamps representing when the output files of a recipe were last modified. If a file no longer
-        exists (e.g. because of deletion by user), None is returned to represent the missing file/timestamp
-        :param recipe: The recipe to find timetamps for
-        :return: A list of last modified timestamps (or None for each missing file) or None if outputs are yet unknown
-        """
-        results = self._outputs[recipe.name].output
-        if results is None:
-            return None
-
-        def _get_timestamp(path: Path) -> Optional[float]:
-            # Return None if output doesn't exist
-            if not path.exists():
-                return None
-
-            # For directories, we care about creation timestamp
-            if path.is_dir():
-                return os.path.getctime(str(path))
-
-            # For files, we care about modification timestamp
-            return os.path.getmtime(str(path))
-
-        if isinstance(results, Path):
-            return [_get_timestamp(results)]
-
-        # List of output files
-        return [_get_timestamp(path) for path in results]
 
     def build_status(self) -> Dict[Recipe, Status]:
         status = {}  # type: Dict[Recipe, Status]
@@ -159,48 +175,42 @@ class Lab:
         # 2. There's no cached output for this recipe
         # 3. The cached output for this recipe is older than the output of any ingredient
         # 3. The bound function has changed (later)
-        if recipe.transient or self._outputs[recipe.name].output is None:
+        if recipe.transient or self._recipe_states[recipe.name].outputs is None:
             status[recipe] = Status.NotEvaluatedYet
             return status[recipe]
 
-        # Check if one or more outputs of this recipe has been deleted
-        recipe_timestamps = self.output_timestamps(recipe)
-        for stamp in recipe_timestamps:
-            if stamp is None:
-                status[recipe] = Status.Dirty
-                return status[recipe]
+        # # Run custom cleanliness check if necessary
+        # if not recipe.is_clean(self._recipe_states[recipe.name].output):
+        #     status[recipe] = Status.Dirty
+        #     return status[recipe]
 
-        # Run custom cleanliness check if necessary
-        if not recipe.is_clean(self._outputs[recipe.name].output):
-            status[recipe] = Status.Dirty
-            return status[recipe]
-
+        ingredient_outputs = []
         for ingredient in recipe.ingredients:
             if self.compute_status(ingredient, status) != Status.Ok:
                 status[recipe] = Status.IngredientDirty
                 return status[recipe]
+            ingredient_outputs.append(self._recipe_states[ingredient.name].outputs)
 
-            ingredient_timestamps = self.output_timestamps(ingredient)
-            if recipe_timestamps is not None and len(recipe_timestamps) > 0:
-                if ingredient_timestamps is not None:
-                    for stamp in ingredient_timestamps:
-                        if stamp is not None and stamp > min(recipe_timestamps):
-                            status[recipe] = Status.Dirty
-                            return status[recipe]
+        if not recipe.is_clean(self._recipe_states[recipe.name].inputs,
+                               self._recipe_states[recipe.name].input_metadata,
+                               ingredient_outputs if len(ingredient_outputs) > 0 else None,
+                               self._recipe_states[recipe.name].outputs):
+            status[recipe] = Status.Dirty
+            return status[recipe]
 
-        # Handle repeated inputs (not very elegant and must be changed)
-        if isinstance(recipe, RepeatedRecipe):
-            if self.compute_status(recipe.inputs, status) != Status.Ok:
-                status[recipe] = Status.IngredientDirty
-                return status[recipe]
-
-            ingredient_timestamps = self.output_timestamps(recipe.inputs)
-            if recipe_timestamps is not None and len(recipe_timestamps) > 0:
-                if ingredient_timestamps is not None:
-                    for stamp in ingredient_timestamps:
-                        if stamp is not None and stamp > min(recipe_timestamps):
-                            status[recipe] = Status.Dirty
-                            return status[recipe]
+        # TODO: Handle repeated inputs (not very elegant and must be changed)
+        # if isinstance(recipe, RepeatedRecipe):
+        #     if self.compute_status(recipe.inputs, status) != Status.Ok:
+        #         status[recipe] = Status.IngredientDirty
+        #         return status[recipe]
+        #
+        #     ingredient_timestamps = self.output_timestamps(recipe.inputs)
+        #     if recipe_timestamps is not None and len(recipe_timestamps) > 0:
+        #         if ingredient_timestamps is not None:
+        #             for stamp in ingredient_timestamps:
+        #                 if stamp is not None and stamp > min(recipe_timestamps):
+        #                     status[recipe] = Status.Dirty
+        #                     return status[recipe]
 
         # TODO(mathias): Add handling of bound function hash change
         status[recipe] = Status.Ok
@@ -212,44 +222,45 @@ class Lab:
 
         def _print_and_return():
             print('Finished evaluating {}'.format(recipe.name))
-            return self._outputs[recipe.name].output
+            return self._recipe_states[recipe.name].outputs
 
-        if status[recipe] == Status.Ok and recipe.name in self._outputs:
+        if status[recipe] == Status.Ok and recipe.name in self._recipe_states:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
-            self._outputs[recipe.name].output = recipe()
+            self._recipe_states[recipe.name].outputs = recipe()
             return _print_and_return()
 
         # Load ingredient inputs
         ingredient_inputs = []
         for ingredient in recipe.ingredients:
             result = self.evaluate_recipe(ingredient, status)
-            self._outputs[ingredient.name].output = result
+            self._recipe_states[ingredient.name].outputs = result
             ingredient_inputs.append(result)
 
         # Process repeated inputs
         if isinstance(recipe, RepeatedRecipe):
             results = []
             recipe_inputs = recipe.inputs()
-            self._outputs[recipe.inputs.name].output = recipe_inputs
+            self._recipe_states[recipe.inputs.name].inputs = ingredient_inputs + recipe_inputs
             for item in recipe_inputs:
                 if len(ingredient_inputs) > 0:
                     results.append(recipe(item, *ingredient_inputs))
                 else:
                     results.append(recipe(item))
-            self._outputs[recipe.name].output = results
+            self._recipe_states[recipe.name].outputs = results
             return _print_and_return()
 
         # Process non-repeated input
-        self._outputs[recipe.name].output = recipe(*ingredient_inputs)
+        self._recipe_states[recipe.name].inputs = ingredient_inputs
+        self._recipe_states[recipe.name].outputs = recipe(*ingredient_inputs)
         return _print_and_return()
 
     def __repr__(self) -> str:
         status = self.build_status()
         state = ''
         for _, recipe in self._recipes.items():
-            state += '\n\t{} - {} ({})'.format(str(recipe), status[recipe], self.output_timestamps(recipe))
+            state += '\n\t{} - {}'.format(str(recipe), status[recipe])
         return '{} lab with recipes:{}'.format(self.name, state)
 
     def open(self) -> None:
@@ -280,7 +291,7 @@ class Lab:
             shutil.rmtree(self.cache_path.parent)
         elif args.subparser_name == 'clean':
             print('Cleaning outputs for {}'.format(args.recipe))
-            for output in self._outputs[args.recipe].output:
+            for output in self._recipe_states[args.recipe].outputs:
                 if isinstance(output, Path) and output.exists():
                     output.unlink()
                     print('Removed {}'.format(output))
