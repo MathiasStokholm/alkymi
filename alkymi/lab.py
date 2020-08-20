@@ -22,7 +22,7 @@ class Status(Enum):
 
 
 class RecipeState:
-    def __init__(self, function_name: str, function_hash: int, inputs: Optional[Union[Path, List[Path]]],
+    def __init__(self, function_name: str, function_hash: int, inputs: Optional[List[Path]],
                  outputs: Optional[Union[Path, List[Path]]]):
         self.function_name = function_name
         self.function_hash = function_hash
@@ -34,8 +34,8 @@ class RecipeState:
         self.outputs = outputs
 
     @staticmethod
-    def from_recipe(recipe: Recipe, inputs: Optional[Union[Path, List[Path]]],
-                    outputs: Optional[Union[Path, List[Path]]]):
+    def from_recipe(recipe: Recipe, inputs: Optional[List[Path]],
+                    outputs: Optional[List[Path]]):
         return RecipeState(recipe.name, recipe.function_hash, inputs, outputs)
 
     @property
@@ -43,7 +43,7 @@ class RecipeState:
         return self._inputs
 
     @inputs.setter
-    def inputs(self, inputs: Optional[Union[Path, List[Path]]]):
+    def inputs(self, inputs: Optional[List[Path]]):
         if inputs is None:
             return
 
@@ -61,7 +61,7 @@ class RecipeState:
         return self._outputs
 
     @outputs.setter
-    def outputs(self, outputs: Optional[Union[Path, List[Path]]]):
+    def outputs(self, outputs: Optional[List[Path]]):
         if outputs is None:
             return
 

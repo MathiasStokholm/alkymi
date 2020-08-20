@@ -11,7 +11,7 @@ from .serialization import check_output
 
 class Recipe(object):
     def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool,
-                 cleanliness_func: Callable[[Optional[List[Path]]], bool] = None):
+                 cleanliness_func: Optional[Callable] = None):
         self._ingredients = list(ingredients)
         self._func = func
         self._name = name
@@ -38,7 +38,7 @@ class Recipe(object):
                 return False
 
             # If last inputs were non-existent, new inputs have to be non-existent too for equality
-            if last_inputs is None:
+            if last_inputs is None or new_inputs is None:
                 return last_inputs == new_inputs
 
             # Compute input metadata and perform equality check
