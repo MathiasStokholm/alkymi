@@ -16,9 +16,13 @@ def get_metadata(item: Any):
         # For files, we care about modification timestamp
         return os.path.getmtime(str(path))
 
+    if item is None:
+        return None
+
     if isinstance(item, Path):
         return _handle_path(item)
 
+    # FIXME(mathias): What is a good way to handle this?
     if isinstance(item, Iterable):
         return sum(get_metadata(subitem) for subitem in item)
 

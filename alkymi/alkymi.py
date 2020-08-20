@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Any
 
 from .metadata import get_metadata
+from .serialization import check_output
 
 
 class Recipe(object):
@@ -21,34 +22,41 @@ class Recipe(object):
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
 
-    def is_clean(self, last_inputs: Optional[List[Path]], input_metadata, new_inputs: Optional[List[Path]],
-                 last_outputs: Optional[List[Path]]) -> bool:
+    def is_clean(self, last_inputs: Optional[List[Path]], input_metadata,
+                 last_outputs: Optional[List[Path]], output_metadata, new_inputs: Optional[List[Path]]) -> bool:
         # Assume that function is pure by default
         if self._cleanliness_func is None:
-            print('Last/new: {}/{} - metadata: {}'.format(last_inputs, new_inputs, input_metadata))
+            print('{} -> Last/new inputs: {}/{} - metadata: {}'.format(self._name, last_inputs, new_inputs,
+                                                                       input_metadata))
+
+            # Not clean if outputs were never generated
             if last_outputs is None:
                 return False
 
-            # Check if all outputs still exist
-            all_outputs_exists = [output.exists() for output in last_outputs] if isinstance(last_outputs,
-                                                                                            Iterable) else last_outputs.exists()
-            if not all_outputs_exists:
+            # Not clean if any output is no longer valid
+            if not all(check_output(output) for output in last_outputs):
                 return False
 
+            # If last inputs were non-existent, new inputs have to be non-existent too for equality
             if last_inputs is None:
                 return last_inputs == new_inputs
 
-            all_new_inputs_exists = [inp.exists() for inp in new_inputs] if isinstance(new_inputs,
-                                                                                       Iterable) else new_inputs.exists()
-            if not all_new_inputs_exists:
-                return False
-
+            # Compute input metadata and perform equality check
             new_input_metadata = []
             for inp in new_inputs:
                 new_input_metadata.append(get_metadata(inp))
 
-            print('Metadata check: {} == {}'.format(input_metadata, new_input_metadata))
-            return input_metadata == new_input_metadata
+            print('Input metadata check: {} == {}'.format(input_metadata, new_input_metadata))
+            if input_metadata != new_input_metadata:
+                return False
+
+            # Compute output metadata and perform equality check
+            current_output_metadata = []
+            for out in last_outputs:
+                current_output_metadata.append(get_metadata(out))
+
+            print('Output metadata check: {} == {}'.format(output_metadata, current_output_metadata))
+            return output_metadata == current_output_metadata
 
             # Non-pure function may have been changed by external circumstances, use custom check
         return self._cleanliness_func(last_outputs)

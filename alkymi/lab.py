@@ -1,7 +1,6 @@
 # coding=utf-8
 import copy
 import json
-import os
 import argparse
 import shutil
 from collections import OrderedDict
@@ -11,6 +10,7 @@ from typing import Iterable, Callable, Optional, List, Dict, Union
 
 from .metadata import get_metadata
 from .alkymi import Recipe, RepeatedRecipe
+from .serialization import load_outputs
 
 
 class Status(Enum):
@@ -26,10 +26,12 @@ class RecipeState:
                  outputs: Optional[Union[Path, List[Path]]]):
         self.function_name = function_name
         self.function_hash = function_hash
-        self._outputs = outputs
+        self._outputs = None
+        self._output_metadata = None
         self._inputs = None
         self._input_metadata = None
         self.inputs = inputs
+        self.outputs = outputs
 
     @staticmethod
     def from_recipe(recipe: Recipe, inputs: Optional[Union[Path, List[Path]]],
@@ -59,8 +61,18 @@ class RecipeState:
         return self._outputs
 
     @outputs.setter
-    def outputs(self, value):
-        self._outputs = value
+    def outputs(self, outputs: Optional[Union[Path, List[Path]]]):
+        if outputs is None:
+            return
+
+        self._output_metadata = []
+        for out in outputs:
+            self._output_metadata.append(get_metadata(out))
+        self._outputs = outputs
+
+    @property
+    def output_metadata(self):
+        return self._output_metadata
 
     def to_dict(self):
         results = copy.copy(self.__dict__)
@@ -86,13 +98,8 @@ class RecipeState:
                 input_paths = Path(input_paths)
             else:
                 input_paths = [Path(path) for path in input_paths]
-        output_paths = json_data['_outputs']
-        if output_paths is not None:
-            if isinstance(output_paths, str):
-                output_paths = Path(output_paths)
-            else:
-                output_paths = [Path(path) for path in output_paths]
-        return RecipeState(json_data['function_name'], json_data['function_hash'], input_paths, output_paths)
+        outputs = load_outputs(json_data['_outputs'])
+        return RecipeState(json_data['function_name'], json_data['function_hash'], input_paths, outputs)
 
 
 class Lab:
@@ -189,12 +196,13 @@ class Lab:
             if self.compute_status(ingredient, status) != Status.Ok:
                 status[recipe] = Status.IngredientDirty
                 return status[recipe]
-            ingredient_outputs.append(self._recipe_states[ingredient.name].outputs)
+            ingredient_outputs.extend(self._recipe_states[ingredient.name].outputs)
 
         if not recipe.is_clean(self._recipe_states[recipe.name].inputs,
                                self._recipe_states[recipe.name].input_metadata,
-                               ingredient_outputs if len(ingredient_outputs) > 0 else None,
-                               self._recipe_states[recipe.name].outputs):
+                               self._recipe_states[recipe.name].outputs,
+                               self._recipe_states[recipe.name].output_metadata,
+                               ingredient_outputs if len(ingredient_outputs) > 0 else None):
             status[recipe] = Status.Dirty
             return status[recipe]
 
@@ -224,11 +232,16 @@ class Lab:
             print('Finished evaluating {}'.format(recipe.name))
             return self._recipe_states[recipe.name].outputs
 
+        def _wrap_outputs_to_list(outputs):
+            if isinstance(outputs, Iterable):
+                return outputs
+            return [outputs]
+
         if status[recipe] == Status.Ok and recipe.name in self._recipe_states:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
-            self._recipe_states[recipe.name].outputs = recipe()
+            self._recipe_states[recipe.name].outputs = _wrap_outputs_to_list(recipe())
             return _print_and_return()
 
         # Load ingredient inputs
@@ -236,7 +249,7 @@ class Lab:
         for ingredient in recipe.ingredients:
             result = self.evaluate_recipe(ingredient, status)
             self._recipe_states[ingredient.name].outputs = result
-            ingredient_inputs.append(result)
+            ingredient_inputs.extend(result)
 
         # Process repeated inputs
         if isinstance(recipe, RepeatedRecipe):
@@ -248,12 +261,12 @@ class Lab:
                     results.append(recipe(item, *ingredient_inputs))
                 else:
                     results.append(recipe(item))
-            self._recipe_states[recipe.name].outputs = results
+            self._recipe_states[recipe.name].outputs = [results]
             return _print_and_return()
 
         # Process non-repeated input
         self._recipe_states[recipe.name].inputs = ingredient_inputs
-        self._recipe_states[recipe.name].outputs = recipe(*ingredient_inputs)
+        self._recipe_states[recipe.name].outputs = _wrap_outputs_to_list(recipe(*ingredient_inputs))
         return _print_and_return()
 
     def __repr__(self) -> str:

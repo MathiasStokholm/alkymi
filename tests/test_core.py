@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding=utf-8
 import shutil
+import tempfile
+import time
 from pathlib import Path
 
 import alkymi as alk
-import tempfile
-
 from alkymi import Lab
 
 
@@ -94,11 +94,12 @@ def test_execution():
         assert execution_counts['copies_a_file'] == 1
         assert execution_counts['reads_a_file'] == 1 + i
 
-    # Changing an output should cause reevaluation
+    # Changing an output should cause reevaluation of the function that created that output (and everything after)
+    time.sleep(0.01)
     file.touch(exist_ok=True)
     lab.brew(reads_a_file)
     assert execution_counts['produces_build_dir'] == 1
-    assert execution_counts['produces_a_single_file'] == 1
+    assert execution_counts['produces_a_single_file'] == 2
     assert execution_counts['copies_a_file'] == 2
     assert execution_counts['reads_a_file'] == 5
 
@@ -106,6 +107,6 @@ def test_execution():
     shutil.rmtree(build_dir)
     lab.brew(reads_a_file)
     assert execution_counts['produces_build_dir'] == 2
-    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['produces_a_single_file'] == 3
     assert execution_counts['copies_a_file'] == 3
     assert execution_counts['reads_a_file'] == 6
