@@ -26,4 +26,4 @@ def get_metadata(item: Any):
     if isinstance(item, Iterable):
         return sum(get_metadata(subitem) for subitem in item)
 
-    raise NotImplementedError(f'Metadata not supported for type: {item}')
+    raise NotImplementedError('Metadata not supported for type: {}'.format(item))
