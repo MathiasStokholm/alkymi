@@ -104,7 +104,7 @@ def test_execution():
     assert execution_counts['reads_a_file'] == 5
 
     # Deleting the build dir should cause full reevaluation
-    shutil.rmtree(build_dir)
+    shutil.rmtree(str(build_dir))
     lab.brew(reads_a_file)
     assert execution_counts['produces_build_dir'] == 2
     assert execution_counts['produces_a_single_file'] == 3
