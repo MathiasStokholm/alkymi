@@ -17,7 +17,7 @@ def test_builtin_glob():
         glob_recipe = alk.recipes.glob_files(Path(tempdir), '*')
 
         assert len(glob_recipe.ingredients) == 0
-        assert glob_recipe()[0] == test_file
+        assert glob_recipe()[0][0] == test_file
 
 
 def test_recipe_decorator():

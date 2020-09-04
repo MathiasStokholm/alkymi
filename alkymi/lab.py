@@ -6,7 +6,7 @@ import shutil
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Callable, Optional, List, Dict, Union
+from typing import Iterable, Callable, Optional, List, Dict, Union, Tuple, Any
 
 from .metadata import get_metadata
 from .alkymi import Recipe, RepeatedRecipe
@@ -22,16 +22,26 @@ class Status(Enum):
 
 
 class RecipeState:
-    def __init__(self, function_name: str, function_hash: int, inputs: Optional[List[Path]],
-                 outputs: Optional[Union[Path, List[Path]]]):
+    def __init__(self, function_name: str, function_hash: int, inputs: Optional[Tuple[Path]],
+                 outputs: Optional[Tuple[Path]], input_metadata=None, output_metadata=None):
         self.function_name = function_name
         self.function_hash = function_hash
-        self._outputs = None
-        self._output_metadata = None
-        self._inputs = None
-        self._input_metadata = None
-        self.inputs = inputs
-        self.outputs = outputs
+
+        if output_metadata is None:
+            self._outputs = None
+            self._output_metadata = None
+            self.outputs = outputs
+        else:
+            self._outputs = outputs
+            self._output_metadata = output_metadata
+
+        if input_metadata is None:
+            self._inputs = None
+            self._input_metadata = None
+            self.inputs = inputs
+        else:
+            self._inputs = inputs
+            self._input_metadata = input_metadata
 
     @staticmethod
     def from_recipe(recipe: Recipe, inputs: Optional[List[Path]],
@@ -61,7 +71,7 @@ class RecipeState:
         return self._outputs
 
     @outputs.setter
-    def outputs(self, outputs: Optional[List[Path]]):
+    def outputs(self, outputs: Optional[Tuple[Path]]):
         if outputs is None:
             return
 
@@ -78,28 +88,32 @@ class RecipeState:
         results = copy.copy(self.__dict__)
 
         if results['_inputs'] is not None:
-            if isinstance(results['_inputs'], Iterable):
-                results['_inputs'] = [str(item) for item in results['_inputs']]
-            else:
-                results['_inputs'] = str(results['_inputs'])
+            inputs = list(results['_inputs'])
+            for i, inp in enumerate(inputs):
+                if isinstance(inp, Iterable):
+                    inputs[i] = [str(item) for item in inp]
+                else:
+                    inputs[i] = str(inp)
+            results['_inputs'] = tuple(inputs)
 
         if results['_outputs'] is not None:
-            if isinstance(results['_outputs'], Iterable):
-                results['_outputs'] = [str(output) for output in results['_outputs']]
-            else:
-                results['_outputs'] = str(results['_outputs'])
+            outputs = list(results['_outputs'])
+            for i, out in enumerate(outputs):
+                if isinstance(out, Iterable):
+                    outputs[i] = [str(item) for item in out]
+                else:
+                    outputs[i] = str(out)
+            results['_outputs'] = tuple(outputs)
         return results
 
     @staticmethod
     def from_dict(json_data):
-        input_paths = json_data['_inputs']
-        if input_paths is not None:
-            if isinstance(input_paths, str):
-                input_paths = Path(input_paths)
-            else:
-                input_paths = [Path(path) for path in input_paths]
+        inputs = load_outputs(json_data['_inputs'])
+        input_metadata = json_data["_input_metadata"]
         outputs = load_outputs(json_data['_outputs'])
-        return RecipeState(json_data['function_name'], json_data['function_hash'], input_paths, outputs)
+        output_metadata = json_data["_output_metadata"]
+        return RecipeState(json_data['function_name'], json_data['function_hash'], inputs, outputs, input_metadata,
+                           output_metadata)
 
 
 class Lab:
@@ -224,24 +238,27 @@ class Lab:
         status[recipe] = Status.Ok
         return status[recipe]
 
+    @staticmethod
+    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any]]:
+        if outputs is None:
+            return None
+        if isinstance(outputs, tuple):
+            return outputs
+        return outputs,
+
     def evaluate_recipe(self, recipe: Union[Recipe, RepeatedRecipe],
-                        status: Dict[Union[Recipe, RepeatedRecipe], Status]):
+                        status: Dict[Union[Recipe, RepeatedRecipe], Status]) -> Optional[Tuple[Any]]:
         print('Evaluating recipe: {}'.format(recipe.name))
 
         def _print_and_return():
             print('Finished evaluating {}'.format(recipe.name))
             return self._recipe_states[recipe.name].outputs
 
-        def _wrap_outputs_to_list(outputs):
-            if isinstance(outputs, Iterable):
-                return outputs
-            return [outputs]
-
         if status[recipe] == Status.Ok and recipe.name in self._recipe_states:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
-            self._recipe_states[recipe.name].outputs = _wrap_outputs_to_list(recipe())
+            self._recipe_states[recipe.name].outputs = self._canonical(recipe())
             return _print_and_return()
 
         # Load ingredient inputs
@@ -250,23 +267,29 @@ class Lab:
             result = self.evaluate_recipe(ingredient, status)
             self._recipe_states[ingredient.name].outputs = result
             ingredient_inputs.extend(result)
+        ingredient_inputs = tuple(ingredient_inputs)
 
         # Process repeated inputs
         if isinstance(recipe, RepeatedRecipe):
             results = []
-            recipe_inputs = recipe.inputs()
-            self._recipe_states[recipe.inputs.name].inputs = ingredient_inputs + recipe_inputs
-            for item in recipe_inputs:
+            # Evaluate inputs (which is a recipe) and assign outputs and combined inputs
+            recipe_inputs = self._canonical(recipe.inputs())
+            if recipe_inputs is None or len(recipe_inputs) != 1 or not isinstance(recipe_inputs[0], Iterable):
+                raise ValueError("Inputs to a RepeatedRecipe must have exactly one Iterable output")
+
+            self._recipe_states[recipe.inputs.name].outputs = recipe_inputs
+            self._recipe_states[recipe.name].inputs = recipe_inputs + ingredient_inputs
+            for item in recipe_inputs[0]:
                 if len(ingredient_inputs) > 0:
                     results.append(recipe(item, *ingredient_inputs))
                 else:
                     results.append(recipe(item))
-            self._recipe_states[recipe.name].outputs = [results]
+            self._recipe_states[recipe.name].outputs = self._canonical(results)
             return _print_and_return()
 
         # Process non-repeated input
         self._recipe_states[recipe.name].inputs = ingredient_inputs
-        self._recipe_states[recipe.name].outputs = _wrap_outputs_to_list(recipe(*ingredient_inputs))
+        self._recipe_states[recipe.name].outputs = self._canonical(recipe(*ingredient_inputs))
         return _print_and_return()
 
     def __repr__(self) -> str:
@@ -314,4 +337,4 @@ class Lab:
                             path.unlink(missing_ok=True)
                             print('Removed {}'.format(output))
         elif args.subparser_name == 'brew':
-            self.brew(args.recipe)
+            return self.brew(args.recipe)
