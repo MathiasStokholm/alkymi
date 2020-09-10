@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Iterable, Callable, Optional, List, Dict, Union, Tuple, Any
 
 from .metadata import get_metadata
-from .alkymi import Recipe, RepeatedRecipe
+from .alkymi import Recipe
 from .serialization import load_outputs
 
 
@@ -151,14 +151,7 @@ class Lab:
 
         return _decorator
 
-    def foreach(self, inputs: Recipe, ingredients: Iterable[Recipe] = (),
-                transient: bool = False):
-        def _decorator(func: Callable):
-            return self.add_recipe(RepeatedRecipe(inputs, ingredients, func, func.__name__, transient))
-
-        return _decorator
-
-    def add_recipe(self, recipe: Union[Recipe, RepeatedRecipe]) -> Union[Recipe, RepeatedRecipe]:
+    def add_recipe(self, recipe: Recipe) -> Recipe:
         self._recipes[recipe.name] = recipe
 
         if recipe.name not in self._recipe_states:
@@ -185,8 +178,7 @@ class Lab:
             self.compute_status(recipe, status)
         return status
 
-    def compute_status(self, recipe: Union[Recipe, RepeatedRecipe],
-                       status: Dict[Union[Recipe, RepeatedRecipe], Status]) -> Status:
+    def compute_status(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Status:
         # Early exit if status already determined
         if recipe in status:
             return status[recipe]
@@ -220,20 +212,6 @@ class Lab:
             status[recipe] = Status.Dirty
             return status[recipe]
 
-        # TODO: Handle repeated inputs (not very elegant and must be changed)
-        # if isinstance(recipe, RepeatedRecipe):
-        #     if self.compute_status(recipe.inputs, status) != Status.Ok:
-        #         status[recipe] = Status.IngredientDirty
-        #         return status[recipe]
-        #
-        #     ingredient_timestamps = self.output_timestamps(recipe.inputs)
-        #     if recipe_timestamps is not None and len(recipe_timestamps) > 0:
-        #         if ingredient_timestamps is not None:
-        #             for stamp in ingredient_timestamps:
-        #                 if stamp is not None and stamp > min(recipe_timestamps):
-        #                     status[recipe] = Status.Dirty
-        #                     return status[recipe]
-
         # TODO(mathias): Add handling of bound function hash change
         status[recipe] = Status.Ok
         return status[recipe]
@@ -246,8 +224,7 @@ class Lab:
             return outputs
         return outputs,
 
-    def evaluate_recipe(self, recipe: Union[Recipe, RepeatedRecipe],
-                        status: Dict[Union[Recipe, RepeatedRecipe], Status]) -> Optional[Tuple[Any]]:
+    def evaluate_recipe(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any]]:
         print('Evaluating recipe: {}'.format(recipe.name))
 
         def _print_and_return():
@@ -269,25 +246,7 @@ class Lab:
             ingredient_inputs.extend(result)
         ingredient_inputs = tuple(ingredient_inputs)
 
-        # Process repeated inputs
-        if isinstance(recipe, RepeatedRecipe):
-            results = []
-            # Evaluate inputs (which is a recipe) and assign outputs and combined inputs
-            recipe_inputs = self._canonical(recipe.inputs())
-            if recipe_inputs is None or len(recipe_inputs) != 1 or not isinstance(recipe_inputs[0], Iterable):
-                raise ValueError("Inputs to a RepeatedRecipe must have exactly one Iterable output")
-
-            self._recipe_states[recipe.inputs.name].outputs = recipe_inputs
-            self._recipe_states[recipe.name].inputs = recipe_inputs + ingredient_inputs
-            for item in recipe_inputs[0]:
-                if len(ingredient_inputs) > 0:
-                    results.append(recipe(item, *ingredient_inputs))
-                else:
-                    results.append(recipe(item))
-            self._recipe_states[recipe.name].outputs = self._canonical(results)
-            return _print_and_return()
-
-        # Process non-repeated input
+        # Process inputs
         self._recipe_states[recipe.name].inputs = ingredient_inputs
         self._recipe_states[recipe.name].outputs = self._canonical(recipe(*ingredient_inputs))
         return _print_and_return()

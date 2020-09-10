@@ -83,19 +83,3 @@ class Recipe(object):
 
     def __str__(self):
         return self.name
-
-
-class RepeatedRecipe(Recipe):
-    def __init__(self, inputs: Recipe, ingredients: Iterable[Recipe], func: Callable, name: str,
-                 transient: bool):
-        super().__init__(ingredients, func, name, transient)
-        self._inputs = inputs
-
-    @property
-    def inputs(self) -> Recipe:
-        return self._inputs
-
-
-def call(command_line, results):
-    subprocess.call(command_line)
-    return results
