@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, List, Any, Tuple, Iterable
+from typing import Optional, List, Any, Tuple, Iterable, Union
 
 
 def check_output(output: Any) -> bool:
@@ -17,7 +17,7 @@ def load_output(output: Any) -> Any:
     return output
 
 
-def load_outputs(outputs: Optional[List[Any]]) -> Optional[Tuple[Any]]:
+def load_outputs(outputs: Optional[List[Any]]) -> Optional[Tuple[Union[list, Any], ...]]:
     if outputs is None:
         return None
     loaded_outputs = []

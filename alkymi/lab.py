@@ -44,8 +44,8 @@ class RecipeState:
             self._input_metadata = input_metadata
 
     @staticmethod
-    def from_recipe(recipe: Recipe, inputs: Optional[List[Path]],
-                    outputs: Optional[List[Path]]):
+    def from_recipe(recipe: Recipe, inputs: Optional[Tuple[Path]],
+                    outputs: Optional[Tuple[Path]]):
         return RecipeState(recipe.name, recipe.function_hash, inputs, outputs)
 
     @property
@@ -53,7 +53,7 @@ class RecipeState:
         return self._inputs
 
     @inputs.setter
-    def inputs(self, inputs: Optional[List[Path]]):
+    def inputs(self, inputs: Optional[Tuple[Path]]):
         if inputs is None:
             return
 
@@ -217,7 +217,7 @@ class Lab:
         return status[recipe]
 
     @staticmethod
-    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any]]:
+    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
         if outputs is None:
             return None
         if isinstance(outputs, tuple):
