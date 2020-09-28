@@ -1,16 +1,13 @@
 # coding=utf-8
-import copy
-import json
 import argparse
+import json
 import shutil
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Callable, Optional, List, Dict, Union, Tuple, Any
+from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any
 
-from .metadata import get_metadata
 from .alkymi import Recipe
-from .serialization import load_outputs
 
 
 class Status(Enum):
@@ -104,11 +101,7 @@ class Lab:
                 return status[recipe]
             ingredient_outputs.extend(self._recipes[ingredient.name].outputs)
 
-        if not recipe.is_clean(self._recipes[recipe.name].inputs,
-                               self._recipes[recipe.name].input_metadata,
-                               self._recipes[recipe.name].outputs,
-                               self._recipes[recipe.name].output_metadata,
-                               ingredient_outputs):
+        if not recipe.is_clean(ingredient_outputs):
             status[recipe] = Status.Dirty
             return status[recipe]
 
