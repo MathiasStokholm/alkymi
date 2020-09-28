@@ -29,7 +29,6 @@ class Lab:
 
         # Try to load pre-existing state from cache file
         self._disable_caching = disable_caching
-        self._try_load_state()
 
     def _try_load_state(self) -> None:
         if self._disable_caching or not self.cache_path.exists():
@@ -109,21 +108,13 @@ class Lab:
                                self._recipes[recipe.name].input_metadata,
                                self._recipes[recipe.name].outputs,
                                self._recipes[recipe.name].output_metadata,
-                               ingredient_outputs if len(ingredient_outputs) > 0 else None):
+                               ingredient_outputs):
             status[recipe] = Status.Dirty
             return status[recipe]
 
         # TODO(mathias): Add handling of bound function hash change
         status[recipe] = Status.Ok
         return status[recipe]
-
-    @staticmethod
-    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
-        if outputs is None:
-            return None
-        if isinstance(outputs, tuple):
-            return outputs
-        return outputs,
 
     def evaluate_recipe(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any]]:
         print('Evaluating recipe: {}'.format(recipe.name))
@@ -136,20 +127,18 @@ class Lab:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
-            self._recipes[recipe.name].outputs = self._canonical(recipe())
+            recipe.invoke()
             return _print_and_return()
 
         # Load ingredient inputs
         ingredient_inputs = []
         for ingredient in recipe.ingredients:
             result = self.evaluate_recipe(ingredient, status)
-            self._recipes[ingredient.name].outputs = result
             ingredient_inputs.extend(result)
         ingredient_inputs = tuple(ingredient_inputs)
 
         # Process inputs
-        self._recipes[recipe.name].inputs = ingredient_inputs
-        self._recipes[recipe.name].outputs = self._canonical(recipe(*ingredient_inputs))
+        recipe.invoke(*ingredient_inputs)
         return _print_and_return()
 
     def __repr__(self) -> str:
@@ -160,6 +149,8 @@ class Lab:
         return '{} lab with recipes:{}'.format(self.name, state)
 
     def open(self) -> None:
+        self._try_load_state()
+
         # Create the top-level parser
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')

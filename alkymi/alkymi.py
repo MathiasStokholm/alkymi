@@ -1,6 +1,6 @@
 # coding=utf-8
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional
+from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from .metadata import get_metadata
 from .serialization import check_output, load_outputs
@@ -23,6 +23,20 @@ class Recipe(object):
 
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
+
+    def invoke(self, *args, **kwargs):
+        # FIXME(mathias): This doesn't handle kwargs
+        self.inputs = args
+        self.outputs = self._canonical(self(*args, **kwargs))
+        return self.outputs
+
+    @staticmethod
+    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
+        if outputs is None:
+            return None
+        if isinstance(outputs, tuple):
+            return outputs
+        return outputs,
 
     def is_clean(self, last_inputs: Optional[List[Path]], input_metadata,
                  last_outputs: Optional[List[Path]], output_metadata, new_inputs: Optional[List[Path]]) -> bool:
@@ -137,6 +151,8 @@ class Recipe(object):
                 else:
                     inputs[i] = str(inp)
             results['inputs'] = tuple(inputs)
+        else:
+            results['inputs'] = None
 
         if self.outputs is not None:
             outputs = list(self.outputs)
@@ -146,6 +162,8 @@ class Recipe(object):
                 else:
                     outputs[i] = str(out)
             results['outputs'] = tuple(outputs)
+        else:
+            results['outputs'] = None
         return results
 
     def restore_from_dict(self, old_state):
