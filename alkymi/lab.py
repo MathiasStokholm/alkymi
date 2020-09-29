@@ -1,16 +1,13 @@
 # coding=utf-8
-import copy
-import json
 import argparse
+import json
 import shutil
 from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Callable, Optional, List, Dict, Union, Tuple, Any
+from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any
 
-from .metadata import get_metadata
 from .alkymi import Recipe
-from .serialization import load_outputs
 
 
 class Status(Enum):
@@ -21,111 +18,14 @@ class Status(Enum):
     BoundFunctionChanged = 4
 
 
-class RecipeState:
-    def __init__(self, function_name: str, function_hash: int, inputs: Optional[Tuple[Path]],
-                 outputs: Optional[Tuple[Path]], input_metadata=None, output_metadata=None):
-        self.function_name = function_name
-        self.function_hash = function_hash
-
-        if output_metadata is None:
-            self._outputs = None
-            self._output_metadata = None
-            self.outputs = outputs
-        else:
-            self._outputs = outputs
-            self._output_metadata = output_metadata
-
-        if input_metadata is None:
-            self._inputs = None
-            self._input_metadata = None
-            self.inputs = inputs
-        else:
-            self._inputs = inputs
-            self._input_metadata = input_metadata
-
-    @staticmethod
-    def from_recipe(recipe: Recipe, inputs: Optional[Tuple[Path]],
-                    outputs: Optional[Tuple[Path]]):
-        return RecipeState(recipe.name, recipe.function_hash, inputs, outputs)
-
-    @property
-    def inputs(self):
-        return self._inputs
-
-    @inputs.setter
-    def inputs(self, inputs: Optional[Tuple[Path]]):
-        if inputs is None:
-            return
-
-        self._input_metadata = []
-        for inp in inputs:
-            self._input_metadata.append(get_metadata(inp))
-        self._inputs = inputs
-
-    @property
-    def input_metadata(self):
-        return self._input_metadata
-
-    @property
-    def outputs(self):
-        return self._outputs
-
-    @outputs.setter
-    def outputs(self, outputs: Optional[Tuple[Path]]):
-        if outputs is None:
-            return
-
-        self._output_metadata = []
-        for out in outputs:
-            self._output_metadata.append(get_metadata(out))
-        self._outputs = outputs
-
-    @property
-    def output_metadata(self):
-        return self._output_metadata
-
-    def to_dict(self):
-        results = copy.copy(self.__dict__)
-
-        if results['_inputs'] is not None:
-            inputs = list(results['_inputs'])
-            for i, inp in enumerate(inputs):
-                if isinstance(inp, Iterable):
-                    inputs[i] = [str(item) for item in inp]
-                else:
-                    inputs[i] = str(inp)
-            results['_inputs'] = tuple(inputs)
-
-        if results['_outputs'] is not None:
-            outputs = list(results['_outputs'])
-            for i, out in enumerate(outputs):
-                if isinstance(out, Iterable):
-                    outputs[i] = [str(item) for item in out]
-                else:
-                    outputs[i] = str(out)
-            results['_outputs'] = tuple(outputs)
-        return results
-
-    @staticmethod
-    def from_dict(json_data):
-        inputs = load_outputs(json_data['_inputs'])
-        input_metadata = json_data["_input_metadata"]
-        outputs = load_outputs(json_data['_outputs'])
-        output_metadata = json_data["_output_metadata"]
-        return RecipeState(json_data['function_name'], json_data['function_hash'], inputs, outputs, input_metadata,
-                           output_metadata)
-
-
 class Lab:
     def __init__(self, name: str, disable_caching=False):
         self._name = name
         self.cache_path = Path('.alkymi/{}.json'.format(self.name))
         self._recipes = OrderedDict()  # type: OrderedDict[str, Recipe]
-        self._recipe_states = dict()  # type: Dict[str, RecipeState]
 
         # Try to load pre-existing state from cache file
         self._disable_caching = disable_caching
-        self._try_load_state()
 
     def _try_load_state(self) -> None:
         if self._disable_caching or not self.cache_path.exists():
@@ -133,8 +33,8 @@ class Lab:
 
         with self.cache_path.open('r') as f:
             json_items = json.loads(f.read())
-            for name, item in json_items.items():
-                self._recipe_states[name] = RecipeState.from_dict(item)
+            for name, recipe in self._recipes.items():
+                recipe.restore_from_dict(json_items[name])
 
     def _save_state(self) -> None:
         if self._disable_caching:
@@ -142,7 +42,7 @@ class Lab:
 
         self.cache_path.parent.mkdir(exist_ok=True)
         with self.cache_path.open('w') as f:
-            states = {key: state.to_dict() for key, state in self._recipe_states.items()}
+            states = {name: recipe.to_dict() for name, recipe in self._recipes.items()}
             f.write(json.dumps(states, indent=4))
 
     def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
@@ -153,9 +53,6 @@ class Lab:
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         self._recipes[recipe.name] = recipe
-
-        if recipe.name not in self._recipe_states:
-            self._recipe_states[recipe.name] = RecipeState.from_recipe(recipe, None, None)
         return recipe
 
     def brew(self, target_recipe: Union[Recipe, str]):
@@ -188,7 +85,7 @@ class Lab:
         # 2. There's no cached output for this recipe
         # 3. The cached output for this recipe is older than the output of any ingredient
         # 3. The bound function has changed (later)
-        if recipe.transient or self._recipe_states[recipe.name].outputs is None:
+        if recipe.transient or self._recipes[recipe.name].outputs is None:
             status[recipe] = Status.NotEvaluatedYet
             return status[recipe]
 
@@ -202,13 +99,9 @@ class Lab:
             if self.compute_status(ingredient, status) != Status.Ok:
                 status[recipe] = Status.IngredientDirty
                 return status[recipe]
-            ingredient_outputs.extend(self._recipe_states[ingredient.name].outputs)
+            ingredient_outputs.extend(self._recipes[ingredient.name].outputs)
 
-        if not recipe.is_clean(self._recipe_states[recipe.name].inputs,
-                               self._recipe_states[recipe.name].input_metadata,
-                               self._recipe_states[recipe.name].outputs,
-                               self._recipe_states[recipe.name].output_metadata,
-                               ingredient_outputs if len(ingredient_outputs) > 0 else None):
+        if not recipe.is_clean(ingredient_outputs):
             status[recipe] = Status.Dirty
             return status[recipe]
 
@@ -216,39 +109,29 @@ class Lab:
         status[recipe] = Status.Ok
         return status[recipe]
 
-    @staticmethod
-    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
-        if outputs is None:
-            return None
-        if isinstance(outputs, tuple):
-            return outputs
-        return outputs,
-
     def evaluate_recipe(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any]]:
         print('Evaluating recipe: {}'.format(recipe.name))
 
         def _print_and_return():
             print('Finished evaluating {}'.format(recipe.name))
-            return self._recipe_states[recipe.name].outputs
+            return self._recipes[recipe.name].outputs
 
-        if status[recipe] == Status.Ok and recipe.name in self._recipe_states:
+        if status[recipe] == Status.Ok and recipe.name in self._recipes:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
-            self._recipe_states[recipe.name].outputs = self._canonical(recipe())
+            recipe.invoke()
             return _print_and_return()
 
         # Load ingredient inputs
         ingredient_inputs = []
         for ingredient in recipe.ingredients:
             result = self.evaluate_recipe(ingredient, status)
-            self._recipe_states[ingredient.name].outputs = result
             ingredient_inputs.extend(result)
         ingredient_inputs = tuple(ingredient_inputs)
 
         # Process inputs
-        self._recipe_states[recipe.name].inputs = ingredient_inputs
-        self._recipe_states[recipe.name].outputs = self._canonical(recipe(*ingredient_inputs))
+        recipe.invoke(*ingredient_inputs)
         return _print_and_return()
 
     def __repr__(self) -> str:
@@ -259,6 +142,8 @@ class Lab:
         return '{} lab with recipes:{}'.format(self.name, state)
 
     def open(self) -> None:
+        self._try_load_state()
+
         # Create the top-level parser
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
@@ -286,7 +171,7 @@ class Lab:
             shutil.rmtree(self.cache_path.parent)
         elif args.subparser_name == 'clean':
             print('Cleaning outputs for {}'.format(args.recipe))
-            for output in self._recipe_states[args.recipe].outputs:
+            for output in self._recipes[args.recipe].outputs:
                 if isinstance(output, Path) and output.exists():
                     output.unlink()
                     print('Removed {}'.format(output))
