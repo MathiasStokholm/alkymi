@@ -3,6 +3,7 @@ from collections import OrderedDict
 from hashlib import md5
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
+from .logging import log
 from .metadata import get_metadata
 from .serialization import check_output, load_outputs
 
@@ -58,12 +59,12 @@ class Recipe(object):
             current_output_metadata.append(get_metadata(out))
 
         if self.output_metadata != current_output_metadata:
-            print('{} -> dirty: output metadata did not match'.format(self._name))
+            log.debug('{} -> dirty: output metadata did not match'.format(self._name))
             return False
 
         # If last inputs were non-existent, new inputs have to be non-existent too for equality
         if self.inputs is None or new_inputs is None:
-            print('{} -> dirty: inputs changed'.format(self._name))
+            log.debug('{} -> dirty: inputs changed'.format(self._name))
             return self.inputs == new_inputs
 
         # Compute input metadata and perform equality check
@@ -72,7 +73,7 @@ class Recipe(object):
             new_input_metadata.append(get_metadata(inp))
 
         if self.input_metadata != new_input_metadata:
-            print('{} -> dirty: input metadata changed'.format(self._name))
+            log.debug('{} -> dirty: input metadata changed'.format(self._name))
             return False
 
         # All checks passed
@@ -165,8 +166,8 @@ class Recipe(object):
         return results
 
     def restore_from_dict(self, old_state):
+        log.debug("Restoring {} from dict".format(self._name))
         self._inputs = load_outputs(old_state["inputs"])
         self._input_metadata = old_state["input_metadata"]
         self._outputs = load_outputs(old_state["outputs"])
         self._output_metadata = old_state["output_metadata"]
-        print("Restoring {} from dict".format(self._name))

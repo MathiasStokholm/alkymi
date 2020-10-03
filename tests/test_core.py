@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
+import logging
 import shutil
 import tempfile
 import time
@@ -33,7 +34,8 @@ def test_recipe_decorator():
     assert should_be_a_recipe.transient
 
 
-def test_execution():
+def test_execution(caplog):
+    caplog.set_level(logging.DEBUG)
     lab = Lab('test', disable_caching=True)
 
     execution_counts = dict(

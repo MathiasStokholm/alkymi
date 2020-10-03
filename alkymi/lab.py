@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any, Set
 
 from .alkymi import Recipe
+from .logging import log
 
 
 class Status(Enum):
@@ -18,9 +19,11 @@ class Status(Enum):
 
 
 class Lab:
+    CACHE_DIRECTORY_NAME = ".alkymi_cache"
+
     def __init__(self, name: str, disable_caching=False):
         self._name = name
-        self.cache_path = Path('.alkymi/{}.json'.format(self.name))
+        self.cache_path = Path(Lab.CACHE_DIRECTORY_NAME) / '{}.json'.format(self.name)
         self._recipes = set()  # type: Set[Recipe]
 
         # Try to load pre-existing state from cache file
@@ -63,13 +66,14 @@ class Lab:
                     result = self.evaluate_recipe(recipe, self.build_status())
                     self._save_state()
                     return result
+            raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
                 result = self.evaluate_recipe(target_recipe, self.build_status())
                 self._save_state()
                 return result
-        raise ValueError("Unknown recipe: {}".format(target_recipe.name))
+            raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property
     def name(self) -> str:
@@ -114,10 +118,10 @@ class Lab:
         return status[recipe]
 
     def evaluate_recipe(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any]]:
-        print('Evaluating recipe: {}'.format(recipe.name))
+        log.debug('Evaluating recipe: {}'.format(recipe.name))
 
         def _print_and_return():
-            print('Finished evaluating {}'.format(recipe.name))
+            log.debug('Finished evaluating {}'.format(recipe.name))
             return recipe.outputs
 
         if status[recipe] == Status.Ok:
