@@ -1,5 +1,6 @@
 # coding=utf-8
-from pathlib import Path
+from collections import OrderedDict
+from hashlib import md5
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from .metadata import get_metadata
@@ -14,7 +15,6 @@ class Recipe(object):
         self._name = name
         self._transient = transient
         self._cleanliness_func = cleanliness_func
-        self._function_hash = hash(func)
 
         self._outputs = None
         self._output_metadata = None
@@ -31,22 +31,19 @@ class Recipe(object):
         return self.outputs
 
     @staticmethod
-    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
+    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Tuple[Any, ...]:
         if outputs is None:
-            return None
+            return tuple()
         if isinstance(outputs, tuple):
             return outputs
         return outputs,
 
-    def is_clean(self, new_inputs: Optional[List[Path]]) -> bool:
+    def is_clean(self, new_inputs: Tuple[Any]) -> bool:
         if self._cleanliness_func is not None:
             # Non-pure function may have been changed by external circumstances, use custom check
             return self._cleanliness_func(self.outputs)
 
         # Handle default pure function
-        print('{} -> Last/new inputs: {}/{} - metadata: {}'.format(self._name, self.inputs, new_inputs,
-                                                                   self.input_metadata))
-
         # Not clean if outputs were never generated
         if self.outputs is None:
             return False
@@ -60,12 +57,13 @@ class Recipe(object):
         for out in self.outputs:
             current_output_metadata.append(get_metadata(out))
 
-        print('{} -> Output metadata check: {} == {}'.format(self._name, self.output_metadata, current_output_metadata))
         if self.output_metadata != current_output_metadata:
+            print('{} -> dirty: output metadata did not match'.format(self._name))
             return False
 
         # If last inputs were non-existent, new inputs have to be non-existent too for equality
         if self.inputs is None or new_inputs is None:
+            print('{} -> dirty: inputs changed'.format(self._name))
             return self.inputs == new_inputs
 
         # Compute input metadata and perform equality check
@@ -73,8 +71,8 @@ class Recipe(object):
         for inp in new_inputs:
             new_input_metadata.append(get_metadata(inp))
 
-        print('Input metadata check: {} == {}'.format(self.input_metadata, new_input_metadata))
         if self.input_metadata != new_input_metadata:
+            print('{} -> dirty: input metadata changed'.format(self._name))
             return False
 
         # All checks passed
@@ -93,8 +91,8 @@ class Recipe(object):
         return self._transient
 
     @property
-    def function_hash(self) -> int:
-        return hash(self._func)
+    def function_hash(self) -> str:
+        return md5(self._func.__code__.co_code).hexdigest()
 
     @property
     def inputs(self):
@@ -115,7 +113,7 @@ class Recipe(object):
         return self._input_metadata
 
     @property
-    def outputs(self):
+    def outputs(self) -> Tuple[Any]:
         return self._outputs
 
     @outputs.setter
@@ -136,10 +134,8 @@ class Recipe(object):
         return self.name
 
     def to_dict(self):
-        results = dict(
-            input_metadata=self.input_metadata,
-            output_metadata=self.output_metadata,
-            function_hash=self.function_hash
+        results = OrderedDict(
+            name=self.name,
         )
 
         if self.inputs is not None:
@@ -149,9 +145,10 @@ class Recipe(object):
                     inputs[i] = [str(item) for item in inp]
                 else:
                     inputs[i] = str(inp)
-            results['inputs'] = tuple(inputs)
+            results["inputs"] = tuple(inputs)
         else:
-            results['inputs'] = None
+            results["inputs"] = None
+        results["input_metadata"] = self.input_metadata
 
         if self.outputs is not None:
             outputs = list(self.outputs)
@@ -160,9 +157,11 @@ class Recipe(object):
                     outputs[i] = [str(item) for item in out]
                 else:
                     outputs[i] = str(out)
-            results['outputs'] = tuple(outputs)
+            results["outputs"] = tuple(outputs)
         else:
-            results['outputs'] = None
+            results["outputs"] = None
+        results["output_metadata"] = self.output_metadata
+
         return results
 
     def restore_from_dict(self, old_state):

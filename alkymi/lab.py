@@ -2,10 +2,9 @@
 import argparse
 import json
 import shutil
-from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any
+from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any, Set
 
 from .alkymi import Recipe
 
@@ -22,7 +21,7 @@ class Lab:
     def __init__(self, name: str, disable_caching=False):
         self._name = name
         self.cache_path = Path('.alkymi/{}.json'.format(self.name))
-        self._recipes = OrderedDict()  # type: OrderedDict[str, Recipe]
+        self._recipes = set()  # type: Set[Recipe]
 
         # Try to load pre-existing state from cache file
         self._disable_caching = disable_caching
@@ -33,8 +32,9 @@ class Lab:
 
         with self.cache_path.open('r') as f:
             json_items = json.loads(f.read())
-            for name, recipe in self._recipes.items():
-                recipe.restore_from_dict(json_items[name])
+            for recipe in self._recipes:
+                if recipe.function_hash in json_items:
+                    recipe.restore_from_dict(json_items[recipe.function_hash])
 
     def _save_state(self) -> None:
         if self._disable_caching:
@@ -42,7 +42,7 @@ class Lab:
 
         self.cache_path.parent.mkdir(exist_ok=True)
         with self.cache_path.open('w') as f:
-            states = {name: recipe.to_dict() for name, recipe in self._recipes.items()}
+            states = {recipe.function_hash: recipe.to_dict() for recipe in self._recipes}
             f.write(json.dumps(states, indent=4))
 
     def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
@@ -52,26 +52,36 @@ class Lab:
         return _decorator
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
-        self._recipes[recipe.name] = recipe
+        self._recipes.add(recipe)
         return recipe
 
     def brew(self, target_recipe: Union[Recipe, str]):
-        recipe_name = target_recipe if isinstance(target_recipe, str) else target_recipe.name
-        result = self.evaluate_recipe(self._recipes[recipe_name], self.build_status())
-        self._save_state()
-        return result
+        if isinstance(target_recipe, str):
+            # Try to match name
+            for recipe in self._recipes:
+                if recipe.name == target_recipe:
+                    result = self.evaluate_recipe(recipe, self.build_status())
+                    self._save_state()
+                    return result
+        else:
+            # Match recipe directly
+            if target_recipe in self._recipes:
+                result = self.evaluate_recipe(target_recipe, self.build_status())
+                self._save_state()
+                return result
+        raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
-    def recipes(self) -> 'OrderedDict[str, Recipe]':
+    def recipes(self) -> 'Set[Recipe]':
         return self._recipes
 
     def build_status(self) -> Dict[Recipe, Status]:
         status = {}  # type: Dict[Recipe, Status]
-        for _, recipe in self._recipes.items():
+        for recipe in self._recipes:
             self.compute_status(recipe, status)
         return status
 
@@ -81,31 +91,25 @@ class Lab:
             return status[recipe]
 
         # This recipe is dirty if:
-        # 1. One or more ingredients are dirty and need to be reevaluated
-        # 2. There's no cached output for this recipe
-        # 3. The cached output for this recipe is older than the output of any ingredient
-        # 3. The bound function has changed (later)
-        if recipe.transient or self._recipes[recipe.name].outputs is None:
+        # 1. There's no cached output for this recipe
+        # 2. One or more ingredients are dirty and need to be reevaluated
+        # 3. The recipe itself deems that it is dirty
+        if recipe.transient or recipe.outputs is None:
             status[recipe] = Status.NotEvaluatedYet
             return status[recipe]
-
-        # # Run custom cleanliness check if necessary
-        # if not recipe.is_clean(self._recipe_states[recipe.name].output):
-        #     status[recipe] = Status.Dirty
-        #     return status[recipe]
 
         ingredient_outputs = []
         for ingredient in recipe.ingredients:
             if self.compute_status(ingredient, status) != Status.Ok:
                 status[recipe] = Status.IngredientDirty
                 return status[recipe]
-            ingredient_outputs.extend(self._recipes[ingredient.name].outputs)
+            ingredient_outputs.extend(ingredient.outputs)
+        ingredient_outputs = tuple(ingredient_outputs)
 
         if not recipe.is_clean(ingredient_outputs):
             status[recipe] = Status.Dirty
             return status[recipe]
 
-        # TODO(mathias): Add handling of bound function hash change
         status[recipe] = Status.Ok
         return status[recipe]
 
@@ -114,9 +118,9 @@ class Lab:
 
         def _print_and_return():
             print('Finished evaluating {}'.format(recipe.name))
-            return self._recipes[recipe.name].outputs
+            return recipe.outputs
 
-        if status[recipe] == Status.Ok and recipe.name in self._recipes:
+        if status[recipe] == Status.Ok:
             return _print_and_return()
 
         if len(recipe.ingredients) <= 0:
@@ -137,7 +141,7 @@ class Lab:
     def __repr__(self) -> str:
         status = self.build_status()
         state = ''
-        for _, recipe in self._recipes.items():
+        for recipe in self._recipes:
             state += '\n\t{} - {}'.format(str(recipe), status[recipe])
         return '{} lab with recipes:{}'.format(self.name, state)
 
@@ -156,12 +160,12 @@ class Lab:
 
         # Create the parser for the "clean" command
         clean_parser = subparsers.add_parser('clean', help='Cleans the outputs of a provided recipe')
-        clean_parser.add_argument('recipe', choices=[name for name, recipe in self._recipes.items()],
+        clean_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes],
                                   help='Recipe to clean')
 
         # Create the parser for the "command_b" command
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
-        brew_parser.add_argument('recipe', choices=[name for name, recipe in self._recipes.items()],
+        brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes],
                                  help='Recipe to brew')
 
         args = parser.parse_args()
@@ -171,14 +175,6 @@ class Lab:
             shutil.rmtree(self.cache_path.parent)
         elif args.subparser_name == 'clean':
             print('Cleaning outputs for {}'.format(args.recipe))
-            for output in self._recipes[args.recipe].outputs:
-                if isinstance(output, Path) and output.exists():
-                    output.unlink()
-                    print('Removed {}'.format(output))
-                else:
-                    for path in output:
-                        if path.exists():
-                            path.unlink(missing_ok=True)
-                            print('Removed {}'.format(output))
+            raise NotImplementedError("Clean doesn't work yet!")
         elif args.subparser_name == 'brew':
             return self.brew(args.recipe)
