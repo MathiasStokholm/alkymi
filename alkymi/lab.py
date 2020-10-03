@@ -4,9 +4,9 @@ import json
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any, Set
+from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any, Set, List
 
-from .alkymi import Recipe
+from .recipe import Recipe
 from .logging import log
 
 
@@ -102,15 +102,16 @@ class Lab:
             status[recipe] = Status.NotEvaluatedYet
             return status[recipe]
 
-        ingredient_outputs = []
+        ingredient_outputs = []  # type: List[Any]
         for ingredient in recipe.ingredients:
             if self.compute_status(ingredient, status) != Status.Ok:
                 status[recipe] = Status.IngredientDirty
                 return status[recipe]
-            ingredient_outputs.extend(ingredient.outputs)
-        ingredient_outputs = tuple(ingredient_outputs)
+            if ingredient.outputs is not None:  # This will never happen, but this satisfied the type checker
+                ingredient_outputs.extend(ingredient.outputs)
+        ingredient_outputs_tuple = tuple(ingredient_outputs)  # type: Tuple[Any, ...]
 
-        if not recipe.is_clean(ingredient_outputs):
+        if not recipe.is_clean(ingredient_outputs_tuple):
             status[recipe] = Status.Dirty
             return status[recipe]
 
@@ -132,14 +133,15 @@ class Lab:
             return _print_and_return()
 
         # Load ingredient inputs
-        ingredient_inputs = []
+        ingredient_inputs = []  # type: List[Any]
         for ingredient in recipe.ingredients:
             result = self.evaluate_recipe(ingredient, status)
-            ingredient_inputs.extend(result)
-        ingredient_inputs = tuple(ingredient_inputs)
+            if result is not None:
+                ingredient_inputs.extend(result)
+        ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
 
         # Process inputs
-        recipe.invoke(*ingredient_inputs)
+        recipe.invoke(*ingredient_inputs_tuple)
         return _print_and_return()
 
     def __repr__(self) -> str:

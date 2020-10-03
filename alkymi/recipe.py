@@ -39,7 +39,7 @@ class Recipe(object):
             return outputs
         return outputs,
 
-    def is_clean(self, new_inputs: Tuple[Any]) -> bool:
+    def is_clean(self, new_inputs: Tuple[Any, ...]) -> bool:
         if self._cleanliness_func is not None:
             # Non-pure function may have been changed by external circumstances, use custom check
             return self._cleanliness_func(self.outputs)
@@ -93,10 +93,10 @@ class Recipe(object):
 
     @property
     def function_hash(self) -> str:
-        return md5(self._func.__code__.co_code).hexdigest()
+        return md5(self._func.__code__.co_code).hexdigest()  # noqa
 
     @property
-    def inputs(self):
+    def inputs(self) -> Optional[Tuple[Any, ...]]:
         return self._inputs
 
     @inputs.setter
@@ -114,7 +114,7 @@ class Recipe(object):
         return self._input_metadata
 
     @property
-    def outputs(self) -> Tuple[Any]:
+    def outputs(self) -> Optional[Tuple[Any, ...]]:
         return self._outputs
 
     @outputs.setter
