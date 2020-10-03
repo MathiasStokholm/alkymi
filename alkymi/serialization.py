@@ -18,12 +18,10 @@ def check_output(output: Any) -> bool:
 def _serialize_item(item: Any) -> Generator[Union[str, int, float], None, None]:
     if isinstance(item, Path):
         yield "{}{}".format(PATH_TOKEN, item)
-    elif isinstance(item, str):
+    elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
         yield item
     elif isinstance(item, Iterable):
         yield list(itertools.chain.from_iterable(_serialize_item(subitem) for subitem in item))
-    elif isinstance(item, float) or isinstance(item, int):
-        yield item
     else:
         raise Exception("Cannot serialize item of type: {}".format(type(item)))
 
@@ -42,10 +40,10 @@ def _deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, floa
         else:
             # Regular string
             yield item
-    elif isinstance(item, Iterable):
-        yield list(itertools.chain.from_iterable(_deserialize_item(subitem) for subitem in item))
     elif isinstance(item, float) or isinstance(item, int):
         yield item
+    elif isinstance(item, Iterable):
+        yield list(itertools.chain.from_iterable(_deserialize_item(subitem) for subitem in item))
     else:
         raise Exception("Cannot deserialize item of type: {}".format(type(item)))
 
