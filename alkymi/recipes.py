@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import List, Tuple
 
-from .alkymi import Recipe
+from .recipe import Recipe
 
 
 def glob_files(directory: Path, pattern: str) -> Recipe:
