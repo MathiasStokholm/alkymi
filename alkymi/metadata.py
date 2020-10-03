@@ -24,8 +24,9 @@ def get_metadata(item: Any):
     if isinstance(item, Path):
         return _handle_path(item)
 
-    # FIXME(mathias): What is a good way to handle this?
+    # FIXME(mathias): Find a better way to collapse metadata from multiple items into a single metadata point
+    # This is used if a function returns a list of paths or similar
     if isinstance(item, Iterable):
-        return sum(get_metadata(subitem) for subitem in item)
+        return max(get_metadata(subitem) for subitem in item)
 
     raise NotImplementedError('Metadata not supported for type: {}'.format(item))
