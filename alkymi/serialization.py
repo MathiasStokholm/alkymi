@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, Any, Tuple, Iterable, Union, Generator
 
 
-PATH_TOKEN = "#path:"
+PATH_TOKEN = "#path#"
 
 
 def check_output(output: Any) -> bool:
@@ -36,7 +36,7 @@ def _deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, floa
     if isinstance(item, str):
         if item.startswith(PATH_TOKEN):
             # Path encoded as string
-            yield Path(item.split(":", maxsplit=1)[1])
+            yield Path(item[len(PATH_TOKEN):])
         else:
             # Regular string
             yield item
