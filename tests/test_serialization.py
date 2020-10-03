@@ -6,6 +6,35 @@ from pathlib import Path
 from typing import Tuple
 
 from alkymi import Lab
+from alkymi import serialization
+
+
+def test_serialize_item():
+    generator = serialization._serialize_item(Path("/test_path/test.txt"))
+    assert next(generator).startswith(serialization.PATH_TOKEN)
+
+    test_string = "test_string"
+    generator = serialization._serialize_item(test_string)
+    assert next(generator) == test_string
+
+
+def test_serialize_deserialize_items():
+    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3])
+    serialized_items = serialization.serialize_items(items)
+    assert serialized_items is not None
+    assert len(serialized_items) == len(items)
+    assert isinstance(serialized_items[0], str)
+    assert isinstance(serialized_items[1], str)
+    assert isinstance(serialized_items[2], int)
+    assert isinstance(serialized_items[3], float)
+    assert isinstance(serialized_items[4], list)
+    assert len(serialized_items[4]) == len(items[4])
+
+    deserialized_items = serialization.deserialize_items(serialized_items)
+    assert deserialized_items is not None
+    assert len(deserialized_items) == len(items)
+    for deserialized_item, item in zip(deserialized_items, items):
+        assert deserialized_item == item
 
 
 def test_recipe_serialization():

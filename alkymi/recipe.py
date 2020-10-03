@@ -5,7 +5,7 @@ from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from .logging import log
 from .metadata import get_metadata
-from .serialization import check_output, load_outputs
+from .serialization import check_output, deserialize_items, serialize_items
 
 
 class Recipe(object):
@@ -135,39 +135,17 @@ class Recipe(object):
         return self.name
 
     def to_dict(self):
-        results = OrderedDict(
+        return OrderedDict(
             name=self.name,
+            inputs=serialize_items(self.inputs),
+            input_metadata=self.input_metadata,
+            outputs=serialize_items(self.outputs),
+            output_metadata=self.output_metadata,
         )
-
-        if self.inputs is not None:
-            inputs = list(self.inputs)
-            for i, inp in enumerate(inputs):
-                if isinstance(inp, Iterable):
-                    inputs[i] = [str(item) for item in inp]
-                else:
-                    inputs[i] = str(inp)
-            results["inputs"] = tuple(inputs)
-        else:
-            results["inputs"] = None
-        results["input_metadata"] = self.input_metadata
-
-        if self.outputs is not None:
-            outputs = list(self.outputs)
-            for i, out in enumerate(outputs):
-                if isinstance(out, Iterable):
-                    outputs[i] = [str(item) for item in out]
-                else:
-                    outputs[i] = str(out)
-            results["outputs"] = tuple(outputs)
-        else:
-            results["outputs"] = None
-        results["output_metadata"] = self.output_metadata
-
-        return results
 
     def restore_from_dict(self, old_state):
         log.debug("Restoring {} from dict".format(self._name))
-        self._inputs = load_outputs(old_state["inputs"])
+        self._inputs = deserialize_items(old_state["inputs"])
         self._input_metadata = old_state["input_metadata"]
-        self._outputs = load_outputs(old_state["outputs"])
+        self._outputs = deserialize_items(old_state["outputs"])
         self._output_metadata = old_state["output_metadata"]
