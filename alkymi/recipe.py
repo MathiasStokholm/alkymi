@@ -25,10 +25,9 @@ class Recipe(object):
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
 
-    def invoke(self, *args, **kwargs):
-        # FIXME(mathias): This doesn't handle kwargs
-        self.inputs = args
-        self.outputs = self._canonical(self(*args, **kwargs))
+    def invoke(self, *inputs: Optional[Tuple[Any, ...]]):
+        self.inputs = inputs
+        self.outputs = self._canonical(self(*inputs))
         return self.outputs
 
     @staticmethod
@@ -54,10 +53,7 @@ class Recipe(object):
             return False
 
         # Compute output metadata to ensure that outputs haven't changed
-        current_output_metadata = []
-        for out in self.outputs:
-            current_output_metadata.append(get_metadata(out))
-
+        current_output_metadata = [get_metadata(out) for out in self.outputs]
         if self.output_metadata != current_output_metadata:
             log.debug('{} -> dirty: output metadata did not match'.format(self._name))
             return False
@@ -68,10 +64,7 @@ class Recipe(object):
             return self.inputs == new_inputs
 
         # Compute input metadata and perform equality check
-        new_input_metadata = []
-        for inp in new_inputs:
-            new_input_metadata.append(get_metadata(inp))
-
+        new_input_metadata = [get_metadata(inp) for inp in new_inputs]
         if self.input_metadata != new_input_metadata:
             log.debug('{} -> dirty: input metadata changed'.format(self._name))
             return False

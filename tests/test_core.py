@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from typing import List
 
 import alkymi as alk
 from alkymi import Lab
@@ -64,13 +65,13 @@ def test_execution(caplog):
             return file
 
         @lab.recipe(ingredients=[produces_a_single_file])
-        def copies_a_file(_: Path) -> Path:
+        def copies_a_file(_: Path) -> List[Path]:
             execution_counts['copies_a_file'] += 1
             with file.open('r') as infile, copied_file.open('w') as outfile:
                 outfile.write(infile.read())
-            return copied_file
+            return [file, copied_file]
 
-        @lab.recipe(ingredients=[copies_a_file], transient=True)
+        @lab.map_recipe(copies_a_file, transient=True)
         def reads_a_file(test_file: Path) -> None:
             execution_counts['reads_a_file'] += 1
             with test_file.open('r') as f:
@@ -83,11 +84,12 @@ def test_execution(caplog):
         assert execution_counts['reads_a_file'] == 0
 
         # On first brew, all functions should have been executed once
+        # 'reads_a_file' should be executed twice for every triggering - once per file
         lab.brew(reads_a_file)
         assert execution_counts['produces_build_dir'] == 1
         assert execution_counts['produces_a_single_file'] == 1
         assert execution_counts['copies_a_file'] == 1
-        assert execution_counts['reads_a_file'] == 1
+        assert execution_counts['reads_a_file'] == 1 * 2
 
         # On subsequent brews, only the transient "reads_a_file" function should be executed again
         for i in range(1, 4):
@@ -95,7 +97,7 @@ def test_execution(caplog):
             assert execution_counts['produces_build_dir'] == 1
             assert execution_counts['produces_a_single_file'] == 1
             assert execution_counts['copies_a_file'] == 1
-            assert execution_counts['reads_a_file'] == 1 + i
+            assert execution_counts['reads_a_file'] == (1 + i) * 2
 
         # Changing an output should cause reevaluation of the function that created that output (and everything after)
         time.sleep(0.01)
@@ -104,7 +106,7 @@ def test_execution(caplog):
         assert execution_counts['produces_build_dir'] == 1
         assert execution_counts['produces_a_single_file'] == 2
         assert execution_counts['copies_a_file'] == 2
-        assert execution_counts['reads_a_file'] == 5
+        assert execution_counts['reads_a_file'] == 5 * 2
 
         # Deleting the build dir should cause full reevaluation
         shutil.rmtree(str(build_dir))
@@ -112,4 +114,4 @@ def test_execution(caplog):
         assert execution_counts['produces_build_dir'] == 2
         assert execution_counts['produces_a_single_file'] == 3
         assert execution_counts['copies_a_file'] == 3
-        assert execution_counts['reads_a_file'] == 6
+        assert execution_counts['reads_a_file'] == 6 * 2

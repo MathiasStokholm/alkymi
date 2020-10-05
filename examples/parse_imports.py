@@ -18,16 +18,13 @@ def create_build_dir() -> Path:
     return build_dir
 
 
-@lab.recipe(ingredients=[input_files, create_build_dir])
-def process_imports(files: List[Path], build_dir: Path) -> List[Path]:
-    output_files = []
-    for file in files:
-        output_file = build_dir / str(file.name).replace('.py', '.txt')
-        with file.open('r') as fin, output_file.open('w') as fout:
-            imports = [line for line in fin.readlines() if 'import' in line]
-            fout.write(''.join(imports))
-        output_files.append(output_file)
-    return output_files
+@lab.map_recipe(input_files, ingredients=[create_build_dir])
+def process_imports(pyfile: Path, build_dir: Path) -> Path:
+    output_file = build_dir / str(pyfile.name).replace('.py', '.txt')
+    with pyfile.open('r') as fin, output_file.open('w') as fout:
+        imports = [line for line in fin.readlines() if 'import' in line]
+        fout.write(''.join(imports))
+    return output_file
 
 
 @lab.recipe(ingredients=[process_imports], transient=True)

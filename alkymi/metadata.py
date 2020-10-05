@@ -46,4 +46,7 @@ def get_metadata(item: Any):
         if all(isinstance(subitem, Path) for subitem in item):
             return max(get_metadata(subitem) for subitem in item)
 
+        if all(subitem is None for subitem in item):
+            return None
+
     raise NotImplementedError('Metadata not supported for type: {}'.format(item))
