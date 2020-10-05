@@ -4,7 +4,7 @@ from typing import Dict, List, Any, Tuple, Optional
 
 from . import Recipe
 from .logging import log
-from .mapped_recipe import ForeachRecipe
+from .foreach_recipe import ForeachRecipe
 
 
 class Status(Enum):

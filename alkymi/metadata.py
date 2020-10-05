@@ -49,4 +49,7 @@ def get_metadata(item: Any):
         if all(subitem is None for subitem in item):
             return None
 
+        if all(isinstance(subitem, str) for subitem in item):
+            return _handle_str("".join(item))
+
     raise NotImplementedError('Metadata not supported for type: {}'.format(item))

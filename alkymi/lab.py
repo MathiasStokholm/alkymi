@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Iterable, Callable, Dict, Union, Set
 
 from .alkymi import compute_status_with_cache, Status, evaluate_recipe, compute_recipe_status
-from .mapped_recipe import ForeachRecipe
+from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
 
 

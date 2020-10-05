@@ -5,7 +5,7 @@ from typing import Iterable, Callable, Optional, Tuple, Any, List
 from .logging import log
 from .metadata import get_metadata
 from .recipe import Recipe
-from .serialization import serialize_items, _serialize_item, _deserialize_item
+from .serialization import serialize_item, deserialize_item
 
 
 class ForeachRecipe(Recipe):
@@ -58,11 +58,11 @@ class ForeachRecipe(Recipe):
 
     def to_dict(self):
         dictionary = super().to_dict()
-        dictionary["mapped_inputs"] = next(_serialize_item(self.mapped_inputs))
+        dictionary["mapped_inputs"] = next(serialize_item(self.mapped_inputs))
         dictionary["mapped_inputs_metadata"] = self.mapped_inputs_metadata
         return dictionary
 
     def restore_from_dict(self, old_state):
         super(ForeachRecipe, self).restore_from_dict(old_state)
-        self._mapped_inputs = next(_deserialize_item(old_state["mapped_inputs"]))
+        self._mapped_inputs = next(deserialize_item(old_state["mapped_inputs"]))
         self._mapped_inputs_metadata = old_state["mapped_inputs_metadata"]
