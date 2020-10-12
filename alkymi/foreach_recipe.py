@@ -9,7 +9,8 @@ from .serialization import serialize_item, deserialize_item
 
 
 class ForeachRecipe(Recipe):
-    def __init__(self, mapped_recipe: Recipe, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool,
+    def __init__(self, mapped_recipe: Recipe, ingredients: Iterable['Recipe'], func: Callable, name: str,
+                 transient: bool,
                  cleanliness_func: Optional[Callable] = None):
         super().__init__(ingredients, func, name, transient, cleanliness_func)
         self._mapped_recipe = mapped_recipe
@@ -39,12 +40,22 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs_metadata
 
     def invoke(self, mapped_inputs: List[Any], *inputs: Optional[Tuple[Any, ...]]):
-        self.mapped_inputs = mapped_inputs
-        self.inputs = inputs
         outputs = []
         for item in mapped_inputs:
+            if not self.transient and self.outputs is not None:
+                try:
+                    metadata = get_metadata(item)
+                    idx = self.mapped_inputs_metadata.index(metadata)
+                    if metadata == self.mapped_inputs_metadata[idx]:
+                        outputs.append(self.outputs[0][idx])
+                        continue
+                except ValueError:
+                    pass
             outputs.append(self(item, *inputs))
+        self.inputs = inputs
+        self.mapped_inputs = mapped_inputs
         self.outputs = self._canonical(outputs)
+
         return self.outputs
 
     def is_mapped_clean(self, new_mapped_inputs: List[Any]) -> bool:
@@ -53,7 +64,6 @@ class ForeachRecipe(Recipe):
         if self.mapped_inputs_metadata != new_mapped_input_metadata:
             log.debug('{} -> dirty: mapped inputs metadata changed'.format(self._name))
             return False
-
         return True
 
     def to_dict(self):

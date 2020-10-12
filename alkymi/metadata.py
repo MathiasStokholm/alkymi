@@ -41,6 +41,9 @@ def get_metadata(item: Any):
         return _handle_number(item)
 
     if isinstance(item, Iterable):
+        if len(item) == 0:
+            return None
+
         # FIXME(mathias): Find a better way to collapse metadata from multiple items into a single metadata point
         # This is used if a function returns a list of paths or similar
         if all(isinstance(subitem, Path) for subitem in item):
