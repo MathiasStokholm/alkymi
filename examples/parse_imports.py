@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # coding=utf-8
+import logging
 from typing import List
 
-from alkymi import Lab
+from alkymi import Lab, log
 from alkymi.recipes import glob_files
 from pathlib import Path
 
+# Set up logging
+log.addHandler(logging.StreamHandler())
 
 lab = Lab('Import parsing')
 input_files = lab.add_recipe(glob_files(Path('alkymi'), '*.py'))
