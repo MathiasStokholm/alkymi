@@ -7,19 +7,8 @@ import time
 from pathlib import Path
 from typing import List
 
-import alkymi as alk
 from alkymi import Lab
-
-
-def test_builtin_glob():
-    with tempfile.TemporaryDirectory() as tempdir:
-        test_file = Path(tempdir) / 'test_file.txt'
-        with test_file.open('w') as f:
-            f.write("test")
-        glob_recipe = alk.recipes.glob_files(Path(tempdir), '*')
-
-        assert len(glob_recipe.ingredients) == 0
-        assert glob_recipe()[0][0] == test_file
+from alkymi.recipe import Recipe
 
 
 def test_recipe_decorator():
@@ -29,7 +18,7 @@ def test_recipe_decorator():
     def should_be_a_recipe():
         return "example"
 
-    assert type(should_be_a_recipe) is alk.Recipe
+    assert type(should_be_a_recipe) is Recipe
     assert should_be_a_recipe() == "example"
     assert should_be_a_recipe.name == 'should_be_a_recipe'
     assert should_be_a_recipe.transient

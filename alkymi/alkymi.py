@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Dict, List, Any, Tuple, Optional
 
-from . import Recipe
+from .recipe import Recipe
 from .logging import log
 from .foreach_recipe import ForeachRecipe
 
@@ -99,7 +99,7 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tu
         mapped_inputs = evaluate_recipe(recipe.mapped_recipe, status)
         if mapped_inputs is None:
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
-        if len(mapped_inputs) != 1:
+        if len(mapped_inputs) != 1 and not isinstance(mapped_inputs[0], list):
             raise Exception("Input to mapped recipe {} must be a list".format(recipe.name))
         recipe.invoke(mapped_inputs[0], *ingredient_inputs_tuple)
     else:
