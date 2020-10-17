@@ -27,6 +27,7 @@ def test_execution(caplog, tmpdir):
 
     @lab.map_recipe(args.recipe)
     def read_file(path: Path) -> str:
+        logging.warning("Running read_file for path: {}".format(path))
         execution_counts[path] += 1
         with path.open('r') as f:
             return f.read()
