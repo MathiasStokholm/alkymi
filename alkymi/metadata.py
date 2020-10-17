@@ -14,17 +14,17 @@ def _handle_number(item: Union[int, float]) -> Union[int, float]:
     return item
 
 
-def _handle_path(path: Path) -> Optional[float]:
+def _handle_path(path: Path) -> Optional[str]:
     # Return None if output doesn't exist
     if not path.exists():
         return None
 
-    # For directories, we care about creation timestamp
+    # For directories, we just care about the path itself
     if path.is_dir():
-        return os.path.getctime(str(path))
+        return "{}".format(path)
 
     # For files, we care about modification timestamp
-    return os.path.getmtime(str(path))
+    return "{}#{}".format(str(path), os.path.getmtime(str(path)))
 
 
 def get_metadata(item: Any):
@@ -41,9 +41,18 @@ def get_metadata(item: Any):
         return _handle_number(item)
 
     if isinstance(item, Iterable):
+        if len(item) == 0:
+            return None
+
         # FIXME(mathias): Find a better way to collapse metadata from multiple items into a single metadata point
         # This is used if a function returns a list of paths or similar
         if all(isinstance(subitem, Path) for subitem in item):
             return max(get_metadata(subitem) for subitem in item)
+
+        if all(subitem is None for subitem in item):
+            return None
+
+        if all(isinstance(subitem, str) for subitem in item):
+            return _handle_str("".join(item))
 
     raise NotImplementedError('Metadata not supported for type: {}'.format(item))

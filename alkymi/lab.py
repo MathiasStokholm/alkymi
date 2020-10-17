@@ -2,20 +2,12 @@
 import argparse
 import json
 import shutil
-from enum import Enum
 from pathlib import Path
-from typing import Iterable, Callable, Optional, Dict, Union, Tuple, Any, Set, List
+from typing import Iterable, Callable, Dict, Union, Set
 
+from .alkymi import compute_status_with_cache, Status, evaluate_recipe, compute_recipe_status
+from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
-from .logging import log
-
-
-class Status(Enum):
-    Ok = 0
-    IngredientDirty = 1
-    NotEvaluatedYet = 2
-    Dirty = 3
-    BoundFunctionChanged = 4
 
 
 class Lab:
@@ -24,7 +16,7 @@ class Lab:
     def __init__(self, name: str, disable_caching=False):
         self._name = name
         self.cache_path = Path(Lab.CACHE_DIRECTORY_NAME) / '{}.json'.format(self.name)
-        self._recipes = set()  # type: Set[Recipe]
+        self._recipes = set()  # type: Set[Union[Recipe, ForeachRecipe]]
 
         # Try to load pre-existing state from cache file
         self._disable_caching = disable_caching
@@ -54,7 +46,14 @@ class Lab:
 
         return _decorator
 
-    def add_recipe(self, recipe: Recipe) -> Recipe:
+    def map_recipe(self, mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient: bool = False) -> \
+            Callable[[Callable], ForeachRecipe]:
+        def _decorator(func: Callable) -> ForeachRecipe:
+            return self.add_recipe(ForeachRecipe(mapped_inputs, ingredients, func, func.__name__, transient))
+
+        return _decorator
+
+    def add_recipe(self, recipe: Union[Recipe, ForeachRecipe]) -> Union[Recipe, ForeachRecipe]:
         self._recipes.add(recipe)
         return recipe
 
@@ -63,14 +62,14 @@ class Lab:
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    result = self.evaluate_recipe(recipe, self.build_status())
+                    result = evaluate_recipe(recipe, compute_recipe_status(recipe))
                     self._save_state()
                     return result
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                result = self.evaluate_recipe(target_recipe, self.build_status())
+                result = evaluate_recipe(target_recipe, compute_recipe_status(target_recipe))
                 self._save_state()
                 return result
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
@@ -83,69 +82,14 @@ class Lab:
     def recipes(self) -> 'Set[Recipe]':
         return self._recipes
 
-    def build_status(self) -> Dict[Recipe, Status]:
+    def build_full_status(self) -> Dict[Recipe, Status]:
         status = {}  # type: Dict[Recipe, Status]
         for recipe in self._recipes:
-            self.compute_status(recipe, status)
+            compute_status_with_cache(recipe, status)
         return status
 
-    def compute_status(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Status:
-        # Early exit if status already determined
-        if recipe in status:
-            return status[recipe]
-
-        # This recipe is dirty if:
-        # 1. There's no cached output for this recipe
-        # 2. One or more ingredients are dirty and need to be reevaluated
-        # 3. The recipe itself deems that it is dirty
-        if recipe.transient or recipe.outputs is None:
-            status[recipe] = Status.NotEvaluatedYet
-            return status[recipe]
-
-        ingredient_outputs = []  # type: List[Any]
-        for ingredient in recipe.ingredients:
-            if self.compute_status(ingredient, status) != Status.Ok:
-                status[recipe] = Status.IngredientDirty
-                return status[recipe]
-            if ingredient.outputs is not None:  # This will never happen, but this satisfied the type checker
-                ingredient_outputs.extend(ingredient.outputs)
-        ingredient_outputs_tuple = tuple(ingredient_outputs)  # type: Tuple[Any, ...]
-
-        if not recipe.is_clean(ingredient_outputs_tuple):
-            status[recipe] = Status.Dirty
-            return status[recipe]
-
-        status[recipe] = Status.Ok
-        return status[recipe]
-
-    def evaluate_recipe(self, recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any]]:
-        log.debug('Evaluating recipe: {}'.format(recipe.name))
-
-        def _print_and_return():
-            log.debug('Finished evaluating {}'.format(recipe.name))
-            return recipe.outputs
-
-        if status[recipe] == Status.Ok:
-            return _print_and_return()
-
-        if len(recipe.ingredients) <= 0:
-            recipe.invoke()
-            return _print_and_return()
-
-        # Load ingredient inputs
-        ingredient_inputs = []  # type: List[Any]
-        for ingredient in recipe.ingredients:
-            result = self.evaluate_recipe(ingredient, status)
-            if result is not None:
-                ingredient_inputs.extend(result)
-        ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
-
-        # Process inputs
-        recipe.invoke(*ingredient_inputs_tuple)
-        return _print_and_return()
-
     def __repr__(self) -> str:
-        status = self.build_status()
+        status = self.build_full_status()
         state = ''
         for recipe in self._recipes:
             state += '\n\t{} - {}'.format(str(recipe), status[recipe])

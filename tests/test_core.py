@@ -2,23 +2,12 @@
 # coding=utf-8
 import logging
 import shutil
-import tempfile
 import time
 from pathlib import Path
+from typing import List
 
-import alkymi as alk
 from alkymi import Lab
-
-
-def test_builtin_glob():
-    with tempfile.TemporaryDirectory() as tempdir:
-        test_file = Path(tempdir) / 'test_file.txt'
-        with test_file.open('w') as f:
-            f.write("test")
-        glob_recipe = alk.recipes.glob_files(Path(tempdir), '*')
-
-        assert len(glob_recipe.ingredients) == 0
-        assert glob_recipe()[0][0] == test_file
+from alkymi.recipe import Recipe
 
 
 def test_recipe_decorator():
@@ -28,13 +17,14 @@ def test_recipe_decorator():
     def should_be_a_recipe():
         return "example"
 
-    assert type(should_be_a_recipe) is alk.Recipe
+    assert type(should_be_a_recipe) is Recipe
     assert should_be_a_recipe() == "example"
     assert should_be_a_recipe.name == 'should_be_a_recipe'
     assert should_be_a_recipe.transient
 
 
-def test_execution(caplog):
+def test_execution(caplog, tmpdir):
+    tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
     lab = Lab('test', disable_caching=True)
 
@@ -45,71 +35,71 @@ def test_execution(caplog):
         reads_a_file=0
     )
 
-    with tempfile.TemporaryDirectory() as tempdir:
-        build_dir = Path(tempdir) / 'build'
-        file = build_dir / 'file.txt'
-        copied_file = build_dir / 'file_copy.txt'
+    build_dir = Path(tmpdir) / 'build'
+    file = build_dir / 'file.txt'
+    copied_file = build_dir / 'file_copy.txt'
 
-        @lab.recipe()
-        def produces_build_dir() -> Path:
-            execution_counts['produces_build_dir'] += 1
-            build_dir.mkdir(parents=False, exist_ok=True)
-            return build_dir
+    @lab.recipe()
+    def produces_build_dir() -> Path:
+        execution_counts['produces_build_dir'] += 1
+        build_dir.mkdir(parents=False, exist_ok=True)
+        return build_dir
 
-        @lab.recipe(ingredients=[produces_build_dir])
-        def produces_a_single_file(_: Path) -> Path:
-            execution_counts['produces_a_single_file'] += 1
-            with file.open('w') as f:
-                f.write('testing')
-            return file
+    @lab.recipe(ingredients=[produces_build_dir])
+    def produces_a_single_file(_: Path) -> Path:
+        execution_counts['produces_a_single_file'] += 1
+        with file.open('w') as f:
+            f.write('testing')
+        return file
 
-        @lab.recipe(ingredients=[produces_a_single_file])
-        def copies_a_file(_: Path) -> Path:
-            execution_counts['copies_a_file'] += 1
-            with file.open('r') as infile, copied_file.open('w') as outfile:
-                outfile.write(infile.read())
-            return copied_file
+    @lab.recipe(ingredients=[produces_a_single_file])
+    def copies_a_file(_: Path) -> List[Path]:
+        execution_counts['copies_a_file'] += 1
+        with file.open('r') as infile, copied_file.open('w') as outfile:
+            outfile.write(infile.read())
+        return [file, copied_file]
 
-        @lab.recipe(ingredients=[copies_a_file], transient=True)
-        def reads_a_file(test_file: Path) -> None:
-            execution_counts['reads_a_file'] += 1
-            with test_file.open('r') as f:
-                f.read()
+    @lab.map_recipe(copies_a_file, transient=True)
+    def reads_a_file(test_file: Path) -> None:
+        execution_counts['reads_a_file'] += 1
+        with test_file.open('r') as f:
+            f.read()
 
-        # Upon definition, no functions should have been executed
-        assert execution_counts['produces_build_dir'] == 0
-        assert execution_counts['produces_a_single_file'] == 0
-        assert execution_counts['copies_a_file'] == 0
-        assert execution_counts['reads_a_file'] == 0
+    # Upon definition, no functions should have been executed
+    assert execution_counts['produces_build_dir'] == 0
+    assert execution_counts['produces_a_single_file'] == 0
+    assert execution_counts['copies_a_file'] == 0
+    assert execution_counts['reads_a_file'] == 0
 
-        # On first brew, all functions should have been executed once
+    # On first brew, all functions should have been executed once
+    # 'reads_a_file' should be executed twice for every triggering - once per file
+    lab.brew(reads_a_file)
+    assert execution_counts['produces_build_dir'] == 1
+    assert execution_counts['produces_a_single_file'] == 1
+    assert execution_counts['copies_a_file'] == 1
+    assert execution_counts['reads_a_file'] == 1 * 2
+
+    # On subsequent brews, only the transient "reads_a_file" function should be executed again
+    for i in range(1, 4):
         lab.brew(reads_a_file)
         assert execution_counts['produces_build_dir'] == 1
         assert execution_counts['produces_a_single_file'] == 1
         assert execution_counts['copies_a_file'] == 1
-        assert execution_counts['reads_a_file'] == 1
+        assert execution_counts['reads_a_file'] == (1 + i) * 2
 
-        # On subsequent brews, only the transient "reads_a_file" function should be executed again
-        for i in range(1, 4):
-            lab.brew(reads_a_file)
-            assert execution_counts['produces_build_dir'] == 1
-            assert execution_counts['produces_a_single_file'] == 1
-            assert execution_counts['copies_a_file'] == 1
-            assert execution_counts['reads_a_file'] == 1 + i
+    # Changing an output should cause reevaluation of the function that created that output (and everything after)
+    time.sleep(0.01)
+    file.touch(exist_ok=True)
+    lab.brew(reads_a_file)
+    assert execution_counts['produces_build_dir'] == 1
+    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['copies_a_file'] == 2
+    assert execution_counts['reads_a_file'] == 5 * 2
 
-        # Changing an output should cause reevaluation of the function that created that output (and everything after)
-        time.sleep(0.01)
-        file.touch(exist_ok=True)
-        lab.brew(reads_a_file)
-        assert execution_counts['produces_build_dir'] == 1
-        assert execution_counts['produces_a_single_file'] == 2
-        assert execution_counts['copies_a_file'] == 2
-        assert execution_counts['reads_a_file'] == 5
-
-        # Deleting the build dir should cause full reevaluation
-        shutil.rmtree(str(build_dir))
-        lab.brew(reads_a_file)
-        assert execution_counts['produces_build_dir'] == 2
-        assert execution_counts['produces_a_single_file'] == 3
-        assert execution_counts['copies_a_file'] == 3
-        assert execution_counts['reads_a_file'] == 6
+    # Deleting the build dir should cause full reevaluation
+    shutil.rmtree(str(build_dir))
+    lab.brew(reads_a_file)
+    assert execution_counts['produces_build_dir'] == 2
+    assert execution_counts['produces_a_single_file'] == 3
+    assert execution_counts['copies_a_file'] == 3
+    assert execution_counts['reads_a_file'] == 6 * 2
