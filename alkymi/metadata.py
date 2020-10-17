@@ -14,17 +14,17 @@ def _handle_number(item: Union[int, float]) -> Union[int, float]:
     return item
 
 
-def _handle_path(path: Path) -> Optional[float]:
+def _handle_path(path: Path) -> Optional[str]:
     # Return None if output doesn't exist
     if not path.exists():
         return None
 
-    # For directories, we care about creation timestamp
+    # For directories, we just care about the path itself
     if path.is_dir():
-        return os.path.getctime(str(path))
+        return "{}".format(path)
 
     # For files, we care about modification timestamp
-    return os.path.getmtime(str(path))
+    return "{}#{}".format(str(path), os.path.getmtime(str(path)))
 
 
 def get_metadata(item: Any):

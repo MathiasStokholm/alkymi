@@ -26,6 +26,7 @@ class Recipe(object):
         return self._func(*args, **kwargs)
 
     def invoke(self, *inputs: Optional[Tuple[Any, ...]]):
+        log.debug('Invoking recipe: {}'.format(self.name))
         self.inputs = inputs
         self.outputs = self._canonical(self(*inputs))
         return self.outputs
@@ -55,7 +56,8 @@ class Recipe(object):
         # Compute output metadata to ensure that outputs haven't changed
         current_output_metadata = [get_metadata(out) for out in self.outputs]
         if self.output_metadata != current_output_metadata:
-            log.debug('{} -> dirty: output metadata did not match'.format(self._name))
+            log.debug('{} -> dirty: output metadata did not match: {} != {}'.format(self._name, self.output_metadata,
+                                                                                    current_output_metadata))
             return False
 
         # If last inputs were non-existent, new inputs have to be non-existent too for equality

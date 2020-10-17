@@ -40,7 +40,9 @@ def test_execution(caplog, tmpdir):
     assert execution_counts[f3] == 0
 
     args.set_args([f1, f2, f3])
+    assert compute_recipe_status(read_file)[read_file] == Status.MappedInputsDirty
     lab.brew(read_file)
+    assert compute_recipe_status(read_file)[read_file] == Status.Ok
     assert execution_counts[f1] == 1
     assert execution_counts[f2] == 1
     assert execution_counts[f3] == 1

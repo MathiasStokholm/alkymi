@@ -40,12 +40,14 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs_metadata
 
     def invoke(self, mapped_inputs: List[Any], *inputs: Optional[Tuple[Any, ...]]):
+        log.debug('Invoking recipe: {}'.format(self.name))
         outputs = []
         for item in mapped_inputs:
             if not self.transient and self.outputs is not None:
                 try:
                     metadata = get_metadata(item)
                     idx = self.mapped_inputs_metadata.index(metadata)
+                    log.debug('Comparing metadata: {} / {}'.format(metadata, self.mapped_inputs_metadata[idx]))
                     if metadata == self.mapped_inputs_metadata[idx]:
                         outputs.append(self.outputs[0][idx])
                         continue
