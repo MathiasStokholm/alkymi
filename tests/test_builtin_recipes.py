@@ -7,6 +7,7 @@ from alkymi.alkymi import compute_recipe_status, evaluate_recipe, Status
 
 
 def test_builtin_glob(tmpdir):
+    tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
         f.write("test")

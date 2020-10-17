@@ -25,6 +25,7 @@ def test_recipe_decorator():
 
 
 def test_execution(caplog, tmpdir):
+    tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
     lab = Lab('test', disable_caching=True)
 
