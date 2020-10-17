@@ -1,5 +1,6 @@
 # coding=utf-8
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
 
 from .recipe import Recipe
@@ -96,12 +97,17 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tu
     # Process inputs
     if isinstance(recipe, ForeachRecipe):
         # Process mapped inputs
-        mapped_inputs = evaluate_recipe(recipe.mapped_recipe, status)
-        if mapped_inputs is None:
+        mapped_inputs_tuple = evaluate_recipe(recipe.mapped_recipe, status)
+        if mapped_inputs_tuple is None:
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
-        if len(mapped_inputs) != 1 and not isinstance(mapped_inputs[0], list):
-            raise Exception("Input to mapped recipe {} must be a list".format(recipe.name))
-        recipe.invoke(mapped_inputs[0], *ingredient_inputs_tuple)
+        if len(mapped_inputs_tuple) != 1:
+            raise Exception("Input to mapped recipe {} must be a a single list or dict".format(recipe.name))
+        mapped_inputs = mapped_inputs_tuple[0]
+
+        # Mapped inputs can either be a list of Paths, or a dictionary
+        if isinstance(mapped_inputs, list) and any(not isinstance(item, Path) for item in mapped_inputs):
+            raise Exception("Input to mapped recipe {} must be a list of Paths or a dict".format(recipe.name))
+        recipe.invoke(mapped_inputs, *ingredient_inputs_tuple)
     else:
         # Regular Recipe
         recipe.invoke(*ingredient_inputs_tuple)

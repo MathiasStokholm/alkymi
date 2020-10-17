@@ -2,7 +2,6 @@
 # coding=utf-8
 import logging
 import shutil
-import tempfile
 import time
 from pathlib import Path
 from typing import List

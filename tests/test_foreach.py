@@ -2,6 +2,7 @@
 # coding=utf-8
 import logging
 from pathlib import Path
+from typing import Dict, List
 
 from alkymi import Lab
 import alkymi.recipes
@@ -20,47 +21,72 @@ def test_execution(caplog, tmpdir):
     f2.write_text(f2.stem)
     f3.write_text(f3.stem)
 
-    execution_counts = {f1: 0, f2: 0, f3: 0}
+    execution_counts = {f1: 0, f2: 0, f3: 0, f1.stem: 0, f2.stem: 0, f3.stem: 0}
 
     args = alkymi.recipes.args([f1])
     lab.add_recipe(args.recipe)
 
     @lab.map_recipe(args.recipe)
     def read_file(path: Path) -> str:
-        logging.warning("Running read_file for path: {}".format(path))
         execution_counts[path] += 1
         with path.open('r') as f:
             return f.read()
 
+    @lab.recipe(ingredients=[read_file])
+    def to_dict(file_contents: List[str]) -> Dict[str, str]:
+        return {f: f for f in file_contents}
+
+    @lab.map_recipe(to_dict)
+    def echo(file_content: str) -> str:
+        execution_counts[file_content] += 1
+        return file_content
+
     assert compute_recipe_status(read_file)[read_file] == Status.NotEvaluatedYet
-    lab.brew(read_file)
+    assert compute_recipe_status(echo)[echo] == Status.NotEvaluatedYet
+    lab.brew(echo)
     assert compute_recipe_status(read_file)[read_file] == Status.Ok
+    assert compute_recipe_status(echo)[echo] == Status.Ok
     assert execution_counts[f1] == 1
     assert execution_counts[f2] == 0
     assert execution_counts[f3] == 0
+    assert execution_counts[f1.stem] == 1
+    assert execution_counts[f2.stem] == 0
+    assert execution_counts[f3.stem] == 0
 
     args.set_args([f1, f2, f3])
     assert compute_recipe_status(read_file)[read_file] == Status.MappedInputsDirty
-    lab.brew(read_file)
+    lab.brew(echo)
     assert compute_recipe_status(read_file)[read_file] == Status.Ok
     assert execution_counts[f1] == 1
     assert execution_counts[f2] == 1
     assert execution_counts[f3] == 1
+    assert execution_counts[f1.stem] == 1
+    assert execution_counts[f2.stem] == 1
+    assert execution_counts[f3.stem] == 1
 
     args.set_args([f3, f2])
-    lab.brew(read_file)
+    lab.brew(echo)
     assert execution_counts[f1] == 1
     assert execution_counts[f2] == 1
     assert execution_counts[f3] == 1
+    assert execution_counts[f1.stem] == 1
+    assert execution_counts[f2.stem] == 1
+    assert execution_counts[f3.stem] == 1
 
     args.set_args([f1])
-    lab.brew(read_file)
+    lab.brew(echo)
     assert execution_counts[f1] == 2
     assert execution_counts[f2] == 1
     assert execution_counts[f3] == 1
+    assert execution_counts[f1.stem] == 2
+    assert execution_counts[f2.stem] == 1
+    assert execution_counts[f3.stem] == 1
 
     args.set_args([])
-    lab.brew(read_file)
+    lab.brew(echo)
     assert execution_counts[f1] == 2
     assert execution_counts[f2] == 1
     assert execution_counts[f3] == 1
+    assert execution_counts[f1.stem] == 2
+    assert execution_counts[f2.stem] == 1
+    assert execution_counts[f3.stem] == 1
