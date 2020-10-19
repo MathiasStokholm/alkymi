@@ -3,25 +3,23 @@
 import logging
 from typing import List
 
-from alkymi import Lab, log
-from alkymi.recipes import glob_files
+import alkymi as alk
 from pathlib import Path
 
 # Set up logging
-log.addHandler(logging.StreamHandler())
+alk.log.addHandler(logging.StreamHandler())
 
-lab = Lab('Import parsing')
-input_files = lab.add_recipe(glob_files(Path('alkymi'), '*.py'))
+input_files = alk.recipes.glob_files(Path('alkymi'), '*.py')
 
 
-@lab.recipe()
+@alk.recipe()
 def create_build_dir() -> Path:
     build_dir = Path('build')
     build_dir.mkdir(exist_ok=True)
     return build_dir
 
 
-@lab.map_recipe(input_files, ingredients=[create_build_dir])
+@alk.map_recipe(input_files, ingredients=[create_build_dir])
 def process_imports(pyfile: Path, build_dir: Path) -> Path:
     output_file = build_dir / str(pyfile.name).replace('.py', '.txt')
     with pyfile.open('r') as fin, output_file.open('w') as fout:
@@ -30,7 +28,7 @@ def process_imports(pyfile: Path, build_dir: Path) -> Path:
     return output_file
 
 
-@lab.recipe(ingredients=[process_imports], transient=True)
+@alk.recipe(ingredients=[process_imports], transient=True)
 def print_results(imports: List[Path]) -> None:
     for import_file in imports:
         with import_file.open('r') as f:
@@ -38,6 +36,11 @@ def print_results(imports: List[Path]) -> None:
 
 
 def main():
+    lab = alk.Lab('Import parsing')
+    lab.add_recipe(input_files)
+    lab.add_recipe(create_build_dir)
+    lab.add_recipe(process_imports)
+    lab.add_recipe(print_results)
     lab.open()
 
 

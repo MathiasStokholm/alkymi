@@ -31,6 +31,10 @@ class Recipe(object):
         self.outputs = self._canonical(self(*inputs))
         return self.outputs
 
+    def brew(self):
+        from .alkymi import evaluate_recipe, compute_recipe_status
+        return evaluate_recipe(self, compute_recipe_status(self))
+
     @staticmethod
     def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Tuple[Any, ...]:
         if outputs is None:

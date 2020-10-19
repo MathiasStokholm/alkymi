@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import List
 
-from alkymi import Lab
+import alkymi as alk
 from alkymi import serialization
 
 
@@ -38,16 +38,14 @@ def test_serialize_deserialize_items():
 
 
 def test_recipe_serialization():
-    lab = Lab('test', disable_caching=True)
-
     with tempfile.TemporaryDirectory() as tempdir:
-        @lab.recipe()
+        @alk.recipe()
         def produces_build_dir() -> Path:
             build_dir = Path(tempdir) / "build"
             build_dir.mkdir(parents=False, exist_ok=True)
             return build_dir
 
-        @lab.recipe(ingredients=[produces_build_dir])
+        @alk.recipe(ingredients=[produces_build_dir])
         def files_in_dir(build_dir: Path) -> List[Path]:
             new_file_1 = build_dir / "test.txt"
             new_file_1.touch()
@@ -55,7 +53,7 @@ def test_recipe_serialization():
             new_file_2.touch()
             return [new_file_1, new_file_2]
 
-        @lab.map_recipe(files_in_dir)
+        @alk.map_recipe(files_in_dir)
         def read_file(f: Path) -> str:
             with f.open('r') as fh:
                 return fh.read()
@@ -64,7 +62,7 @@ def test_recipe_serialization():
         produces_build_dir_copy = copy.deepcopy(produces_build_dir)
         files_in_dir_copy = copy.deepcopy(files_in_dir)
         read_file_copy = copy.deepcopy(read_file)
-        lab.brew(read_file)
+        read_file.brew()
 
         # Ensure copied state is correct after brew
         for recipe in [produces_build_dir_copy, files_in_dir_copy, read_file_copy]:

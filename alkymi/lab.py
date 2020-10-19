@@ -40,19 +40,6 @@ class Lab:
             states = {recipe.function_hash: recipe.to_dict() for recipe in self._recipes}
             f.write(json.dumps(states, indent=4))
 
-    def recipe(self, ingredients: Iterable[Recipe] = (), transient: bool = False) -> Callable[[Callable], Recipe]:
-        def _decorator(func: Callable) -> Recipe:
-            return self.add_recipe(Recipe(ingredients, func, func.__name__, transient))
-
-        return _decorator
-
-    def map_recipe(self, mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient: bool = False) -> \
-            Callable[[Callable], ForeachRecipe]:
-        def _decorator(func: Callable) -> ForeachRecipe:
-            return self.add_recipe(ForeachRecipe(mapped_inputs, ingredients, func, func.__name__, transient))
-
-        return _decorator
-
     def add_recipe(self, recipe: Union[Recipe, ForeachRecipe]) -> Union[Recipe, ForeachRecipe]:
         self._recipes.add(recipe)
         return recipe
