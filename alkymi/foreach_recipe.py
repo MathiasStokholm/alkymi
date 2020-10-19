@@ -1,6 +1,6 @@
 # coding=utf-8
-
-from typing import Iterable, Callable, Optional, Tuple, Any, List
+from pathlib import Path
+from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union
 
 from .logging import log
 from .metadata import get_metadata
@@ -26,46 +26,79 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs
 
     @mapped_inputs.setter
-    def mapped_inputs(self, mapped_inputs: List[Any]):
+    def mapped_inputs(self, mapped_inputs: Union[List[Path], Dict[Any, Any]]):
         if mapped_inputs is None:
             return
 
-        self._mapped_inputs_metadata = []
-        for inp in mapped_inputs:
-            self._mapped_inputs_metadata.append(get_metadata(inp))
+        if isinstance(mapped_inputs, list):
+            self._mapped_inputs_metadata = []
+            for inp in mapped_inputs:
+                self._mapped_inputs_metadata.append(get_metadata(inp))
+        elif isinstance(mapped_inputs, dict):
+            self._mapped_inputs_metadata = {}
+            for key, inp in mapped_inputs.items():
+                self._mapped_inputs_metadata[key] = get_metadata(inp)
+        else:
+            raise RuntimeError("Cannot handle mapped input of type: {}".format(type(mapped_inputs)))
         self._mapped_inputs = mapped_inputs
 
     @property
-    def mapped_inputs_metadata(self) -> List[Any]:
+    def mapped_inputs_metadata(self) -> Union[List[Path], Dict[Any, Any]]:
         return self._mapped_inputs_metadata
 
-    def invoke(self, mapped_inputs: List[Any], *inputs: Optional[Tuple[Any, ...]]):
-        log.debug('Invoking recipe: {}'.format(self.name))
-        outputs = []
-        for item in mapped_inputs:
-            if not self.transient and self.outputs is not None:
-                try:
-                    metadata = get_metadata(item)
-                    idx = self.mapped_inputs_metadata.index(metadata)
-                    log.debug('Comparing metadata: {} / {}'.format(metadata, self.mapped_inputs_metadata[idx]))
-                    if metadata == self.mapped_inputs_metadata[idx]:
-                        outputs.append(self.outputs[0][idx])
-                        continue
-                except ValueError:
-                    pass
-            outputs.append(self(item, *inputs))
+    def invoke(self, mapped_inputs: Union[List[Path], Dict[Any, Any]], *inputs: Optional[Tuple[Any, ...]]):
+        log.debug("Invoking recipe: {}".format(self.name))
+        if isinstance(mapped_inputs, list):
+            outputs = []
+            for item in mapped_inputs:
+                if not self.transient and self.outputs is not None:
+                    try:
+                        new_metadata = get_metadata(item)
+                        idx = self.mapped_inputs_metadata.index(new_metadata)
+                        found_metadata = self.mapped_inputs_metadata[idx]
+                        log.debug("Comparing metadata: {} / {}".format(new_metadata, found_metadata))
+                        if new_metadata == found_metadata:
+                            outputs.append(self.outputs[0][idx])
+                            continue
+                    except ValueError:
+                        pass
+                outputs.append(self(item, *inputs))
+        elif isinstance(mapped_inputs, dict):
+            outputs = {}
+            for key, item in mapped_inputs.items():
+                if not self.transient and self.outputs is not None:
+                    found_metadata = self.mapped_inputs_metadata.get(key, None)
+                    if found_metadata is not None:
+                        new_metadata = get_metadata(key)
+                        log.debug('Comparing metadata: {} / {}'.format(new_metadata, found_metadata))
+                        if new_metadata == found_metadata:
+                            outputs[key] = self.outputs[0][key]
+                            continue
+                outputs[key] = self(item, *inputs)
+        else:
+            raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
+
         self.inputs = inputs
         self.mapped_inputs = mapped_inputs
         self.outputs = self._canonical(outputs)
 
         return self.outputs
 
-    def is_mapped_clean(self, new_mapped_inputs: List[Any]) -> bool:
+    def is_mapped_clean(self, new_mapped_inputs: Union[List[Path], Dict[Any, Any]]) -> bool:
         # Compute mapped input metadata and perform equality check
-        new_mapped_input_metadata = [get_metadata(inp) for inp in new_mapped_inputs]
-        if self.mapped_inputs_metadata != new_mapped_input_metadata:
-            log.debug('{} -> dirty: mapped inputs metadata changed'.format(self._name))
-            return False
+        if isinstance(new_mapped_inputs, list):
+            new_mapped_input_metadata = [get_metadata(inp) for inp in new_mapped_inputs]
+            if self.mapped_inputs_metadata != new_mapped_input_metadata:
+                log.debug('{} -> dirty: mapped inputs metadata changed'.format(self._name))
+                return False
+        elif isinstance(new_mapped_inputs, dict):
+            for key, item in new_mapped_inputs.items():
+                if self.mapped_inputs_metadata[key] != get_metadata(item):
+                    log.debug('{} -> dirty: mapped inputs metadata changed'.format(self._name))
+                    return False
+        else:
+            raise RuntimeError(
+                "Cleanliness not supported  for mapped inputs w/ type: {}".format(type(new_mapped_inputs)))
         return True
 
     def to_dict(self):
