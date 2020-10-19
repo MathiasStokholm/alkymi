@@ -27,9 +27,9 @@ def file(path: Path) -> Recipe:
 class NamedArgs:
     def __init__(self, **_kwargs):
         self._kwargs = _kwargs
-        self._recipe = Recipe([], self._produce_args, "kwargs", transient=False, cleanliness_func=self._clean)
+        self._recipe = Recipe([], self._produce_kwargs, "kwargs", transient=False, cleanliness_func=self._clean)
 
-    def _produce_args(self):
+    def _produce_kwargs(self):
         return self._kwargs
 
     def _clean(self, last_outputs: Tuple[List[Path]]):

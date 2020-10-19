@@ -1,6 +1,8 @@
 # coding=utf-8
+import json
 from collections import OrderedDict
 from hashlib import md5
+from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from .logging import log
@@ -9,6 +11,8 @@ from .serialization import check_output, deserialize_items, serialize_items
 
 
 class Recipe(object):
+    CACHE_DIRECTORY_NAME = ".alkymi_cache"
+
     def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool,
                  cleanliness_func: Optional[Callable] = None):
         self._ingredients = list(ingredients)
@@ -22,6 +26,13 @@ class Recipe(object):
         self._inputs = None
         self._input_metadata = None
 
+        # Try to reload last state
+        # TODO(mathias): Use a better structure here
+        self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / name / '{}.json'.format(self.function_hash)
+        if self.cache_path.exists():
+            with self.cache_path.open('r') as f:
+                self.restore_from_dict(json.loads(f.read()))
+
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
 
@@ -29,11 +40,17 @@ class Recipe(object):
         log.debug('Invoking recipe: {}'.format(self.name))
         self.inputs = inputs
         self.outputs = self._canonical(self(*inputs))
+        self._save_state()
         return self.outputs
 
     def brew(self):
         from .alkymi import evaluate_recipe, compute_recipe_status
         return evaluate_recipe(self, compute_recipe_status(self))
+
+    def _save_state(self) -> None:
+        self.cache_path.parent.mkdir(exist_ok=True, parents=True)
+        with self.cache_path.open('w') as f:
+            f.write(json.dumps(self.to_dict(), indent=4))
 
     @staticmethod
     def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Tuple[Any, ...]:

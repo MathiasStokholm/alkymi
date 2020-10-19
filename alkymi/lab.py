@@ -1,9 +1,6 @@
 # coding=utf-8
 import argparse
-import json
-import shutil
-from pathlib import Path
-from typing import Iterable, Callable, Dict, Union, Set
+from typing import Dict, Union, Set
 
 from .alkymi import compute_status_with_cache, Status, evaluate_recipe, compute_recipe_status
 from .foreach_recipe import ForeachRecipe
@@ -11,34 +8,9 @@ from .recipe import Recipe
 
 
 class Lab:
-    CACHE_DIRECTORY_NAME = ".alkymi_cache"
-
-    def __init__(self, name: str, disable_caching=False):
+    def __init__(self, name: str):
         self._name = name
-        self.cache_path = Path(Lab.CACHE_DIRECTORY_NAME) / '{}.json'.format(self.name)
         self._recipes = set()  # type: Set[Union[Recipe, ForeachRecipe]]
-
-        # Try to load pre-existing state from cache file
-        self._disable_caching = disable_caching
-
-    def _try_load_state(self) -> None:
-        if self._disable_caching or not self.cache_path.exists():
-            return
-
-        with self.cache_path.open('r') as f:
-            json_items = json.loads(f.read())
-            for recipe in self._recipes:
-                if recipe.function_hash in json_items:
-                    recipe.restore_from_dict(json_items[recipe.function_hash])
-
-    def _save_state(self) -> None:
-        if self._disable_caching:
-            return
-
-        self.cache_path.parent.mkdir(exist_ok=True)
-        with self.cache_path.open('w') as f:
-            states = {recipe.function_hash: recipe.to_dict() for recipe in self._recipes}
-            f.write(json.dumps(states, indent=4))
 
     def add_recipe(self, recipe: Union[Recipe, ForeachRecipe]) -> Union[Recipe, ForeachRecipe]:
         self._recipes.add(recipe)
@@ -50,15 +22,12 @@ class Lab:
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
                     result = evaluate_recipe(recipe, compute_recipe_status(recipe))
-                    self._save_state()
                     return result
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                result = evaluate_recipe(target_recipe, compute_recipe_status(target_recipe))
-                self._save_state()
-                return result
+                return target_recipe.brew()
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property
@@ -83,8 +52,6 @@ class Lab:
         return '{} lab with recipes:{}'.format(self.name, state)
 
     def open(self) -> None:
-        self._try_load_state()
-
         # Create the top-level parser
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
@@ -108,8 +75,6 @@ class Lab:
         args = parser.parse_args()
         if args.subparser_name == 'status':
             print(self)
-        elif args.subparser_name == 'clean-cache':
-            shutil.rmtree(self.cache_path.parent)
         elif args.subparser_name == 'clean':
             print('Cleaning outputs for {}'.format(args.recipe))
             raise NotImplementedError("Clean doesn't work yet!")

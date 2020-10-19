@@ -15,8 +15,10 @@ def check_output(output: Any) -> bool:
     return True
 
 
-def serialize_item(item: Any) -> Generator[Union[str, int, float], None, None]:
-    if isinstance(item, Path):
+def serialize_item(item: Any) -> Optional[Generator[Union[str, int, float], None, None]]:
+    if item is None:
+        yield None
+    elif isinstance(item, Path):
         yield "{}{}".format(PATH_TOKEN, item)
     elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
         yield item
