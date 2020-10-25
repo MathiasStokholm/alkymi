@@ -4,18 +4,18 @@ from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union
 
 from .logging import log
 from .metadata import get_metadata
-from .recipe import Recipe
+from .recipe import Recipe, CacheType
 from .serialization import serialize_item, deserialize_item
 
 
 class ForeachRecipe(Recipe):
     def __init__(self, mapped_recipe: Recipe, ingredients: Iterable['Recipe'], func: Callable, name: str,
-                 transient: bool,
+                 transient: bool, cache: CacheType,
                  cleanliness_func: Optional[Callable] = None):
-        super().__init__(ingredients, func, name, transient, cleanliness_func)
         self._mapped_recipe = mapped_recipe
         self._mapped_inputs = None
         self._mapped_inputs_metadata = None
+        super().__init__(ingredients, func, name, transient, cache, cleanliness_func)
 
     @property
     def mapped_recipe(self) -> Recipe:
@@ -81,7 +81,7 @@ class ForeachRecipe(Recipe):
         self.inputs = inputs
         self.mapped_inputs = mapped_inputs
         self.outputs = self._canonical(outputs)
-
+        self._save_state()
         return self.outputs
 
     def is_mapped_clean(self, new_mapped_inputs: Union[List[Path], Dict[Any, Any]]) -> bool:

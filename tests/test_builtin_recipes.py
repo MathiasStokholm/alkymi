@@ -3,7 +3,12 @@
 from pathlib import Path
 
 import alkymi.recipes
+from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, evaluate_recipe, Status
+
+
+# Turn of caching for tests
+AlkymiConfig.get().cache = False
 
 
 def test_builtin_glob(tmpdir):
@@ -50,7 +55,7 @@ def test_builtin_kwargs():
 
     assert len(args_recipe.ingredients) == 0
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.NotEvaluatedYet
-    results = evaluate_recipe(args_recipe, compute_recipe_status(args_recipe))
+    results = args_recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
     assert results[0]["argument1"] == "value1"

@@ -1,15 +1,20 @@
 # coding=utf-8
+import json
 from collections import OrderedDict
 from hashlib import md5
+from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
+from .config import CacheType, AlkymiConfig
 from .logging import log
 from .metadata import get_metadata
 from .serialization import check_output, deserialize_items, serialize_items
 
 
 class Recipe(object):
-    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool,
+    CACHE_DIRECTORY_NAME = ".alkymi_cache"
+
+    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool, cache: CacheType,
                  cleanliness_func: Optional[Callable] = None):
         self._ingredients = list(ingredients)
         self._func = func
@@ -17,10 +22,27 @@ class Recipe(object):
         self._transient = transient
         self._cleanliness_func = cleanliness_func
 
+        # Set cache type based on default value (in AlkymiConfig)
+        if cache == CacheType.Auto:
+            # Pick based on what is in the config
+            self._cache = CacheType.Cache if AlkymiConfig.get().cache else CacheType.NoCache
+        else:
+            self._cache = cache
+
         self._outputs = None
         self._output_metadata = None
         self._inputs = None
         self._input_metadata = None
+
+        if self.cache == CacheType.Cache:
+            # Try to reload last state
+            func_file = Path(self._func.__code__.co_filename)
+            module_name = func_file.parents[0].stem
+            self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / module_name / name / '{}.json'.format(
+                self.function_hash)
+            if self.cache_path.exists():
+                with self.cache_path.open('r') as f:
+                    self.restore_from_dict(json.loads(f.read()))
 
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
@@ -29,7 +51,18 @@ class Recipe(object):
         log.debug('Invoking recipe: {}'.format(self.name))
         self.inputs = inputs
         self.outputs = self._canonical(self(*inputs))
+        self._save_state()
         return self.outputs
+
+    def brew(self):
+        from .alkymi import evaluate_recipe, compute_recipe_status
+        return evaluate_recipe(self, compute_recipe_status(self))
+
+    def _save_state(self) -> None:
+        if self._cache == CacheType.Cache:
+            self.cache_path.parent.mkdir(exist_ok=True, parents=True)
+            with self.cache_path.open('w') as f:
+                f.write(json.dumps(self.to_dict(), indent=4))
 
     @staticmethod
     def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Tuple[Any, ...]:
@@ -85,6 +118,10 @@ class Recipe(object):
     @property
     def transient(self) -> bool:
         return self._transient
+
+    @property
+    def cache(self) -> CacheType:
+        return self._cache
 
     @property
     def function_hash(self) -> str:
