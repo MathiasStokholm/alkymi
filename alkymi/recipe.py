@@ -3,6 +3,7 @@ import json
 from collections import OrderedDict
 from hashlib import md5
 from pathlib import Path
+from enum import Enum
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from .logging import log
@@ -10,15 +11,21 @@ from .metadata import get_metadata
 from .serialization import check_output, deserialize_items, serialize_items
 
 
+class CacheType(Enum):
+    Auto = 0
+    NoCache = 1
+
+
 class Recipe(object):
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
-    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool,
+    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool, cache: CacheType,
                  cleanliness_func: Optional[Callable] = None):
         self._ingredients = list(ingredients)
         self._func = func
         self._name = name
         self._transient = transient
+        self._cache = cache
         self._cleanliness_func = cleanliness_func
 
         self._outputs = None
@@ -26,12 +33,15 @@ class Recipe(object):
         self._inputs = None
         self._input_metadata = None
 
-        # Try to reload last state
-        # TODO(mathias): Use a better structure here
-        self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / name / '{}.json'.format(self.function_hash)
-        if self.cache_path.exists():
-            with self.cache_path.open('r') as f:
-                self.restore_from_dict(json.loads(f.read()))
+        if self.cache == CacheType.Auto:
+            # Try to reload last state
+            func_file = Path(self._func.__code__.co_filename)
+            module_name = func_file.parents[0].stem
+            self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / module_name / name / '{}.json'.format(
+                self.function_hash)
+            if self.cache_path.exists():
+                with self.cache_path.open('r') as f:
+                    self.restore_from_dict(json.loads(f.read()))
 
     def __call__(self, *args, **kwargs):
         return self._func(*args, **kwargs)
@@ -48,9 +58,10 @@ class Recipe(object):
         return evaluate_recipe(self, compute_recipe_status(self))
 
     def _save_state(self) -> None:
-        self.cache_path.parent.mkdir(exist_ok=True, parents=True)
-        with self.cache_path.open('w') as f:
-            f.write(json.dumps(self.to_dict(), indent=4))
+        if self._cache == CacheType.Auto:
+            self.cache_path.parent.mkdir(exist_ok=True, parents=True)
+            with self.cache_path.open('w') as f:
+                f.write(json.dumps(self.to_dict(), indent=4))
 
     @staticmethod
     def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Tuple[Any, ...]:
@@ -106,6 +117,10 @@ class Recipe(object):
     @property
     def transient(self) -> bool:
         return self._transient
+
+    @property
+    def cache(self) -> CacheType:
+        return self._cache
 
     @property
     def function_hash(self) -> str:
