@@ -5,8 +5,13 @@ from pathlib import Path
 from typing import Dict, List
 
 import alkymi.recipes
+from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, Status
 import alkymi as alk
+
+
+# Turn of caching for tests
+AlkymiConfig.get().cache = False
 
 
 def test_execution(caplog, tmpdir):

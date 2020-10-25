@@ -3,17 +3,12 @@ import json
 from collections import OrderedDict
 from hashlib import md5
 from pathlib import Path
-from enum import Enum
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
+from .config import CacheType, AlkymiConfig
 from .logging import log
 from .metadata import get_metadata
 from .serialization import check_output, deserialize_items, serialize_items
-
-
-class CacheType(Enum):
-    Auto = 0
-    NoCache = 1
 
 
 class Recipe(object):
@@ -25,15 +20,21 @@ class Recipe(object):
         self._func = func
         self._name = name
         self._transient = transient
-        self._cache = cache
         self._cleanliness_func = cleanliness_func
+
+        # Set cache type based on default value (in AlkymiConfig)
+        if cache == CacheType.Auto:
+            # Pick based on what is in the config
+            self._cache = CacheType.Cache if AlkymiConfig.get().cache else CacheType.NoCache
+        else:
+            self._cache = cache
 
         self._outputs = None
         self._output_metadata = None
         self._inputs = None
         self._input_metadata = None
 
-        if self.cache == CacheType.Auto:
+        if self.cache == CacheType.Cache:
             # Try to reload last state
             func_file = Path(self._func.__code__.co_filename)
             module_name = func_file.parents[0].stem
@@ -58,7 +59,7 @@ class Recipe(object):
         return evaluate_recipe(self, compute_recipe_status(self))
 
     def _save_state(self) -> None:
-        if self._cache == CacheType.Auto:
+        if self._cache == CacheType.Cache:
             self.cache_path.parent.mkdir(exist_ok=True, parents=True)
             with self.cache_path.open('w') as f:
                 f.write(json.dumps(self.to_dict(), indent=4))

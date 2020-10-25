@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import List
 
 import alkymi as alk
+from alkymi import AlkymiConfig
 from alkymi.recipe import Recipe
+
+
+# Turn of caching for tests
+AlkymiConfig.get().cache = False
 
 
 def test_recipe_decorator():

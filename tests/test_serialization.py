@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import List
 
 import alkymi as alk
-from alkymi import serialization
+from alkymi import serialization, AlkymiConfig
+
+# Turn of caching for tests
+AlkymiConfig.get().cache = False
 
 
 def test_serialize_item():

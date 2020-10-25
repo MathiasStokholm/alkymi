@@ -16,6 +16,10 @@ class Lab:
         self._recipes.add(recipe)
         return recipe
 
+    def add_recipes(self, *recipes: Union[Recipe, ForeachRecipe]):
+        for recipe in recipes:
+            self.add_recipe(recipe)
+
     def brew(self, target_recipe: Union[Recipe, str]):
         if isinstance(target_recipe, str):
             # Try to match name

@@ -3,7 +3,12 @@
 from pathlib import Path
 
 import alkymi.recipes
+from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, evaluate_recipe, Status
+
+
+# Turn of caching for tests
+AlkymiConfig.get().cache = False
 
 
 def test_builtin_glob(tmpdir):

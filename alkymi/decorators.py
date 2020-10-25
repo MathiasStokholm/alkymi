@@ -1,7 +1,8 @@
 from typing import Iterable, Callable
 
+from .config import CacheType
 from .foreach_recipe import ForeachRecipe
-from .recipe import Recipe, CacheType
+from .recipe import Recipe
 
 
 def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False, cache: CacheType = CacheType.Auto) -> \
