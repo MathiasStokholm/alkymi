@@ -11,7 +11,7 @@ from .metadata import get_metadata
 from .serialization import check_output, deserialize_items, serialize_items
 
 
-class Recipe(object):
+class Recipe:
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
     def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool, cache: CacheType,
@@ -38,10 +38,10 @@ class Recipe(object):
             # Try to reload last state
             func_file = Path(self._func.__code__.co_filename)
             module_name = func_file.parents[0].stem
-            self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / module_name / name / '{}.json'.format(
-                self.function_hash)
-            if self.cache_path.exists():
-                with self.cache_path.open('r') as f:
+            self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / module_name / name
+            self.cache_file = self.cache_path / '{}.json'.format(self.function_hash)
+            if self.cache_file.exists():
+                with self.cache_file.open('r') as f:
                     self.restore_from_dict(json.loads(f.read()))
 
     def __call__(self, *args, **kwargs):
@@ -60,8 +60,8 @@ class Recipe(object):
 
     def _save_state(self) -> None:
         if self._cache == CacheType.Cache:
-            self.cache_path.parent.mkdir(exist_ok=True, parents=True)
-            with self.cache_path.open('w') as f:
+            self.cache_path.mkdir(exist_ok=True, parents=True)
+            with self.cache_file.open('w') as f:
                 f.write(json.dumps(self.to_dict(), indent=4))
 
     @staticmethod
@@ -167,11 +167,17 @@ class Recipe(object):
         return self.name
 
     def to_dict(self):
+        def cache_path_generator():
+            i = 0
+            while True:
+                yield self.cache_path / str(i)
+                i += 1
+
         return OrderedDict(
             name=self.name,
-            inputs=serialize_items(self.inputs),
+            inputs=serialize_items(self.inputs, cache_path_generator()),
             input_metadata=self.input_metadata,
-            outputs=serialize_items(self.outputs),
+            outputs=serialize_items(self.outputs, cache_path_generator()),
             output_metadata=self.output_metadata,
         )
 

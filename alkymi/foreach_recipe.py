@@ -102,8 +102,14 @@ class ForeachRecipe(Recipe):
         return True
 
     def to_dict(self):
+        def cache_path_generator():
+            i = 0
+            while True:
+                yield self.cache_path / "m{}".format(i)
+                i += 1
+
         dictionary = super().to_dict()
-        dictionary["mapped_inputs"] = next(serialize_item(self.mapped_inputs))
+        dictionary["mapped_inputs"] = next(serialize_item(self.mapped_inputs, cache_path_generator()))
         dictionary["mapped_inputs_metadata"] = self.mapped_inputs_metadata
         return dictionary
 

@@ -13,17 +13,19 @@ AlkymiConfig.get().cache = False
 
 
 def test_serialize_item():
-    generator = serialization.serialize_item(Path("/test_path/test.txt"))
+    cache_path_generator = (Path() for _ in range(5))  # Not used
+    generator = serialization.serialize_item(Path("/test_path/test.txt"), cache_path_generator)
     assert next(generator).startswith(serialization.PATH_TOKEN)
 
     test_string = "test_string"
-    generator = serialization.serialize_item(test_string)
+    generator = serialization.serialize_item(test_string, cache_path_generator)
     assert next(generator) == test_string
 
 
 def test_serialize_deserialize_items():
     items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3])
-    serialized_items = serialization.serialize_items(items)
+    cache_path_generator = (Path() for _ in range(5))  # Not used
+    serialized_items = serialization.serialize_items(items, cache_path_generator)
     assert serialized_items is not None
     assert len(serialized_items) == len(items)
     assert isinstance(serialized_items[0], str)

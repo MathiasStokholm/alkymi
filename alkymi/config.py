@@ -20,10 +20,9 @@ class AlkymiConfig:
     def __init__(self):
         if AlkymiConfig.__instance is not None:
             raise Exception("This class is a singleton!")
-        else:
-            AlkymiConfig.__instance = self
 
         # Set default values in config
+        AlkymiConfig.__instance = self
         self._cache = True
 
     @property

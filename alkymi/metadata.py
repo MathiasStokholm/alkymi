@@ -5,6 +5,20 @@ from typing import Any, Optional, Iterable, Union
 from hashlib import md5
 import os.path
 
+# Load additional metadata generators based on available libs
+additional_metadata_generators = {}
+try:
+    import numpy as np
+
+
+    def _handle_ndarray(array: np.ndarray) -> str:
+        return md5(array.data).hexdigest()
+
+
+    additional_metadata_generators[np.ndarray] = _handle_ndarray
+except ImportError:
+    pass
+
 
 def _handle_str(item: str) -> str:
     return md5(item.encode('utf-8')).hexdigest()
@@ -39,6 +53,10 @@ def get_metadata(item: Any):
 
     if isinstance(item, int) or isinstance(item, float):
         return _handle_number(item)
+
+    metadata_func = additional_metadata_generators.get(type(item), None)
+    if metadata_func is not None:
+        return metadata_func(item)
 
     if isinstance(item, Iterable):
         if len(item) == 0:
