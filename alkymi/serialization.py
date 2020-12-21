@@ -1,9 +1,9 @@
 # coding=utf-8
 import itertools
 import re
+import pickle
 from pathlib import Path
-from typing import Optional, Any, Tuple, Iterable, Union, Generator
-
+from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict
 
 TOKEN_TEMPLATE = "!#{}#!"
 TOKEN_REGEX = re.compile("(!#.*#!).*")
@@ -14,6 +14,7 @@ def create_token(name):
 
 
 PATH_TOKEN = create_token("path")
+PICKLE_TOKEN = create_token("pickle")
 
 CachePathGenerator = Generator[Path, None, None]
 SerializationGenerator = Generator[Union[str, int, float], None, None]
@@ -45,14 +46,6 @@ except ImportError:
     pass
 
 
-def check_output(output: Any) -> bool:
-    if output is None:
-        return False
-    if isinstance(output, Path):
-        return output.exists()
-    return True
-
-
 def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optional[SerializationGenerator]:
     serializer = additional_serializers.get(type(item), None)
     if item is None:
@@ -63,10 +56,17 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optio
         yield "{}{}".format(PATH_TOKEN, item)
     elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
         yield item
-    elif isinstance(item, Iterable):
+    elif isinstance(item, Sequence):
         yield list(itertools.chain.from_iterable(serialize_item(subitem, cache_path_generator) for subitem in item))
     else:
-        raise Exception("Cannot serialize item of type: {}".format(type(item)))
+        # As a last resort, try to dump as pickle
+        try:
+            output_file = next(cache_path_generator)
+            with output_file.open("wb") as f:
+                pickle.dump(item, f)
+            yield "{}{}".format(PICKLE_TOKEN, output_file)
+        except pickle.PicklingError:
+            raise Exception("Cannot serialize item of type: {}".format(type(item)))
 
 
 def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: CachePathGenerator) -> \
@@ -87,14 +87,20 @@ def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float
             if item.startswith(PATH_TOKEN):
                 # Path encoded as string
                 yield Path(item[len(PATH_TOKEN):])
+            elif item.startswith(PICKLE_TOKEN):
+                # Arbitrary object encoded as pickle
+                with open(item[len(PICKLE_TOKEN):], "rb") as f:
+                    yield pickle.loads(f.read())
             else:
                 found_token = m.group(1)
                 deserializer = additional_deserializers.get(found_token, None)
                 if deserializer is not None:
                     yield deserializer.deserialize(Path(item[len(found_token):]))
+                else:
+                    raise RuntimeError("No deserializer found for token: {}".format(found_token))
     elif isinstance(item, float) or isinstance(item, int):
         yield item
-    elif isinstance(item, Iterable):
+    elif isinstance(item, Sequence):
         yield list(itertools.chain.from_iterable(deserialize_item(subitem) for subitem in item))
     else:
         raise Exception("Cannot deserialize item of type: {}".format(type(item)))

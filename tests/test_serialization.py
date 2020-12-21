@@ -12,8 +12,10 @@ from alkymi import serialization, AlkymiConfig
 AlkymiConfig.get().cache = False
 
 
-def test_serialize_item():
-    cache_path_generator = (Path() for _ in range(5))  # Not used
+def test_serialize_item(tmpdir):
+    tmpdir = Path(str(tmpdir))
+
+    cache_path_generator = (tmpdir / str(i) for i in range(5))
     generator = serialization.serialize_item(Path("/test_path/test.txt"), cache_path_generator)
     assert next(generator).startswith(serialization.PATH_TOKEN)
 
@@ -21,10 +23,16 @@ def test_serialize_item():
     generator = serialization.serialize_item(test_string, cache_path_generator)
     assert next(generator) == test_string
 
+    # Test serialization of dicts
+    generator = serialization.serialize_item(dict(key="value"), cache_path_generator)
+    assert next(generator) is not None
 
-def test_serialize_deserialize_items():
-    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3])
-    cache_path_generator = (Path() for _ in range(5))  # Not used
+
+def test_serialize_deserialize_items(tmpdir):
+    tmpdir = Path(str(tmpdir))
+
+    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5})
+    cache_path_generator = (tmpdir / str(i) for i in range(5))
     serialized_items = serialization.serialize_items(items, cache_path_generator)
     assert serialized_items is not None
     assert len(serialized_items) == len(items)
