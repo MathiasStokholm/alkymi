@@ -13,8 +13,8 @@ def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False, cache: C
     return _decorator
 
 
-def map_recipe(mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient: bool = False,
-               cache: CacheType = CacheType.Auto) -> \
+def foreach(mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient: bool = False,
+            cache: CacheType = CacheType.Auto) -> \
         Callable[[Callable], ForeachRecipe]:
     def _decorator(func: Callable) -> ForeachRecipe:
         return ForeachRecipe(mapped_inputs, ingredients, func, func.__name__, transient, cache)

@@ -19,7 +19,7 @@ def create_build_dir() -> Path:
     return build_dir
 
 
-@alk.map_recipe(input_files, ingredients=[create_build_dir])
+@alk.foreach(input_files, ingredients=[create_build_dir])
 def process_imports(pyfile: Path, build_dir: Path) -> Path:
     output_file = build_dir / str(pyfile.name).replace('.py', '.txt')
     with pyfile.open('r') as fin, output_file.open('w') as fout:

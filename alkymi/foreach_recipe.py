@@ -48,10 +48,11 @@ class ForeachRecipe(Recipe):
 
     def invoke(self, mapped_inputs: Union[List[Path], Dict[Any, Any]], *inputs: Optional[Tuple[Any, ...]]):
         log.debug("Invoking recipe: {}".format(self.name))
+        mapped_inputs_of_same_type = type(self.mapped_inputs) == type(mapped_inputs)
         if isinstance(mapped_inputs, list):
             outputs = []
             for item in mapped_inputs:
-                if not self.transient and self.outputs is not None:
+                if not self.transient and self.outputs is not None and mapped_inputs_of_same_type:
                     try:
                         new_metadata = get_metadata(item)
                         idx = self.mapped_inputs_metadata.index(new_metadata)
@@ -66,7 +67,7 @@ class ForeachRecipe(Recipe):
         elif isinstance(mapped_inputs, dict):
             outputs = {}
             for key, item in mapped_inputs.items():
-                if not self.transient and self.outputs is not None:
+                if not self.transient and self.outputs is not None and mapped_inputs_of_same_type:
                     found_metadata = self.mapped_inputs_metadata.get(key, None)
                     if found_metadata is not None:
                         new_metadata = get_metadata(key)

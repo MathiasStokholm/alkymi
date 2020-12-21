@@ -71,7 +71,7 @@ class Lab:
         clean_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes],
                                   help='Recipe to clean')
 
-        # Create the parser for the "command_b" command
+        # Create the parser for the "brew" command
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
         brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes],
                                  help='Recipe to brew')
@@ -80,7 +80,8 @@ class Lab:
         if args.subparser_name == 'status':
             print(self)
         elif args.subparser_name == 'clean':
-            print('Cleaning outputs for {}'.format(args.recipe))
-            raise NotImplementedError("Clean doesn't work yet!")
+            raise NotImplementedError("clean doesn't work yet!")
+        elif args.subparser_name == 'clean-cache':
+            raise NotImplementedError("clean-cache doesn't work yet!")
         elif args.subparser_name == 'brew':
             return self.brew(args.recipe)
