@@ -1,9 +1,9 @@
 # coding=utf-8
-
 from pathlib import Path
-from typing import Any, Optional, Iterable, Union
-from hashlib import md5
+from typing import Any, Optional, Sequence, Dict, Callable
+import hashlib
 import os.path
+import inspect
 
 # Load additional metadata generators based on available libs
 additional_metadata_generators = {}
@@ -12,20 +12,12 @@ try:
 
 
     def _handle_ndarray(array: np.ndarray) -> str:
-        return md5(array.data).hexdigest()
+        return hashlib.md5(array.data).hexdigest()
 
 
     additional_metadata_generators[np.ndarray] = _handle_ndarray
 except ImportError:
     pass
-
-
-def _handle_str(item: str) -> str:
-    return md5(item.encode('utf-8')).hexdigest()
-
-
-def _handle_number(item: Union[int, float]) -> Union[int, float]:
-    return item
 
 
 def _handle_path(path: Path) -> Optional[str]:
@@ -41,36 +33,65 @@ def _handle_path(path: Path) -> Optional[str]:
     return "{}#{}".format(str(path), os.path.getmtime(str(path)))
 
 
-def get_metadata(item: Any):
+class Hasher(object):
+    def __init__(self):
+        self.md5 = hashlib.md5()
+
+    def update(self, value):
+        if value is None:
+            return
+
+        self.md5.update(str(type(value)).encode("utf-8"))
+        if isinstance(value, str):
+            self.md5.update(value.encode("utf-8"))
+        elif isinstance(value, (int, float)):
+            self.update(str(value))
+        elif isinstance(value, Sequence):
+            for e in value:
+                self.update(e)
+        elif isinstance(value, Dict):
+            keys = value.keys()
+            for k in sorted(keys):
+                self.update(k)
+                self.update(value[k])
+        elif isinstance(value, Path):
+            # TODO(mathias): Replace with md5 sum (will break tests that rely on modification timestamps)
+            self.update(_handle_path(value))
+        elif inspect.iscode(value):
+            self.update(value.co_code)
+        elif inspect.isroutine(value):
+            # We ignore "referenced objects", because we expect recipe functions to be pure
+            code = value.__code__
+
+            # Hash the bytecode
+            self.update(code.co_code)
+
+            # Hash constants that are referenced by the bytecode but ignore names of lambdas
+            for const in code.co_consts:
+                if not isinstance(const, str) or not const.endswith(".<lambda>"):
+                    self.update(const)
+        else:
+            # Check if any additional metadata generator will work
+            generator = additional_metadata_generators.get(type(value), None)
+            if generator is not None:
+                self.update(generator(value))
+            else:
+                raise ValueError("Hash not supported for type: {}".format(type(value)))
+
+    def digest(self) -> str:
+        return self.md5.hexdigest()
+
+
+def function_hash(fn: Callable) -> str:
+    hasher = Hasher()
+    hasher.update(fn)
+    return hasher.digest()
+
+
+def get_metadata(item: Any) -> Optional[str]:
     if item is None:
         return None
 
-    if isinstance(item, Path):
-        return _handle_path(item)
-
-    if isinstance(item, str):
-        return _handle_str(item)
-
-    if isinstance(item, int) or isinstance(item, float):
-        return _handle_number(item)
-
-    metadata_func = additional_metadata_generators.get(type(item), None)
-    if metadata_func is not None:
-        return metadata_func(item)
-
-    if isinstance(item, Iterable):
-        if len(item) == 0:
-            return None
-
-        # FIXME(mathias): Find a better way to collapse metadata from multiple items into a single metadata point
-        # This is used if a function returns a list of paths or similar
-        if all(isinstance(subitem, Path) for subitem in item):
-            return max(get_metadata(subitem) for subitem in item)
-
-        if all(subitem is None for subitem in item):
-            return None
-
-        if all(isinstance(subitem, str) for subitem in item):
-            return _handle_str("".join(item))
-
-    raise NotImplementedError('Metadata not supported for type: {}'.format(item))
+    hasher = Hasher()
+    hasher.update(item)
+    return hasher.digest()

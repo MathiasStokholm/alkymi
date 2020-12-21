@@ -101,7 +101,7 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tu
         if mapped_inputs_tuple is None:
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
         if len(mapped_inputs_tuple) != 1:
-            raise Exception("Input to mapped recipe {} must be a a single list or dict".format(recipe.name))
+            raise Exception("Input to mapped recipe {} must be a single list or dict".format(recipe.name))
         mapped_inputs = mapped_inputs_tuple[0]
 
         # Mapped inputs can either be a list of Paths, or a dictionary

@@ -1,14 +1,14 @@
 # coding=utf-8
 import json
 from collections import OrderedDict
-from hashlib import md5
 from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
+from . import metadata
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .metadata import get_metadata
-from .serialization import check_output, deserialize_items, serialize_items
+from .serialization import deserialize_items, serialize_items
 
 
 class Recipe:
@@ -72,6 +72,14 @@ class Recipe:
             return outputs
         return outputs,
 
+    @staticmethod
+    def _check_output(output: Any) -> bool:
+        if output is None:
+            return False
+        if isinstance(output, Path):
+            return output.exists()
+        return True
+
     def is_clean(self, new_inputs: Tuple[Any, ...]) -> bool:
         if self._cleanliness_func is not None:
             # Non-pure function may have been changed by external circumstances, use custom check
@@ -83,7 +91,7 @@ class Recipe:
             return False
 
         # Not clean if any output is no longer valid
-        if not all(check_output(output) for output in self.outputs):
+        if not all(self._check_output(output) for output in self.outputs):
             return False
 
         # Compute output metadata to ensure that outputs haven't changed
@@ -125,7 +133,7 @@ class Recipe:
 
     @property
     def function_hash(self) -> str:
-        return md5(self._func.__code__.co_code).hexdigest()  # noqa
+        return metadata.function_hash(self._func)
 
     @property
     def inputs(self) -> Optional[Tuple[Any, ...]]:
