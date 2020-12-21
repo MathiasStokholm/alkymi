@@ -104,9 +104,9 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tu
             raise Exception("Input to mapped recipe {} must be a single list or dict".format(recipe.name))
         mapped_inputs = mapped_inputs_tuple[0]
 
-        # Mapped inputs can either be a list of Paths, or a dictionary
-        if isinstance(mapped_inputs, list) and any(not isinstance(item, Path) for item in mapped_inputs):
-            raise Exception("Input to mapped recipe {} must be a list of Paths or a dict".format(recipe.name))
+        # Mapped inputs can either be a list or a dictionary
+        if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
+            raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
         recipe.invoke(mapped_inputs, *ingredient_inputs_tuple)
     else:
         # Regular Recipe

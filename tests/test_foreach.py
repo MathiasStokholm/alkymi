@@ -2,7 +2,7 @@
 # coding=utf-8
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
@@ -93,3 +93,53 @@ def test_execution(caplog, tmpdir):
     assert execution_counts[f1.stem] == 2
     assert execution_counts[f2.stem] == 1
     assert execution_counts[f3.stem] == 1
+
+
+def test_lists(caplog):
+    """
+    Test using a list (of non-Path objects) as the input to a foreach recipe
+    """
+    caplog.set_level(logging.DEBUG)
+
+    execution_counts = [0] * 5
+    args = alkymi.recipes.args([0])
+
+    def _check_counts(counts: Tuple[int, int, int, int, int]):
+        assert execution_counts[0] == counts[0]
+        assert execution_counts[1] == counts[1]
+        assert execution_counts[2] == counts[2]
+        assert execution_counts[3] == counts[3]
+        assert execution_counts[4] == counts[4]
+
+    @alk.foreach(args.recipe)
+    def record_execution(idx: int) -> int:
+        execution_counts[idx] += 1
+        return execution_counts[idx]
+
+    # Initial brew should only increment first id
+    record_execution.brew()
+    _check_counts((1, 0, 0, 0, 0))
+
+    # Re-brew should do nothing
+    record_execution.brew()
+    _check_counts((1, 0, 0, 0, 0))
+
+    # Also brew ids 1 and 2
+    args.set_args([0, 1, 2])
+    record_execution.brew()
+    _check_counts((1, 1, 1, 0, 0))
+
+    # Now only 3 and 4 - all items should now have been run once
+    args.set_args([3, 4])
+    record_execution.brew()
+    _check_counts((1, 1, 1, 1, 1))
+
+    # Because last execution was 3 and 4, asking for 0 and 1 should cause reevaluation
+    args.set_args([0, 1])
+    record_execution.brew()
+    _check_counts((2, 2, 1, 1, 1))
+
+    # Switching the order should not change anything
+    args.set_args([1, 0])
+    record_execution.brew()
+    _check_counts((2, 2, 1, 1, 1))
