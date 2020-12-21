@@ -1,10 +1,10 @@
 # coding=utf-8
 import json
 from collections import OrderedDict
-import hashlib
 from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
+from . import metadata
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .metadata import get_metadata
@@ -133,7 +133,7 @@ class Recipe:
 
     @property
     def function_hash(self) -> str:
-        return md5(self._func.__code__.co_code).hexdigest()  # noqa
+        return metadata.function_hash(self._func)
 
     @property
     def inputs(self) -> Optional[Tuple[Any, ...]]:

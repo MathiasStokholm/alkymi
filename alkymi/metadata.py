@@ -1,8 +1,9 @@
 # coding=utf-8
 from pathlib import Path
-from typing import Any, Optional, Sequence, Dict
+from typing import Any, Optional, Sequence, Dict, Callable
 import hashlib
 import os.path
+import inspect
 
 # Load additional metadata generators based on available libs
 additional_metadata_generators = {}
@@ -56,6 +57,19 @@ class Hasher(object):
         elif isinstance(value, Path):
             # TODO(mathias): Replace with md5 sum (will break tests that rely on modification timestamps)
             self.update(_handle_path(value))
+        elif inspect.iscode(value):
+            self.update(value.co_code)
+        elif inspect.isroutine(value):
+            # We ignore "referenced objects", because we expect recipe functions to be pure
+            code = value.__code__
+
+            # Hash the bytecode
+            self.update(code.co_code)
+
+            # Hash constants that are referenced by the bytecode but ignore names of lambdas
+            for const in code.co_consts:
+                if not isinstance(const, str) or not const.endswith(".<lambda>"):
+                    self.update(const)
         else:
             # Check if any additional metadata generator will work
             generator = additional_metadata_generators.get(type(value), None)
@@ -66,6 +80,12 @@ class Hasher(object):
 
     def digest(self) -> str:
         return self.md5.hexdigest()
+
+
+def function_hash(fn: Callable) -> str:
+    hasher = Hasher()
+    hasher.update(fn)
+    return hasher.digest()
 
 
 def get_metadata(item: Any) -> Optional[str]:
