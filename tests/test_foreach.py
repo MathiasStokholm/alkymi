@@ -29,7 +29,7 @@ def test_execution(caplog, tmpdir):
 
     args = alkymi.recipes.args([f1])
 
-    @alk.map_recipe(args.recipe)
+    @alk.foreach(args.recipe)
     def read_file(path: Path) -> str:
         execution_counts[path] += 1
         with path.open('r') as f:
@@ -39,7 +39,7 @@ def test_execution(caplog, tmpdir):
     def to_dict(file_contents: List[str]) -> Dict[str, str]:
         return {f: f for f in file_contents}
 
-    @alk.map_recipe(to_dict)
+    @alk.foreach(to_dict)
     def echo(file_content: str) -> str:
         execution_counts[file_content] += 1
         return file_content

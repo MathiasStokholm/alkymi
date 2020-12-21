@@ -61,7 +61,7 @@ def test_execution(caplog, tmpdir):
             outfile.write(infile.read())
         return [file, copied_file]
 
-    @alk.map_recipe(copies_a_file, transient=True)
+    @alk.foreach(copies_a_file, transient=True)
     def reads_a_file(test_file: Path) -> None:
         execution_counts['reads_a_file'] += 1
         with test_file.open('r') as f:

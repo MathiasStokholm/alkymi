@@ -7,11 +7,11 @@ import numpy as np
 @alk.recipe()
 def get_arrays():
     print("Generating arrays")
-    arrays = {i: np.random.random(10) for i in range(5)}
+    arrays = {str(i): np.random.random(10) for i in range(5)}
     return arrays
 
 
-@alk.map_recipe(get_arrays)
+@alk.foreach(get_arrays)
 def add_one(array):
     print("Adding 1")
     return array + 1

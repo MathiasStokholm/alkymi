@@ -66,7 +66,7 @@ def test_recipe_serialization():
             new_file_2.touch()
             return [new_file_1, new_file_2]
 
-        @alk.map_recipe(files_in_dir)
+        @alk.foreach(files_in_dir)
         def read_file(f: Path) -> str:
             with f.open('r') as fh:
                 return fh.read()
