@@ -62,16 +62,7 @@ class Hasher(object):
         elif inspect.iscode(value):
             self.update(value.co_code)
         elif inspect.isroutine(value):
-            # We ignore "referenced objects", because we expect recipe functions to be pure
-            code = value.__code__
-
-            # Hash the bytecode
-            self.update(code.co_code)
-
-            # Hash constants that are referenced by the bytecode but ignore names of lambdas
-            for const in code.co_consts:
-                if not isinstance(const, str) or not const.endswith(".<lambda>"):
-                    self.update(const)
+            self.update_func(value)
         else:
             # Check if any additional metadata generator will work
             generator = additional_metadata_generators.get(type(value), None)
@@ -79,6 +70,25 @@ class Hasher(object):
                 self.update(generator(value))
             else:
                 raise ValueError("Hash not supported for type: {}".format(type(value)))
+
+    def update_func(self, fn):
+        code = fn.__code__
+
+        # Hash the bytecode
+        self.update(code.co_code)
+
+        # Hash constants that are referenced by the bytecode but ignore names of lambdas
+        if code.co_consts:
+            for const in code.co_consts:
+                if not isinstance(const, str) or not const.endswith(".<lambda>"):
+                    self.update(const)
+
+        # Handle referenced functions
+        if code.co_freevars:
+            assert len(code.co_freevars) == len(fn.__closure__)
+            referenced_func_names_and_closures = list(
+                zip(code.co_freevars, (c.cell_contents for c in fn.__closure__)))
+            self.update(referenced_func_names_and_closures)
 
     def digest(self) -> str:
         return self.md5.hexdigest()
