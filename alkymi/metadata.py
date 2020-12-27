@@ -19,6 +19,18 @@ try:
 except ImportError:
     pass
 
+try:
+    import pandas as pd
+
+
+    def _handle_dataframe(df: pd.DataFrame) -> str:
+        return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
+
+
+    additional_metadata_generators[pd.DataFrame] = _handle_dataframe
+except ImportError:
+    pass
+
 
 def _handle_path(path: Path) -> Optional[str]:
     # Return None if output doesn't exist
