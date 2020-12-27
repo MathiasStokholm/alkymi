@@ -44,6 +44,8 @@ class Hasher(object):
         self.md5.update(str(type(value)).encode("utf-8"))
         if isinstance(value, str):
             self.md5.update(value.encode("utf-8"))
+        elif isinstance(value, bytes):
+            self.md5.update(value)
         elif isinstance(value, (int, float)):
             self.update(str(value))
         elif isinstance(value, Sequence):

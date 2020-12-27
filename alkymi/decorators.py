@@ -1,3 +1,4 @@
+# coding=utf-8
 from typing import Iterable, Callable
 
 from .config import CacheType

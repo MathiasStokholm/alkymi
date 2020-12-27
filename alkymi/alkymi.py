@@ -1,6 +1,5 @@
 # coding=utf-8
 from enum import Enum
-from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
 
 from .recipe import Recipe

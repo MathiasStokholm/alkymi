@@ -1,5 +1,4 @@
 # coding=utf-8
-from pathlib import Path
 from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union
 
 from .logging import log
@@ -26,7 +25,7 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs
 
     @mapped_inputs.setter
-    def mapped_inputs(self, mapped_inputs: Union[List[Path], Dict[Any, Any]]):
+    def mapped_inputs(self, mapped_inputs: Union[List[Any], Dict[Any, Any]]):
         if mapped_inputs is None:
             return
 
@@ -43,10 +42,10 @@ class ForeachRecipe(Recipe):
         self._mapped_inputs = mapped_inputs
 
     @property
-    def mapped_inputs_metadata(self) -> Union[List[Path], Dict[Any, Any]]:
+    def mapped_inputs_metadata(self) -> Union[List[Any], Dict[Any, Any]]:
         return self._mapped_inputs_metadata
 
-    def invoke(self, mapped_inputs: Union[List[Path], Dict[Any, Any]], *inputs: Optional[Tuple[Any, ...]]):
+    def invoke(self, mapped_inputs: Union[List[Any], Dict[Any, Any]], *inputs: Optional[Tuple[Any, ...]]):
         log.debug("Invoking recipe: {}".format(self.name))
         mapped_inputs_of_same_type = type(self.mapped_inputs) == type(mapped_inputs)
         if isinstance(mapped_inputs, list):
@@ -85,7 +84,7 @@ class ForeachRecipe(Recipe):
         self._save_state()
         return self.outputs
 
-    def is_mapped_clean(self, new_mapped_inputs: Union[List[Path], Dict[Any, Any]]) -> bool:
+    def is_mapped_clean(self, new_mapped_inputs: Union[List[Any], Dict[Any, Any]]) -> bool:
         # Compute mapped input metadata and perform equality check
         if isinstance(new_mapped_inputs, list):
             new_mapped_input_metadata = [get_metadata(inp) for inp in new_mapped_inputs]

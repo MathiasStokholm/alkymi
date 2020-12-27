@@ -15,6 +15,7 @@ def create_token(name):
 
 PATH_TOKEN = create_token("path")
 PICKLE_TOKEN = create_token("pickle")
+BYTES_TOKEN = create_token("bytes")
 
 CachePathGenerator = Generator[Path, None, None]
 SerializationGenerator = Generator[Union[str, int, float], None, None]
@@ -56,6 +57,11 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optio
         yield "{}{}".format(PATH_TOKEN, item)
     elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
         yield item
+    elif isinstance(item, bytes):
+        output_file = next(cache_path_generator)
+        with output_file.open("wb") as f:
+            f.write(item)
+        yield "{}{}".format(BYTES_TOKEN, output_file)
     elif isinstance(item, Sequence):
         yield list(itertools.chain.from_iterable(serialize_item(subitem, cache_path_generator) for subitem in item))
     else:
@@ -87,6 +93,10 @@ def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float
             if item.startswith(PATH_TOKEN):
                 # Path encoded as string
                 yield Path(item[len(PATH_TOKEN):])
+            elif item.startswith(BYTES_TOKEN):
+                # Bytes dumped to file
+                with open(item[len(BYTES_TOKEN):], "rb") as f:
+                    yield f.read()
             elif item.startswith(PICKLE_TOKEN):
                 # Arbitrary object encoded as pickle
                 with open(item[len(PICKLE_TOKEN):], "rb") as f:
