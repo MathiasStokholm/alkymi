@@ -92,3 +92,6 @@ After installing, you can run the test suite:
 ```shell script
 python3 -m pytest .
 ```
+
+## License
+alkymi is licensed under The MIT License as found in the LICENSE.md file
