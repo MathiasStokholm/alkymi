@@ -15,7 +15,7 @@ setuptools.setup(
     url="https://github.com/MathiasStokholm/alkymi",
     packages=["alkymi"],
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",
         "Environment :: Console",
         "Natural Language :: English",
@@ -35,7 +35,7 @@ setuptools.setup(
         "Topic :: Software Development :: Quality Assurance",
         "Topic :: Scientific/Engineering",
     ],
-    keywords="make build automation pipeline task",
+    keywords=["automation", "pipeline", "validation", "preprocessing", "make", "build", "task"],
     project_urls={
         "Source": "https://github.com/MathiasStokholm/alkymi/",
         "Tracker": "https://github.com/MathiasStokholm/alkymi/issues",
