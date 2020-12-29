@@ -8,22 +8,33 @@ from typing import List
 
 import alkymi as alk
 from alkymi import AlkymiConfig
+from alkymi.foreach_recipe import ForeachRecipe
 from alkymi.recipe import Recipe
-
 
 # Turn of caching for tests
 AlkymiConfig.get().cache = False
 
 
-def test_recipe_decorator():
+def test_decorators():
     @alk.recipe(transient=True)
-    def should_be_a_recipe():
-        return "example"
+    def should_be_a_recipe() -> List[str]:
+        return ["example1", "example2"]
+
+    @alk.foreach(should_be_a_recipe)
+    def should_be_a_foreach_recipe(value: str) -> str:
+        return value.upper()
 
     assert type(should_be_a_recipe) is Recipe
-    assert should_be_a_recipe() == "example"
+    assert should_be_a_recipe()[0] == "example1"
+    assert should_be_a_recipe()[1] == "example2"
     assert should_be_a_recipe.name == 'should_be_a_recipe'
     assert should_be_a_recipe.transient
+
+    assert type(should_be_a_foreach_recipe) is ForeachRecipe
+    assert should_be_a_foreach_recipe.brew()[0][0] == "EXAMPLE1"
+    assert should_be_a_foreach_recipe.brew()[0][1] == "EXAMPLE2"
+    assert should_be_a_foreach_recipe.name == 'should_be_a_foreach_recipe'
+    assert should_be_a_foreach_recipe.transient is False
 
 
 def test_execution(caplog, tmpdir):
@@ -89,19 +100,20 @@ def test_execution(caplog, tmpdir):
         assert execution_counts['copies_a_file'] == 1
         assert execution_counts['reads_a_file'] == (1 + i) * 2
 
-    # Changing an output should cause reevaluation of the function that created that output (and everything after)
+    # Touching an output (but leaving the contents the exact same) should not cause reevaluation of the function that
+    # created that output
     time.sleep(0.01)
     file.touch(exist_ok=True)
     reads_a_file.brew()
     assert execution_counts['produces_build_dir'] == 1
-    assert execution_counts['produces_a_single_file'] == 2
-    assert execution_counts['copies_a_file'] == 2
+    assert execution_counts['produces_a_single_file'] == 1
+    assert execution_counts['copies_a_file'] == 1
     assert execution_counts['reads_a_file'] == 5 * 2
 
     # Deleting the build dir should cause full reevaluation
     shutil.rmtree(str(build_dir))
     reads_a_file.brew()
     assert execution_counts['produces_build_dir'] == 2
-    assert execution_counts['produces_a_single_file'] == 3
-    assert execution_counts['copies_a_file'] == 3
+    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['copies_a_file'] == 2
     assert execution_counts['reads_a_file'] == 6 * 2

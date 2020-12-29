@@ -32,19 +32,6 @@ except ImportError:
     pass
 
 
-def _handle_path(path: Path) -> Optional[str]:
-    # Return None if output doesn't exist
-    if not path.exists():
-        return None
-
-    # For directories, we just care about the path itself
-    if path.is_dir():
-        return "{}".format(path)
-
-    # For files, we care about modification timestamp
-    return "{}#{}".format(str(path), os.path.getmtime(str(path)))
-
-
 class Hasher(object):
     def __init__(self):
         self.md5 = hashlib.md5()
@@ -69,8 +56,7 @@ class Hasher(object):
                 self.update(k)
                 self.update(value[k])
         elif isinstance(value, Path):
-            # TODO(mathias): Replace with md5 sum (will break tests that rely on modification timestamps)
-            self.update(_handle_path(value))
+            self.update_path(value)
         elif inspect.iscode(value):
             self.update(value.co_code)
         elif inspect.isroutine(value):
@@ -83,7 +69,7 @@ class Hasher(object):
             else:
                 raise ValueError("Hash not supported for type: {}".format(type(value)))
 
-    def update_func(self, fn):
+    def update_func(self, fn) -> None:
         code = fn.__code__
 
         # Hash the bytecode
@@ -101,6 +87,21 @@ class Hasher(object):
             referenced_func_names_and_closures = list(
                 zip(code.co_freevars, (c.cell_contents for c in fn.__closure__)))
             self.update(referenced_func_names_and_closures)
+
+    def update_path(self, path: Path) -> None:
+        # Ignore non-existent path
+        if not path.exists():
+            return
+
+        # For directories, we just care about the path itself
+        if path.is_dir():
+            self.update(str(path))
+            return
+
+        # For files, we care about the file contents too
+        with path.open('rb') as f:
+            for chunk in iter(lambda: f.read(128 * self.md5.block_size), b''):
+                self.update(chunk)
 
     def digest(self) -> str:
         return self.md5.hexdigest()
