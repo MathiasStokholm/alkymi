@@ -5,5 +5,4 @@ from .decorators import recipe, foreach
 from .recipes import *
 
 # Define version
-from .version import VERSION
-__version__ = VERSION
+from .version import VERSION, __version__

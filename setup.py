@@ -3,10 +3,14 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version = {}
+with open('alkymi/version.py') as fp:
+    exec(fp.read(), version)
+
 setuptools.setup(
     name="alkymi",
     description="alkymi - Pythonic task automation",
-    version="0.0.1",
+    version=version['__version__'],
     license="MIT",
     author="Mathias Bøgh Stokholm",
     author_email="mathias.stokholm@gmail.com",
