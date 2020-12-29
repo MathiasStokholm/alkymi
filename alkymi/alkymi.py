@@ -1,4 +1,3 @@
-# coding=utf-8
 from enum import Enum
 from typing import Dict, List, Any, Tuple, Optional
 

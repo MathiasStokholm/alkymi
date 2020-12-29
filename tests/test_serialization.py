@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# coding=utf-8
 import copy
-import tempfile
 from pathlib import Path
 from typing import List
 

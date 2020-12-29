@@ -1,4 +1,3 @@
-# coding=utf-8
 from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union
 
 from .logging import log

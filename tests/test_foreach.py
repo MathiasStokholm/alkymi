@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 import logging
 from pathlib import Path
 from typing import Dict, List, Tuple

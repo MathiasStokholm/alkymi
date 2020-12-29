@@ -1,8 +1,6 @@
-# coding=utf-8
 from pathlib import Path
 from typing import Any, Optional, Sequence, Dict, Callable
 import hashlib
-import os.path
 import inspect
 
 # Load additional metadata generators based on available libs
