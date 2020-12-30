@@ -1,7 +1,7 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, Dict, Generator
+from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, Generator
 
 from . import metadata
 from .config import CacheType, AlkymiConfig

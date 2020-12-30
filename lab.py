@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 import shutil
 from pathlib import Path
+from typing import List
 
 import mypy.api
 import pytest
+from flake8.api import legacy as flake8
 
 import alkymi as alk
 
 # Glob all source and test files and make them available as recipe outputs
 glob_source_files = alk.recipes.glob_files(Path("alkymi"), "*.py")
+glob_example_files = alk.recipes.glob_files(Path("examples"), "*.py")
 glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py")
 
 
@@ -24,25 +27,41 @@ def test(test_files) -> None:
         raise Exception("Unit tests failed: {}".format(result))
 
 
-@alk.recipe(ingredients=[glob_source_files], transient=True)
-def type_check(source_files) -> None:
+@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
+def lint(source_files: List[str], example_files: List[str], test_files: List[str]) -> None:
     """
-    Type check all alkymi source files using mypy
+    Lint all alkymi source, example and test files using flake8
 
     :param source_files: The alkymi source files to type check
+    :param example_files: The alkymi examples files to type check
+    :param test_files: The alkymi unit test files to type check
     """
-    args = [str(file) for file in source_files]
+    style_guide = flake8.get_style_guide(max_line_length=120, max_complexity=10, ignore=["E303"])
+    all_files = source_files + example_files + test_files
+    report = style_guide.check_files([str(file) for file in all_files])
+    assert report.get_statistics("E") == [], "Flake8 found style violations"
+
+
+@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
+def type_check(source_files: List[str], example_files: List[str], test_files: List[str]) -> None:
+    """
+    Type check all alkymi source, example and test files using mypy
+
+    :param source_files: The alkymi source files to type check
+    :param example_files: The alkymi examples files to type check
+    :param test_files: The alkymi unit test files to type check
+    """
+    all_files = source_files + example_files + test_files
+    args = [str(file) for file in all_files]
     stdout, stderr, return_code = mypy.api.run(args)
-    if stderr:
-        raise RuntimeError(stderr)
+    assert not stderr, stderr
 
     # Print the actual results of type checking
     print("Type checking report:")
     print(stdout)
 
     # If no violations were found, mypy will return 0 as the return code
-    if return_code != 0:
-        raise RuntimeError("mypy returned exit code: {}".format(return_code))
+    assert return_code == 0, "mypy returned exit code: {}".format(return_code)
 
 
 @alk.recipe(transient=True)
@@ -84,7 +103,7 @@ def release(build_dir) -> None:
 
 def main():
     lab = alk.Lab("alkymi")
-    lab.add_recipes(test, type_check, build, release_test, release)
+    lab.add_recipes(test, lint, type_check, build, release_test, release)
     lab.open()
 
 

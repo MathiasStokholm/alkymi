@@ -6,7 +6,7 @@ import inspect
 # Load additional metadata generators based on available libs
 additional_metadata_generators = {}  # type: Dict[Any, Callable]
 try:
-    import numpy as np
+    import numpy as np  # NOQA
 
 
     def _handle_ndarray(array: np.ndarray) -> str:
@@ -18,7 +18,7 @@ except ImportError:
     pass
 
 try:
-    import pandas as pd
+    import pandas as pd  # NOQA
 
 
     def _handle_dataframe(df: pd.DataFrame) -> str:

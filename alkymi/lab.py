@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import Dict, Union, Optional, Any, List
+from typing import Dict, Union, Any, List
 
 from .alkymi import compute_status_with_cache, Status
 from .foreach_recipe import ForeachRecipe
