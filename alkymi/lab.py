@@ -1,9 +1,11 @@
 import argparse
+import logging
 from typing import Dict, Union, Set, Optional, Any
 
 from .alkymi import compute_status_with_cache, Status
 from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
+from .logging import log
 
 
 class Lab:
@@ -56,6 +58,8 @@ class Lab:
     def open(self) -> None:
         # Create the top-level parser
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
+        parser.add_argument("-v", "--verbose", action="store_true", help="Turn on verbose logging")
+
         subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
 
         # Create the parser for the "status" command
@@ -75,6 +79,12 @@ class Lab:
                                  help='Recipe to brew')
 
         args = parser.parse_args()
+        log.addHandler(logging.StreamHandler())
+        if args.verbose:
+            log.setLevel(logging.DEBUG)
+        else:
+            log.setLevel(logging.INFO)
+
         if args.subparser_name == 'status':
             print(self)
         elif args.subparser_name == 'clean':

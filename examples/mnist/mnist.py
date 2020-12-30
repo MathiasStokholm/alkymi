@@ -6,7 +6,7 @@ import logging
 import operator
 import struct
 import urllib.request
-from typing import List, Tuple, BinaryIO
+from typing import List, BinaryIO
 
 import matplotlib.pyplot as plt
 import numpy as np
