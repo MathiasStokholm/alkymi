@@ -24,7 +24,7 @@ import alkymi as alk
 
 @alk.recipe()
 def urls() -> List[str]:
-    # Return URLs of various parts of the dataset
+    # Return URLs of various parts of the dataset - alkymi will cache these as a list of strings
     train_images_url = "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz"
     train_labels_url = "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz"
     test_images_url = "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz"
@@ -34,19 +34,24 @@ def urls() -> List[str]:
 
 @alk.foreach(urls)
 def download_gzips(url: str) -> bytes:
-    # Download gzip files as raw bytes
+    # Download each gzip file as raw bytes - alkymi will cache these to binary files
+    # This will run once per URL, and only if the URL has changed since the last evaluation
     return urllib.request.urlopen(url).read()
 
 
 @alk.foreach(download_gzips)
 def parse_gzip_to_arrays(data: bytes) -> np.ndarray:
-    # Unzip data and parse into numpy arrays
+    # Unzip binary data and parse into numpy arrays - alkymi will cache the numpy arrays
+    # This will run once per blob of input data, and only if the binary data has changed since the last evaluation
     with io.BytesIO(data) as f:
         with gzip.open(f) as gzip_file:
             return parse_idx(gzip_file)  # parse_idx definition left out for brevity (see examples/mnist)
 
 
-# Evaluate 'parse_gzip_to_arrays' and all dependencies - intermediate results will be cached automatically by alkymi
+# Evaluate 'parse_gzip_to_arrays' and all dependencies
+# On subsequent evaluations, the final numpy arrays will be read from the cache and returned immediately - unless one of
+# the recipes is marked dirty (if inputs have changed, or the recipe function itself has changed) - in that case, alkymi
+# will do the minimum amount of work to bring the pipeline up-to-date, and then return the final numpy arrays 
 train_images, train_labels, test_images, test_labels = parse_gzip_to_arrays.brew()
 ```
 Or, if you need to wrap existing functions, you can simply do:
