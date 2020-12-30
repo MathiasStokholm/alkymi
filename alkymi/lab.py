@@ -1,20 +1,21 @@
 import argparse
 import logging
-from typing import Dict, Union, Set, Optional, Any
+from typing import Dict, Union, Optional, Any, List
 
 from .alkymi import compute_status_with_cache, Status
 from .foreach_recipe import ForeachRecipe
-from .recipe import Recipe
 from .logging import log
+from .recipe import Recipe
 
 
 class Lab:
     def __init__(self, name: str):
         self._name = name
-        self._recipes = set()  # type: Set[Union[Recipe, ForeachRecipe]]
+        self._recipes = []  # type: List[Union[Recipe, ForeachRecipe]]
 
     def add_recipe(self, recipe: Union[Recipe, ForeachRecipe]) -> Union[Recipe, ForeachRecipe]:
-        self._recipes.add(recipe)
+        if recipe not in self._recipes:
+            self._recipes.append(recipe)
         return recipe
 
     def add_recipes(self, *recipes: Union[Recipe, ForeachRecipe]):
@@ -39,7 +40,7 @@ class Lab:
         return self._name
 
     @property
-    def recipes(self) -> 'Set[Recipe]':
+    def recipes(self) -> List[Recipe]:
         return self._recipes
 
     def build_full_status(self) -> Dict[Recipe, Status]:
