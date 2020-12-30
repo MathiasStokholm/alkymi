@@ -57,8 +57,8 @@ def test_builtin_kwargs():
     results = args_recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
-    assert results[0]["argument1"] == "value1"
-    assert results[0]["argument2"] == 2
+    assert results["argument1"] == "value1"
+    assert results["argument2"] == 2
 
     args.set_args(argument3="3")
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty

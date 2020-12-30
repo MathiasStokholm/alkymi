@@ -1,7 +1,7 @@
 import argparse
-from typing import Dict, Union, Set
+from typing import Dict, Union, Set, Optional, Any
 
-from .alkymi import compute_status_with_cache, Status, evaluate_recipe, compute_recipe_status
+from .alkymi import compute_status_with_cache, Status
 from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
 
@@ -19,13 +19,12 @@ class Lab:
         for recipe in recipes:
             self.add_recipe(recipe)
 
-    def brew(self, target_recipe: Union[Recipe, str]):
+    def brew(self, target_recipe: Union[Recipe, str]) -> Optional[Any]:
         if isinstance(target_recipe, str):
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    result = evaluate_recipe(recipe, compute_recipe_status(recipe))
-                    return result
+                    return recipe.brew()
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly

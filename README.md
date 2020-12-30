@@ -43,18 +43,11 @@ def parse_gzip_to_arrays(data: bytes) -> np.ndarray:
     # Unzip data and parse into numpy arrays
     with io.BytesIO(data) as f:
         with gzip.open(f) as gzip_file:
-            return parse_idx(gzip_file)  # parse_idx definition left out for brevity
+            return parse_idx(gzip_file)  # parse_idx definition left out for brevity (see examples/mnist)
 
 
-@alk.recipe(ingredients=[parse_gzip_to_arrays])
-def prepare_data(arrays: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    # Unpack from list into tuple
-    train_images, train_labels, test_images, test_labels = arrays
-    return train_images, train_labels, test_images, test_labels
-
-
-# Evaluate 'prepare_data' and all dependencies - intermediate results will be cached automatically by alkymi
-train_images, train_labels, test_images, test_labels = prepare_data.brew()
+# Evaluate 'parse_gzip_to_arrays' and all dependencies - intermediate results will be cached automatically by alkymi
+train_images, train_labels, test_images, test_labels = parse_gzip_to_arrays.brew()
 ```
 Or, if you need to wrap existing functions, you can simply do:
 ```python
@@ -62,8 +55,7 @@ import alkymi as alk
 
 download_archives = alk.foreach(urls)(download_gzips)
 parse_arrays = alk.foreach(download_archives)(parse_gzip_to_arrays)
-prepared_data = alk.recipe(ingredients=[parse_arrays])(prepare_data)
-train_images, train_labels, test_images, test_labels = prepared_data.brew()
+train_images, train_labels, test_images, test_labels = parse_arrays.brew()
 ```
 
 ## Documentation

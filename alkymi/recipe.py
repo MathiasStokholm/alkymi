@@ -53,9 +53,18 @@ class Recipe:
         self._save_state()
         return self.outputs
 
-    def brew(self):
+    def brew(self) -> Optional[Any]:
+        # Imported here to avoid cyclic dependency
         from .alkymi import evaluate_recipe, compute_recipe_status
-        return evaluate_recipe(self, compute_recipe_status(self))
+        result = evaluate_recipe(self, compute_recipe_status(self))
+        if result is None:
+            return None
+
+        # Unwrap single item tuples
+        # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
+        if isinstance(result, tuple) and len(result) == 1:
+            return result[0]
+        return result
 
     def _save_state(self) -> None:
         if self._cache == CacheType.Cache:
@@ -64,9 +73,9 @@ class Recipe:
                 f.write(json.dumps(self.to_dict(), indent=4))
 
     @staticmethod
-    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Tuple[Any, ...]:
+    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
         if outputs is None:
-            return tuple()
+            return None
         if isinstance(outputs, tuple):
             return outputs
         return outputs,

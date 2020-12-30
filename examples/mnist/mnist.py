@@ -84,14 +84,8 @@ def parse_gzip_to_arrays(data: bytes) -> np.ndarray:
             return parse_idx(gzip_file)
 
 
-@alk.recipe(ingredients=[parse_gzip_to_arrays])
-def prepare_data(arrays: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    train_images, train_labels, test_images, test_labels = arrays
-    return train_images, train_labels, test_images, test_labels
-
-
 def main():
-    train_images, train_labels, test_images, test_labels = prepare_data.brew()
+    train_images, train_labels, test_images, test_labels = parse_gzip_to_arrays.brew()
     plt.imshow(train_images[0], cmap="gray")
     plt.title("Digit: {}".format(train_labels[0]))
     plt.show()
