@@ -88,6 +88,7 @@ def release_test(build_dir) -> None:
 
     :param build_dir: The build directory containing alkymi distributions to upload
     """
+    alk.utils.call("pip3 install --user twine==3.2.0")
     alk.utils.call("python3 -m twine upload --repository testpypi {}/*".format(build_dir))
 
 
@@ -98,6 +99,7 @@ def release(build_dir) -> None:
 
     :param build_dir: The build directory containing alkymi distributions to upload
     """
+    alk.utils.call("pip3 install --user twine==3.2.0")
     alk.utils.call("python3 -m twine upload {}/*".format(build_dir))
 
 
