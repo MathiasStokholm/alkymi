@@ -2,7 +2,7 @@ import itertools
 import re
 import pickle
 from pathlib import Path
-from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict
+from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type
 
 TOKEN_TEMPLATE = "!#{}#!"
 TOKEN_REGEX = re.compile("(!#.*#!).*")
@@ -19,14 +19,25 @@ BYTES_TOKEN = create_token("bytes")
 CachePathGenerator = Generator[Path, None, None]
 SerializationGenerator = Generator[Union[str, int, float], None, None]
 
+
+class Serializer:
+    @staticmethod
+    def serialize(value: Any, cache_path: Path) -> str:
+        raise NotImplementedError()
+
+    @staticmethod
+    def deserialize(path: Path) -> Any:
+        raise NotImplementedError()
+
+
 # Load additional serializers and deserializers based on available libs
-additional_serializers = {}
+additional_serializers = {}  # type: Dict[Any, Type[Serializer]]
 additional_deserializers = {}
 try:
     import numpy as np
 
 
-    class NdArraySerializer:
+    class NdArraySerializer(Serializer):
         TOKEN = create_token("ndarray")
 
         @staticmethod
@@ -62,7 +73,13 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optio
             f.write(item)
         yield "{}{}".format(BYTES_TOKEN, output_file)
     elif isinstance(item, Sequence):
-        yield list(itertools.chain.from_iterable(serialize_item(subitem, cache_path_generator) for subitem in item))
+        items = []
+        for subitem in item:
+            generator = serialize_item(subitem, cache_path_generator)
+            if generator is not None:
+                for item in generator:
+                    items.append(item)
+        yield items
     else:
         # As a last resort, try to dump as pickle
         try:
@@ -79,7 +96,13 @@ def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: Cach
     if items is None:
         return None
 
-    return tuple(itertools.chain.from_iterable(serialize_item(item, cache_path_generator) for item in items))
+    serialized_items = []
+    for item in items:
+        generator = serialize_item(item, cache_path_generator)
+        if generator is not None:
+            for serialized_item in generator:
+                serialized_items.append(serialized_item)
+    return tuple(serialized_items)
 
 
 def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float]]]) -> Generator[Any, None, None]:

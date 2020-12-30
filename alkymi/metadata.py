@@ -4,7 +4,7 @@ import hashlib
 import inspect
 
 # Load additional metadata generators based on available libs
-additional_metadata_generators = {}
+additional_metadata_generators = {}  # type: Dict[Any, Callable]
 try:
     import numpy as np
 
@@ -32,17 +32,17 @@ except ImportError:
 
 class Hasher(object):
     def __init__(self):
-        self.md5 = hashlib.md5()
+        self._md5 = hashlib.md5()
 
     def update(self, value):
         if value is None:
             return
 
-        self.md5.update(str(type(value)).encode("utf-8"))
+        self._md5.update(str(type(value)).encode("utf-8"))
         if isinstance(value, str):
-            self.md5.update(value.encode("utf-8"))
+            self._md5.update(value.encode("utf-8"))
         elif isinstance(value, bytes):
-            self.md5.update(value)
+            self._md5.update(value)
         elif isinstance(value, (int, float)):
             self.update(str(value))
         elif isinstance(value, Sequence):
@@ -98,11 +98,11 @@ class Hasher(object):
 
         # For files, we care about the file contents too
         with path.open('rb') as f:
-            for chunk in iter(lambda: f.read(128 * self.md5.block_size), b''):
+            for chunk in iter(lambda: f.read(128 * self._md5.block_size), b''):
                 self.update(chunk)
 
     def digest(self) -> str:
-        return self.md5.hexdigest()
+        return str(self._md5.hexdigest())
 
 
 def function_hash(fn: Callable) -> str:

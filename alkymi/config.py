@@ -8,7 +8,7 @@ class CacheType(Enum):
 
 
 class AlkymiConfig:
-    __instance = None
+    __instance = None  # type: AlkymiConfig
 
     @staticmethod
     def get() -> 'AlkymiConfig':
@@ -22,14 +22,14 @@ class AlkymiConfig:
 
         # Set default values in config
         AlkymiConfig.__instance = self
-        self._cache = True
+        self._cache = True  # type: bool
 
     @property
     def cache(self) -> bool:
         return self._cache
 
     @cache.setter
-    def cache(self, value):
+    def cache(self, value: bool) -> None:
         self._cache = value
 
 

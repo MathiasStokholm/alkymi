@@ -18,11 +18,11 @@ class Lab:
             self._recipes.append(recipe)
         return recipe
 
-    def add_recipes(self, *recipes: Union[Recipe, ForeachRecipe]):
+    def add_recipes(self, *recipes: Union[Recipe, ForeachRecipe]) -> None:
         for recipe in recipes:
             self.add_recipe(recipe)
 
-    def brew(self, target_recipe: Union[Recipe, str]) -> Optional[Any]:
+    def brew(self, target_recipe: Union[Recipe, str]) -> Any:
         if isinstance(target_recipe, str):
             # Try to match name
             for recipe in self._recipes:
@@ -93,4 +93,4 @@ class Lab:
         elif args.subparser_name == 'clean-cache':
             raise NotImplementedError("clean-cache doesn't work yet!")
         elif args.subparser_name == 'brew':
-            return self.brew(args.recipe)
+            self.brew(args.recipe)

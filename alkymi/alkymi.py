@@ -70,10 +70,10 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
     return status[recipe]
 
 
-def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any]]:
+def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any, ...]]:
     log.debug('Evaluating recipe: {}'.format(recipe.name))
 
-    def _print_and_return():
+    def _print_and_return() -> Optional[Tuple[Any, ...]]:
         log.debug('Finished evaluating {}'.format(recipe.name))
         return recipe.outputs
 
@@ -105,7 +105,7 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tu
         # Mapped inputs can either be a list or a dictionary
         if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
             raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
-        recipe.invoke(mapped_inputs, *ingredient_inputs_tuple)
+        recipe.invoke_mapped(mapped_inputs, *ingredient_inputs_tuple)
     else:
         # Regular Recipe
         recipe.invoke(*ingredient_inputs_tuple)

@@ -1,7 +1,7 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
+from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, Dict, Generator
 
 from . import metadata
 from .config import CacheType, AlkymiConfig
@@ -14,7 +14,7 @@ class Recipe:
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
     def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool, cache: CacheType,
-                 cleanliness_func: Optional[Callable] = None):
+                 cleanliness_func: Optional[Callable[[Optional[Tuple[Any, ...]]], bool]] = None):
         self._ingredients = list(ingredients)
         self._func = func
         self._name = name
@@ -28,10 +28,10 @@ class Recipe:
         else:
             self._cache = cache
 
-        self._outputs = None
-        self._output_metadata = None
-        self._inputs = None
-        self._input_metadata = None
+        self._outputs = None  # type: Optional[Tuple[Any, ...]]
+        self._output_metadata = None  # type: Optional[List[Optional[str]]]
+        self._inputs = None  # type: Optional[Tuple[Any, ...]]
+        self._input_metadata = None  # type: Optional[List[Optional[str]]]
 
         if self.cache == CacheType.Cache:
             # Try to reload last state
@@ -53,7 +53,7 @@ class Recipe:
         self._save_state()
         return self.outputs
 
-    def brew(self) -> Optional[Any]:
+    def brew(self) -> Any:
         # Imported here to avoid cyclic dependency
         from .alkymi import evaluate_recipe, compute_recipe_status
         result = evaluate_recipe(self, compute_recipe_status(self))
@@ -148,7 +148,7 @@ class Recipe:
         return self._inputs
 
     @inputs.setter
-    def inputs(self, inputs):
+    def inputs(self, inputs) -> None:
         if inputs is None:
             return
 
@@ -158,7 +158,7 @@ class Recipe:
         self._inputs = inputs
 
     @property
-    def input_metadata(self):
+    def input_metadata(self) -> Optional[List[Optional[str]]]:
         return self._input_metadata
 
     @property
@@ -166,7 +166,7 @@ class Recipe:
         return self._outputs
 
     @outputs.setter
-    def outputs(self, outputs):
+    def outputs(self, outputs) -> None:
         if outputs is None:
             return
 
@@ -176,14 +176,14 @@ class Recipe:
         self._outputs = outputs
 
     @property
-    def output_metadata(self):
+    def output_metadata(self) -> Optional[List[Optional[str]]]:
         return self._output_metadata
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def to_dict(self):
-        def cache_path_generator():
+    def to_dict(self) -> OrderedDict:
+        def cache_path_generator() -> Generator[Path, None, None]:
             i = 0
             while True:
                 yield self.cache_path / str(i)
@@ -197,7 +197,7 @@ class Recipe:
             output_metadata=self.output_metadata,
         )
 
-    def restore_from_dict(self, old_state):
+    def restore_from_dict(self, old_state) -> None:
         log.debug("Restoring {} from dict".format(self._name))
         self._inputs = deserialize_items(old_state["inputs"])
         self._input_metadata = old_state["input_metadata"]

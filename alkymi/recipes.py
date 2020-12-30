@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Any
 
 from .config import CacheType
 from .recipe import Recipe
@@ -9,7 +9,8 @@ def glob_files(directory: Path, pattern: str, cache=CacheType.Auto) -> Recipe:
     def _glob_recipe() -> Tuple[List[Path]]:
         return list(directory.glob(pattern)),
 
-    def _check_clean(last_outputs: Tuple[List[Path]]) -> bool:
+    def _check_clean(last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+        # This is actually of type Optional[Tuple[List[Path]]] (same as _glob_recipe)
         # If rerunning glob produces the same list of files, then the recipe is clean
         return _glob_recipe() == last_outputs
 
@@ -32,7 +33,9 @@ class NamedArgs:
     def _produce_kwargs(self):
         return self._kwargs
 
-    def _clean(self, last_outputs: Tuple[List[Path]]):
+    def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+        if last_outputs is None:
+            return self._kwargs is None
         return self._kwargs == last_outputs[0]
 
     @property
@@ -52,14 +55,14 @@ class Args:
     def _produce_args(self):
         return self._args
 
-    def _clean(self, last_outputs: Tuple[List[Path]]):
+    def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
         return self._args == last_outputs
 
     @property
-    def recipe(self):
+    def recipe(self) -> Recipe:
         return self._recipe
 
-    def set_args(self, *_args):
+    def set_args(self, *_args) -> None:
         self._args = _args
 
 

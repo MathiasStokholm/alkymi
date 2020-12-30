@@ -40,6 +40,6 @@ jobs:
       run: |
         python -m pytest
     - name: Type check with mypy
-      if: false
+      if: true
       run: |
         python -m mypy alkymi/ examples/ tests/
