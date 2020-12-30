@@ -40,6 +40,7 @@ def lint(source_files: List[str], example_files: List[str], test_files: List[str
     all_files = source_files + example_files + test_files
     report = style_guide.check_files([str(file) for file in all_files])
     assert report.get_statistics("E") == [], "Flake8 found style violations"
+    print("Flake8 found no style violations in {} files".format(len(all_files)))
 
 
 @alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
