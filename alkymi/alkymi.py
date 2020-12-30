@@ -7,21 +7,41 @@ from .foreach_recipe import ForeachRecipe
 
 
 class Status(Enum):
-    Ok = 0
-    IngredientDirty = 1
-    NotEvaluatedYet = 2
-    Dirty = 3
-    MappedInputsDirty = 4
-    BoundFunctionChanged = 5
+    """
+    Status of a Recipe denoting whether (re)evaluation is needed
+    """
+    Ok = 0  # Recipe does not need (re)evaluation
+    IngredientDirty = 1  # One or more ingredients of the recipe have changed -> (re)evaluate
+    NotEvaluatedYet = 2  # Recipe has not been evaluated yet
+    Dirty = 3  # One or more inputs to the recipe have changed -> (re)evaluate
+    BoundFunctionChanged = 4  # The function referenced by the recipe has changed -> (re)evaluate
+    MappedInputsDirty = 5  # One or more mapped inputs to the recipe have changed -> (re)evaluate (only ForeachRecipe)
 
 
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
+    """
+    Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs)
+
+    :param recipe: The recipe for which status should be computed
+    :return: The status of the provided recipe and all dependencies as a dictionary
+    """
     status = {}  # type: Dict[Recipe, Status]
     compute_status_with_cache(recipe, status)
     return status
 
 
 def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> Status:
+    """
+    Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs) and store the results
+    in the provided status dictionary.
+
+    This function will early-exit if the status for the provided recipe has already been computed, and will recursively
+    compute statuses of dependencies (ingredients or mapped inputs)
+
+    :param recipe: The recipe for which status should be computed
+    :param status: The dictionary to add computed statuses to
+    :return: The status of the input recipe
+    """
     # FIXME(mathias): Find a neater way to cache without early exits
     # Force caching of mapped recipe and ingredients
     if isinstance(recipe, ForeachRecipe):
@@ -71,6 +91,13 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
 
 
 def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any, ...]]:
+    """
+    Evaluate a recipe using precomputed statuses
+
+    :param recipe: The recipe to evaluate
+    :param status: The dictionary of statuses computed using 'compute_recipe_status()' to use for targeted evaluation
+    :return: The outputs of the provided recipe (wrapped in a tuple if necessary)
+    """
     log.debug('Evaluating recipe: {}'.format(recipe.name))
 
     def _print_and_return() -> Optional[Tuple[Any, ...]]:
