@@ -15,7 +15,7 @@ def test_builtin_glob(tmpdir):
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
         f.write("test")
-    glob_recipe = alkymi.recipes.glob_files(Path(tmpdir), '*')
+    glob_recipe = alkymi.recipes.glob_files(Path(tmpdir), '*', recursive=False)
 
     assert len(glob_recipe.ingredients) == 0
     assert glob_recipe()[0][0] == test_file

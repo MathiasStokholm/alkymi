@@ -81,7 +81,7 @@ def download_gzips(url: str) -> bytes:
 def parse_gzip_to_arrays(data: bytes) -> np.ndarray:
     with io.BytesIO(data) as f:
         with gzip.open(f) as gzip_file:
-            return parse_idx(gzip_file)
+            return parse_idx(gzip_file)  # type: ignore
 
 
 def main():

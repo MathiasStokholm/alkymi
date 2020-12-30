@@ -5,9 +5,12 @@ from .config import CacheType
 from .recipe import Recipe
 
 
-def glob_files(directory: Path, pattern: str, cache=CacheType.Auto) -> Recipe:
+def glob_files(directory: Path, pattern: str, recursive: bool, cache=CacheType.Auto) -> Recipe:
     def _glob_recipe() -> Tuple[List[Path]]:
-        return list(directory.glob(pattern)),
+        if recursive:
+            return list(directory.rglob(pattern)),
+        else:
+            return list(directory.glob(pattern)),
 
     def _check_clean(last_outputs: Optional[Tuple[Any, ...]]) -> bool:
         # This is actually of type Optional[Tuple[List[Path]]] (same as _glob_recipe)
