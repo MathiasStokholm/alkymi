@@ -76,8 +76,8 @@ class Lab:
 
         # Create the parser for the "brew" command
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
-        brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes],
-                                 help='Recipe to brew')
+        brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
+                                 help='Recipe(s) to brew')
 
         args = parser.parse_args()
         log.addHandler(logging.StreamHandler())
@@ -93,4 +93,5 @@ class Lab:
         elif args.subparser_name == 'clean-cache':
             raise NotImplementedError("clean-cache doesn't work yet!")
         elif args.subparser_name == 'brew':
-            self.brew(args.recipe)
+            for recipe in args.recipe:
+                self.brew(recipe)
