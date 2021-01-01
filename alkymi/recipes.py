@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple, Optional, Any
+from typing import List, Tuple, Optional, Any, Dict
 
 from .config import CacheType
 from .recipe import Recipe
@@ -28,34 +28,34 @@ def file(path: Path, cache=CacheType.Auto) -> Recipe:
 
 
 class NamedArgs:
-    def __init__(self, cache=CacheType.Auto, **_kwargs):
-        self._kwargs = _kwargs
+    def __init__(self, cache=CacheType.Auto, **_kwargs: Any):
+        self._kwargs = _kwargs  # type: Dict[Any, Any]
         self._recipe = Recipe([], self._produce_kwargs, "kwargs", transient=False, cache=cache,
                               cleanliness_func=self._clean)
 
-    def _produce_kwargs(self):
+    def _produce_kwargs(self) -> Dict[Any, Any]:
         return self._kwargs
 
     def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
         if last_outputs is None:
             return self._kwargs is None
-        return self._kwargs == last_outputs[0]
+        return bool(self._kwargs == last_outputs[0])
 
     @property
-    def recipe(self):
+    def recipe(self) -> Recipe:
         return self._recipe
 
-    def set_args(self, **_kwargs):
+    def set_args(self, **_kwargs) -> None:
         self._kwargs = _kwargs
 
 
 class Args:
-    def __init__(self, *_args, cache=CacheType.Auto):
-        self._args = _args
+    def __init__(self, *_args: Any, cache=CacheType.Auto):
+        self._args = _args  # type: Tuple[Any, ...]
         self._recipe = Recipe([], self._produce_args, "args", transient=False, cache=cache,
                               cleanliness_func=self._clean)
 
-    def _produce_args(self):
+    def _produce_args(self) -> Tuple[Any, ...]:
         return self._args
 
     def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
@@ -69,9 +69,9 @@ class Args:
         self._args = _args
 
 
-def kwargs(cache=CacheType.Auto, **_kwargs) -> NamedArgs:
+def kwargs(cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
     return NamedArgs(cache, **_kwargs)
 
 
-def args(*_args, cache=CacheType.Auto) -> Args:
+def args(*_args: Any, cache=CacheType.Auto) -> Args:
     return Args(*_args, cache=cache)

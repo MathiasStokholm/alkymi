@@ -100,7 +100,7 @@ def test_lists(caplog):
     """
     caplog.set_level(logging.DEBUG)
 
-    execution_counts = [0] * 5
+    execution_counts = [0] * 5  # type: List[int]
     args = alkymi.recipes.args([0])
 
     def _check_counts(counts: Tuple[int, int, int, int, int]):

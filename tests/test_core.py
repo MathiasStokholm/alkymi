@@ -83,9 +83,9 @@ def test_execution(caplog, tmpdir):
         reads_a_file=0
     )
 
-    build_dir = Path(tmpdir) / 'build'
-    file = build_dir / 'file.txt'
-    copied_file = build_dir / 'file_copy.txt'
+    build_dir = Path(tmpdir) / 'build'  # type: Path
+    file = build_dir / 'file.txt'  # type: Path
+    copied_file = build_dir / 'file_copy.txt'  # type: Path
 
     @alk.recipe()
     def produces_build_dir() -> Path:
