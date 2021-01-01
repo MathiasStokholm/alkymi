@@ -5,6 +5,8 @@ from .recipe import Recipe
 from .logging import log
 from .foreach_recipe import ForeachRecipe
 
+# TODO(mathias): Rename this file to something more fitting
+
 
 class Status(Enum):
     """
@@ -77,7 +79,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
         if len(recipe.mapped_recipe.outputs) != 1:
             raise Exception("Input to mapped recipe {} must be a list".format(recipe.name))
-        if not recipe.is_mapped_clean(recipe.mapped_recipe.outputs[0]):
+        if not recipe.is_foreach_clean(recipe.mapped_recipe.outputs[0]):
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
 

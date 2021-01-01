@@ -11,7 +11,7 @@ def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False, cache: C
     Convert a function into an alkymi Recipe to enable caching and conditional evaluation
 
     :param ingredients: The dependencies of this Recipe - the outputs of these Recipes will be provided as arguments to
-    the bound function when called
+                        the bound function when called
     :param transient: Whether to always (re)evaluate the created Recipe
     :param cache: The type of caching to use for this Recipe
     :return: A callable that will yield the Recipe created from the bound function
@@ -36,9 +36,9 @@ def foreach(mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient
     Convert a function into an alkymi Recipe to enable caching and conditional evaluation
 
     :param mapped_inputs: A single Recipe to whose output (a list or dictionary) the bound function will be applied to
-    generate the new outputs (similar to Python's built-in map() function)
+                          generate the new outputs (similar to Python's built-in map() function)
     :param ingredients: The dependencies of this Recipe - the outputs of these Recipes will be provided as arguments to
-    the bound function when called (following the item from the mapped_inputs sequence)
+                        the bound function when called (following the item from the mapped_inputs sequence)
     :param transient: Whether to always (re)evaluate the created Recipe
     :param cache: The type of caching to use for this Recipe
     :return: A callable that will yield the Recipe created from the bound function

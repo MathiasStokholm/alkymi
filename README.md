@@ -80,14 +80,14 @@ pip install --user .
 ```
 
 Or install using pip and github
-```
+```shell script
 pip install --user git+https://github.com/MathiasStokholm/alkymi.git
 ```
 
 ### Testing
 After installing, you can run the test suite:
 ```shell script
-python3 -m pytest .
+python3 lab.py brew test
 ```
 
 ## License
