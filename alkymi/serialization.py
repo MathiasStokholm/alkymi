@@ -1,26 +1,42 @@
 import itertools
-import re
 import pickle
+import re
 from pathlib import Path
 from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type
 
+# TODO(mathias): This file needs to be reworked to be less complex/crazy. Some sort of class w/ recursive serialization
+#                might help make this a lot more readable
+
+# Shorthands for generator types used below
+CachePathGenerator = Generator[Path, None, None]
+SerializationGenerator = Generator[Union[str, int, float], None, None]
+
+# Tokens used to signify to the deserializer func how to deserializer a given value
 TOKEN_TEMPLATE = "!#{}#!"
 TOKEN_REGEX = re.compile("(!#.*#!).*")
 
 
-def create_token(name):
+def create_token(name) -> str:
+    """
+    Creates a token using the 'TOKEN_TEMPLATE' to signify to the deserializer func how to deserializer a given value
+
+    :param name: The name of the token
+    :return: A new token for the given token name
+    """
     return TOKEN_TEMPLATE.format(name)
 
 
+# Create tokens
 PATH_TOKEN = create_token("path")
 PICKLE_TOKEN = create_token("pickle")
 BYTES_TOKEN = create_token("bytes")
 
-CachePathGenerator = Generator[Path, None, None]
-SerializationGenerator = Generator[Union[str, int, float], None, None]
-
 
 class Serializer:
+    """
+    Abstract base class for classes that enable serialization/deserialization of classes not in the standard library
+    """
+
     @staticmethod
     def serialize(value: Any, cache_path: Path) -> str:
         raise NotImplementedError()
@@ -32,22 +48,38 @@ class Serializer:
 
 # Load additional serializers and deserializers based on available libs
 additional_serializers = {}  # type: Dict[Any, Type[Serializer]]
-additional_deserializers = {}
+additional_deserializers = {}  # type: Dict[str, Type[Serializer]]
 try:
     import numpy as np
 
 
     class NdArraySerializer(Serializer):
+        """
+        Numpy array serializer/deserializer
+        """
         TOKEN = create_token("ndarray")
 
         @staticmethod
         def serialize(array: np.ndarray, cache_path: Path) -> str:
+            """
+            Saves a numpy array to an .npy file
+
+            :param array: The file so save
+            :param cache_path: The path to save the array to
+            :return: A tokenized path to allow the deserializer to call the "deserialize" function of this module
+            """
             path = cache_path.with_suffix(".npy")
             np.save(str(path), array, allow_pickle=False)
             return "{}{}".format(NdArraySerializer.TOKEN, path)
 
         @staticmethod
         def deserialize(path: Path) -> np.ndarray:
+            """
+            Loads the numpy .npy file from the provided path
+
+            :param path: The path to the numpy file to load
+            :return: The decoded numpy array
+            """
             return np.load(str(path), allow_pickle=False)
 
 
@@ -58,6 +90,13 @@ except ImportError:
 
 
 def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optional[SerializationGenerator]:
+    """
+    Serializes an item (potentially recursively) and returns the result(s) as a generator
+
+    :param item: The item to serialize (may be nested)
+    :param cache_path_generator: The generator to use for generating cache paths
+    :return: A generator that will yield one or more serialized entries
+    """
     serializer = additional_serializers.get(type(item), None)
     if item is None:
         yield None
@@ -93,6 +132,13 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optio
 
 def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: CachePathGenerator) -> \
         Optional[Tuple[Any, ...]]:
+    """
+    Serialize items (potentially recursively) and returns the results as a tuple
+
+    :param items: The items to serialize
+    :param cache_path_generator: The generator to use for generating cache paths
+    :return: The results of serialization as a tuple
+    """
     if items is None:
         return None
 
@@ -106,6 +152,12 @@ def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: Cach
 
 
 def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float]]]) -> Generator[Any, None, None]:
+    """
+    Deserializes an item (potentially recursively) and returns the result(s) as a generator
+
+    :param item: The item to deserialize (may be nested)
+    :return: A generator that will yield one or more deserialized entries
+    """
     if isinstance(item, str):
         m = re.match(TOKEN_REGEX, item)
         if m is None:
@@ -139,6 +191,12 @@ def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float
 
 
 def deserialize_items(items: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, ...]]:
+    """
+    Deserialize items (potentially recursively) and returns the results as a tuple
+
+    :param items: The items to deserialize
+    :return: The results of deserialization as a tuple
+    """
     if items is None:
         return None
     return tuple(itertools.chain.from_iterable(deserialize_item(item) for item in items))
