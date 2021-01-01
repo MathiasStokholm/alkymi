@@ -3,7 +3,6 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, Generator
 
-import alkymi.alkymi as alkymi
 from . import metadata
 from .config import CacheType, AlkymiConfig
 from .logging import log
@@ -96,7 +95,9 @@ class Recipe:
 
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
-        result = alkymi.evaluate_recipe(self, alkymi.compute_recipe_status(self))
+        # Lazy import to avoid circular imports
+        from .alkymi import evaluate_recipe, compute_recipe_status
+        result = evaluate_recipe(self, compute_recipe_status(self))
         if result is None:
             return None
 
