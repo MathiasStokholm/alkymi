@@ -78,7 +78,6 @@ def test_recipe_serialization(tmpdir):
 
     # Ensure copied state is correct after brew
     for recipe in [produces_build_dir_copy, files_in_dir_copy, read_file_copy]:
-        assert recipe.inputs is None
         assert recipe.input_metadata is None
         assert recipe.outputs is None
         assert recipe.output_metadata is None
@@ -87,19 +86,16 @@ def test_recipe_serialization(tmpdir):
 
     # Test serializing -> deserializing
     produces_build_dir_copy.restore_from_dict(produces_build_dir.to_dict())
-    assert produces_build_dir_copy.inputs == produces_build_dir.inputs
     assert produces_build_dir_copy.input_metadata == produces_build_dir.input_metadata
     assert produces_build_dir_copy.outputs == produces_build_dir.outputs
     assert produces_build_dir_copy.output_metadata == produces_build_dir.output_metadata
 
     files_in_dir_copy.restore_from_dict(files_in_dir.to_dict())
-    assert files_in_dir_copy.inputs == files_in_dir.inputs
     assert files_in_dir_copy.input_metadata == files_in_dir.input_metadata
     assert files_in_dir_copy.outputs == files_in_dir.outputs
     assert files_in_dir_copy.output_metadata == files_in_dir.output_metadata
 
     read_file_copy.restore_from_dict(read_file.to_dict())
-    assert read_file_copy.inputs == read_file.inputs
     assert read_file_copy.input_metadata == read_file.input_metadata
     assert read_file_copy.outputs == read_file.outputs
     assert read_file_copy.output_metadata == read_file.output_metadata

@@ -50,7 +50,6 @@ class Recipe:
 
         self._outputs = None  # type: Optional[Tuple[Any, ...]]
         self._output_metadata = None  # type: Optional[List[Optional[str]]]
-        self._inputs = None  # type: Optional[Tuple[Any, ...]]
         self._input_metadata = None  # type: Optional[List[Optional[str]]]
 
         if self.cache == CacheType.Cache:
@@ -83,8 +82,11 @@ class Recipe:
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         log.debug('Invoking recipe: {}'.format(self.name))
-        self.inputs = inputs
         self.outputs = self._canonical(self(*inputs))
+        input_metadata = []
+        for inp in inputs:
+            input_metadata.append(get_metadata(inp))
+        self._input_metadata = input_metadata
         self._save_state()
         return self.outputs
 
@@ -148,7 +150,7 @@ class Recipe:
             return output.exists()
         return True
 
-    def is_clean(self, new_inputs: Optional[Tuple[Any, ...]]) -> bool:
+    def is_clean(self, new_inputs: Tuple[Any, ...]) -> bool:
         """
         Check whether this Recipe is clean (result is cached) based on a set of (potentially new) inputs
 
@@ -175,11 +177,6 @@ class Recipe:
             log.debug('{} -> dirty: output metadata did not match: {} != {}'.format(self._name, self.output_metadata,
                                                                                     current_output_metadata))
             return False
-
-        # If last inputs were non-existent, new inputs have to be non-existent too for equality
-        if self.inputs is None or new_inputs is None:
-            log.debug('{} -> dirty: inputs changed'.format(self._name))
-            return self.inputs == new_inputs
 
         # Compute input metadata and perform equality check
         new_input_metadata = [get_metadata(inp) for inp in new_inputs]
@@ -227,32 +224,9 @@ class Recipe:
         return metadata.function_hash(self._func)
 
     @property
-    def inputs(self) -> Optional[Tuple[Any, ...]]:
-        """
-        :return: The inputs provided by the ingredients (dependencies) of this Recipe - used to call the bound function
-        """
-        return self._inputs
-
-    @inputs.setter
-    def inputs(self, inputs) -> None:
-        """
-        Sets the inputs and computes the necessary metadata needed for checking dirtiness
-
-        :param inputs: The inputs provided by the ingredients (dependencies) of this Recipe - used to call the bound
-                       function
-        """
-        if inputs is None:
-            return
-
-        self._input_metadata = []
-        for inp in inputs:
-            self._input_metadata.append(get_metadata(inp))
-        self._inputs = inputs
-
-    @property
     def input_metadata(self) -> Optional[List[Optional[str]]]:
         """
-        :return: The computed metadata for the inputs (this is set when inputs is set)
+        :return: The metadata for the inputs
         """
         return self._input_metadata
 
@@ -289,6 +263,7 @@ class Recipe:
         """
         :return: The ForeachRecipe as a dict for serialization purposes
         """
+
         def cache_path_generator() -> Generator[Path, None, None]:
             """
             :return: A generator that provides paths for storing serialized (cached) data to the recipe cache dir
@@ -300,7 +275,6 @@ class Recipe:
 
         return OrderedDict(
             name=self.name,
-            inputs=serialize_items(self.inputs, cache_path_generator()),
             input_metadata=self.input_metadata,
             outputs=serialize_items(self.outputs, cache_path_generator()),
             output_metadata=self.output_metadata,
@@ -313,7 +287,6 @@ class Recipe:
         :param old_state: The old cached state to restore
         """
         log.debug("Restoring {} from dict".format(self._name))
-        self._inputs = deserialize_items(old_state["inputs"])
         self._input_metadata = old_state["input_metadata"]
         self._outputs = deserialize_items(old_state["outputs"])
         self._output_metadata = old_state["output_metadata"]

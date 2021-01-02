@@ -150,7 +150,10 @@ class ForeachRecipe(Recipe):
             raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
 
         # Store the provided inputs and the resulting outputs and commit to cache
-        self.inputs = inputs
+        input_metadata = []
+        for inp in inputs:
+            input_metadata.append(get_metadata(inp))
+        self._input_metadata = input_metadata
         self.mapped_inputs = mapped_inputs
         self.outputs = self._canonical(outputs)
         self._save_state()
