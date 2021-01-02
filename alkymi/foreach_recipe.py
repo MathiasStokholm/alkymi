@@ -83,7 +83,8 @@ class ForeachRecipe(Recipe):
         """
         return self._mapped_inputs_metadata
 
-    def invoke_mapped(self, mapped_inputs: MappedInputs, *inputs: Optional[Tuple[Any, ...]]):
+    def invoke_mapped(self, mapped_inputs: MappedInputs, mapped_inputs_metadata_summary: Optional[str],
+                      inputs: Tuple[Any, ...], input_metadata: Tuple[Optional[str], ...]):
         """
         Evaluate this ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the metadata
@@ -106,12 +107,13 @@ class ForeachRecipe(Recipe):
 
         # Check if ingredient inputs have changed - this should also cause a full reevaluation
         if not needs_full_eval:
-            input_metadata = [get_metadata(inp) for inp in inputs]
             if self.input_metadata:
                 needs_full_eval = self.input_metadata != input_metadata
             else:
                 if input_metadata:
                     needs_full_eval = True
+
+        # TODO(mathias): Find a way to avoid computing metadata if possible (e.g. use mapped_inputs_metadata_summary)
 
         if isinstance(mapped_inputs, list):
             # Handle list input
@@ -150,9 +152,6 @@ class ForeachRecipe(Recipe):
             raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
 
         # Store the provided inputs and the resulting outputs and commit to cache
-        input_metadata = []
-        for inp in inputs:
-            input_metadata.append(get_metadata(inp))
         self._input_metadata = input_metadata
         self.mapped_inputs = mapped_inputs
         self.outputs = self._canonical(outputs)
@@ -188,6 +187,7 @@ class ForeachRecipe(Recipe):
         """
         :return: The ForeachRecipe as a dict for serialization purposes
         """
+
         def cache_path_generator() -> Generator[Path, None, None]:
             """
             :return: A generator that provides paths for storing serialized (cached) data to the recipe cache dir

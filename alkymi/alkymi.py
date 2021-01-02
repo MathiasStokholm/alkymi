@@ -7,6 +7,8 @@ from .foreach_recipe import ForeachRecipe
 
 # TODO(mathias): Rename this file to something more fitting
 
+OutputsAndMetadata = Tuple[Optional[Tuple[Any, ...]], Optional[Tuple[Optional[str], ...]]]
+
 
 class Status(Enum):
     """
@@ -61,14 +63,14 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
         return status[recipe]
 
     # Check if one or more children are dirty
-    ingredient_outputs = []  # type: List[Any]
+    ingredient_output_metadata = []  # type: List[Optional[str]]
     for ingredient in recipe.ingredients:
         if compute_status_with_cache(ingredient, status) != Status.Ok:
             status[recipe] = Status.IngredientDirty
             return status[recipe]
-        if ingredient.outputs is not None:  # This will never happen, but this satisfies the type checker
-            ingredient_outputs.extend(ingredient.outputs)
-    ingredient_outputs_tuple = tuple(ingredient_outputs)  # type: Tuple[Any, ...]
+        if ingredient.output_metadata is not None:  # This will never happen, but this satisfies the type checker
+            ingredient_output_metadata.extend(ingredient.output_metadata)
+    ingredient_output_metadata_tuple = tuple(ingredient_output_metadata)  # type: Tuple[Optional[str], ...]
 
     if isinstance(recipe, ForeachRecipe):
         # Check cleanliness of mapped inputs, inputs and outputs
@@ -79,12 +81,14 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
         if len(recipe.mapped_recipe.outputs) != 1:
             raise Exception("Input to mapped recipe {} must be a list".format(recipe.name))
+
+        # TODO(mathias): Use mapped_inputs_metadata_summary to do this check without needing to call get_metadata()
         if not recipe.is_foreach_clean(recipe.mapped_recipe.outputs[0]):
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
 
     # Check cleanliness of inputs and outputs
-    if not recipe.is_clean(ingredient_outputs_tuple):
+    if not recipe.is_clean(ingredient_output_metadata_tuple):
         status[recipe] = Status.Dirty
         return status[recipe]
 
@@ -92,7 +96,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
     return status[recipe]
 
 
-def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tuple[Any, ...]]:
+def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndMetadata:
     """
     Evaluate a recipe using precomputed statuses
 
@@ -102,40 +106,51 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> Optional[Tu
     """
     log.debug('Evaluating recipe: {}'.format(recipe.name))
 
-    def _print_and_return() -> Optional[Tuple[Any, ...]]:
+    def _print_and_return() -> OutputsAndMetadata:
         log.debug('Finished evaluating {}'.format(recipe.name))
-        return recipe.outputs
+        return recipe.outputs, recipe.output_metadata
 
     if status[recipe] == Status.Ok:
         return _print_and_return()
 
     if len(recipe.ingredients) <= 0 and not isinstance(recipe, ForeachRecipe):
-        recipe.invoke()
+        recipe.invoke(inputs=tuple(), input_metadata=tuple())
         return _print_and_return()
 
     # Load ingredient inputs
     ingredient_inputs = []  # type: List[Any]
+    ingredient_inputs_metadata = []  # type: List[Optional[str]]
     for ingredient in recipe.ingredients:
-        result = evaluate_recipe(ingredient, status)
+        result, metadata = evaluate_recipe(ingredient, status)
         if result is not None:
             ingredient_inputs.extend(result)
+        if metadata is not None:
+            ingredient_inputs_metadata.extend(metadata)
     ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
+    ingredient_inputs_metadata_tuple = tuple(ingredient_inputs_metadata)  # type: Tuple[Optional[str], ...]
 
     # Process inputs
     if isinstance(recipe, ForeachRecipe):
         # Process mapped inputs
-        mapped_inputs_tuple = evaluate_recipe(recipe.mapped_recipe, status)
+        mapped_inputs_tuple, mapped_inputs_metadata_tuple = evaluate_recipe(recipe.mapped_recipe, status)
         if mapped_inputs_tuple is None:
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
         if len(mapped_inputs_tuple) != 1:
             raise Exception("Input to mapped recipe {} must be a single list or dict".format(recipe.name))
         mapped_inputs = mapped_inputs_tuple[0]
 
+        if mapped_inputs_metadata_tuple is None:
+            raise Exception("Input metadata to mapped recipe {} is None".format(recipe.name))
+        if len(mapped_inputs_metadata_tuple) != 1:
+            raise Exception("Input metadata to mapped recipe {} must be a single list or dict".format(recipe.name))
+        mapped_inputs_metadata_summary = mapped_inputs_metadata_tuple[0]
+
         # Mapped inputs can either be a list or a dictionary
         if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
             raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
-        recipe.invoke_mapped(mapped_inputs, *ingredient_inputs_tuple)
+        recipe.invoke_mapped(mapped_inputs=mapped_inputs, mapped_inputs_metadata_summary=mapped_inputs_metadata_summary,
+                             inputs=ingredient_inputs_tuple, input_metadata=ingredient_inputs_metadata_tuple)
     else:
         # Regular Recipe
-        recipe.invoke(*ingredient_inputs_tuple)
+        recipe.invoke(inputs=ingredient_inputs_tuple, input_metadata=ingredient_inputs_metadata_tuple)
     return _print_and_return()

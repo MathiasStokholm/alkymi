@@ -3,7 +3,7 @@ from pathlib import Path
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
-from alkymi.alkymi import compute_recipe_status, evaluate_recipe, Status
+from alkymi.alkymi import compute_recipe_status, Status
 
 
 # Turn of caching for tests
@@ -27,7 +27,7 @@ def test_builtin_args():
 
     assert len(args_recipe.ingredients) == 0
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.NotEvaluatedYet
-    results = evaluate_recipe(args_recipe, compute_recipe_status(args_recipe))
+    results = args.recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
     assert results[0] == "value1"
@@ -35,14 +35,14 @@ def test_builtin_args():
 
     args.set_args("3")
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
-    results = evaluate_recipe(args_recipe, compute_recipe_status(args_recipe))
+    results = args.recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
     assert results[0] == "3"
 
     args.set_args()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
-    results = evaluate_recipe(args_recipe, compute_recipe_status(args_recipe))
+    results = args.recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
     assert len(results) == 0
@@ -62,14 +62,14 @@ def test_builtin_kwargs():
 
     args.set_args(argument3="3")
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
-    results = evaluate_recipe(args_recipe, compute_recipe_status(args_recipe))
+    results = args.recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
-    assert results[0]["argument3"] == "3"
+    assert results["argument3"] == "3"
 
     args.set_args()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
-    results = evaluate_recipe(args_recipe, compute_recipe_status(args_recipe))
+    results = args.recipe.brew()
     assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
     assert results is not None
-    assert len(results[0]) == 0
+    assert len(results) == 0

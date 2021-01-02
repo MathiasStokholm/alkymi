@@ -49,8 +49,8 @@ class Recipe:
             self._cache = cache
 
         self._outputs = None  # type: Optional[Tuple[Any, ...]]
-        self._output_metadata = None  # type: Optional[List[Optional[str]]]
-        self._input_metadata = None  # type: Optional[List[Optional[str]]]
+        self._output_metadata = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._input_metadata = None  # type: Optional[Tuple[Optional[str], ...]]
 
         if self.cache == CacheType.Cache:
             # Try to reload last state
@@ -72,7 +72,7 @@ class Recipe:
         """
         return self._func(*args, **kwargs)
 
-    def invoke(self, *inputs: Optional[Tuple[Any, ...]]):
+    def invoke(self, inputs: Tuple[Any, ...], input_metadata: Tuple[Optional[str], ...]):
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the metadata is used to check this). Only the immediately
@@ -83,9 +83,6 @@ class Recipe:
         """
         log.debug('Invoking recipe: {}'.format(self.name))
         self.outputs = self._canonical(self(*inputs))
-        input_metadata = []
-        for inp in inputs:
-            input_metadata.append(get_metadata(inp))
         self._input_metadata = input_metadata
         self._save_state()
         return self.outputs
@@ -99,7 +96,7 @@ class Recipe:
         """
         # Lazy import to avoid circular imports
         from .alkymi import evaluate_recipe, compute_recipe_status
-        result = evaluate_recipe(self, compute_recipe_status(self))
+        result, _ = evaluate_recipe(self, compute_recipe_status(self))
         if result is None:
             return None
 
@@ -150,11 +147,11 @@ class Recipe:
             return output.exists()
         return True
 
-    def is_clean(self, new_inputs: Tuple[Any, ...]) -> bool:
+    def is_clean(self, new_input_metadata: Tuple[Optional[str], ...]) -> bool:
         """
-        Check whether this Recipe is clean (result is cached) based on a set of (potentially new) inputs
+        Check whether this Recipe is clean (result is cached) based on a set of (potentially new) input metadata
 
-        :param new_inputs: The (potentially new) inputs to use for checking cleanliness
+        :param new_input_metadata: The (potentially new) input metadata to use for checking cleanliness
         :return: Whether this recipe is clean (or needs to be reevaluated)
         """
         if self._cleanliness_func is not None:
@@ -171,15 +168,7 @@ class Recipe:
         if not all(self._check_output(output) for output in self.outputs):
             return False
 
-        # Compute output metadata to ensure that outputs haven't changed
-        current_output_metadata = [get_metadata(out) for out in self.outputs]
-        if self.output_metadata != current_output_metadata:
-            log.debug('{} -> dirty: output metadata did not match: {} != {}'.format(self._name, self.output_metadata,
-                                                                                    current_output_metadata))
-            return False
-
         # Compute input metadata and perform equality check
-        new_input_metadata = [get_metadata(inp) for inp in new_inputs]
         if self.input_metadata != new_input_metadata:
             log.debug('{} -> dirty: input metadata changed'.format(self._name))
             return False
@@ -224,7 +213,7 @@ class Recipe:
         return metadata.function_hash(self._func)
 
     @property
-    def input_metadata(self) -> Optional[List[Optional[str]]]:
+    def input_metadata(self) -> Optional[Tuple[Optional[str], ...]]:
         """
         :return: The metadata for the inputs
         """
@@ -247,13 +236,11 @@ class Recipe:
         if outputs is None:
             return
 
-        self._output_metadata = []
-        for out in outputs:
-            self._output_metadata.append(get_metadata(out))
+        self._output_metadata = tuple(get_metadata(out) for out in outputs)
         self._outputs = outputs
 
     @property
-    def output_metadata(self) -> Optional[List[Optional[str]]]:
+    def output_metadata(self) -> Optional[Tuple[Optional[str], ...]]:
         """
         :return: The computed metadata for the outputs (this is set when outputs is set)
         """
