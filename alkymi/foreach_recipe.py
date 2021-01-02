@@ -101,11 +101,24 @@ class ForeachRecipe(Recipe):
         mapped_inputs_of_same_type = type(self.mapped_inputs) == type(mapped_inputs)
         outputs = None  # type: Optional[MappedInputs]  # This is needed to make mypy happy in Python 3.5
 
+        # Check if a full reevaluation across all mapped inputs is needed
+        needs_full_eval = self.transient or not mapped_inputs_of_same_type
+
+        # Check if ingredient inputs have changed - this should also cause a full reevaluation
+        if not needs_full_eval:
+            input_metadata = [get_metadata(inp) for inp in inputs]
+            if self.input_metadata:
+                needs_full_eval = self.input_metadata != input_metadata
+            else:
+                if input_metadata:
+                    needs_full_eval = True
+
         if isinstance(mapped_inputs, list):
             # Handle list input
             outputs_list = []  # type: List[Any]
             for item in mapped_inputs:
-                if not self.transient and self.outputs is not None and mapped_inputs_of_same_type:
+                if not needs_full_eval and self.outputs is not None:
+                    # Try to look up cached result for this input, fall back to recomputing
                     try:
                         new_metadata = get_metadata(item)
                         idx = self.mapped_inputs_metadata.index(new_metadata)  # type: ignore
@@ -122,7 +135,8 @@ class ForeachRecipe(Recipe):
             # Handle dict input
             outputs_dict = {}  # type: Dict[Any, Any]
             for key, item in mapped_inputs.items():
-                if not self.transient and self.outputs is not None and mapped_inputs_of_same_type:
+                # Try to look up cached result for this input, fall back to recomputing
+                if not needs_full_eval and self.outputs is not None:
                     found_metadata = self.mapped_inputs_metadata.get(key, None)  # type: ignore
                     if found_metadata is not None:
                         new_metadata = get_metadata(key)
