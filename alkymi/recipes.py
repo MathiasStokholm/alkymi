@@ -16,6 +16,7 @@ def glob_files(directory: Path, pattern: str, recursive: bool, cache=CacheType.A
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
     """
+
     def _glob_recipe() -> Tuple[List[Path]]:
         """
         The bound function that performs the glob
@@ -47,6 +48,7 @@ def file(path: Path, cache=CacheType.Auto) -> Recipe:
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
     """
+
     def _file_recipe() -> Path:
         return path
 
@@ -54,47 +56,108 @@ def file(path: Path, cache=CacheType.Auto) -> Recipe:
 
 
 class NamedArgs:
+    """
+    Class providing stateful keyword argument(s)
+
+    To use, create a NamedArgsArgs instance with the initial value for your arguments, e.g. Args(val0=0, val1=1,
+    val2=2), then provide the 'recipe' property to downstream recipes. To change the input arguments, call 'set_args()'
+    again - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
+    """
+
     def __init__(self, cache=CacheType.Auto, **_kwargs: Any):
+        """
+        Create a new NamedArgs instance with initial argument value(s)
+
+        :param cache: The type of caching to use for this Recipe
+        :param _kwargs: The initial keyword argument value(s)
+        """
         self._kwargs = _kwargs  # type: Dict[Any, Any]
         self._recipe = Recipe([], self._produce_kwargs, "kwargs", transient=False, cache=cache,
                               cleanliness_func=self._clean)
 
     def _produce_kwargs(self) -> Dict[Any, Any]:
+        """
+        :return: The current set of keyword arguments
+        """
         return self._kwargs
 
     def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+        """
+        Checks whether the arguments have changed since the last evaluation
+
+        :param last_outputs: The last set of outputs (arguments)
+        :return: True if the arguments remain the same
+        """
         if last_outputs is None:
             return self._kwargs is None
         return bool(self._kwargs == last_outputs[0])
 
     @property
     def recipe(self) -> Recipe:
+        """
+        :return: The recipe that produces the keyword arguments
+        """
         return self._recipe
 
     def set_args(self, **_kwargs) -> None:
+        """
+        Change the arguments, causing the recipe to need reevaluation
+
+        :param _kwargs: The new set of keyword arguments
+        """
+        # TODO(mathias): Consider enforcing argument count and types here
         self._kwargs = _kwargs
 
 
 class Args:
     """
-    Helper class used for the 'args' built-in recipe
+    Class providing stateful non-keyword argument(s)
+
+    To use, create an Args instance with the initial value for your arguments, e.g. Args(0, 1, 2), then provide the
+    'recipe' property to downstream recipes. To change the input arguments, call 'set_args()' again - this will mark the
+    contained recipe as dirty and cause reevaluation of downstream recipes
     """
+
     def __init__(self, *_args: Any, cache=CacheType.Auto):
+        """
+        Create a new Args instance with initial argument value(s)
+
+        :param _args: The initial argument value(s)
+        :param cache: The type of caching to use for this Recipe
+        """
         self._args = _args  # type: Tuple[Any, ...]
         self._recipe = Recipe([], self._produce_args, "args", transient=False, cache=cache,
                               cleanliness_func=self._clean)
 
     def _produce_args(self) -> Tuple[Any, ...]:
+        """
+        :return: The current set of arguments
+        """
         return self._args
 
     def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+        """
+        Checks whether the arguments have changed since the last evaluation
+
+        :param last_outputs: The last set of outputs (arguments)
+        :return: True if the arguments remain the same
+        """
         return self._args == last_outputs
 
     @property
     def recipe(self) -> Recipe:
+        """
+        :return: The recipe that produces the arguments
+        """
         return self._recipe
 
     def set_args(self, *_args) -> None:
+        """
+        Change the arguments, causing the recipe to need reevaluation
+
+        :param _args: The new set of arguments
+        """
+        # TODO(mathias): Consider enforcing argument count and types here
         self._args = _args
 
 
