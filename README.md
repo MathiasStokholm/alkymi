@@ -1,7 +1,7 @@
 # alkymi ⚗️
 Pythonic task automation
 
-![Python package](https://github.com/MathiasStokholm/alkymi/workflows/Python%20package/badge.svg?branch=master)
+![build](https://github.com/MathiasStokholm/alkymi/workflows/build/badge.svg?branch=master)
 
 alkymi uses Python's basic building blocks to describe a directed-acyclic-graph (DAG) of computation, and adds a layer
 of caching to only evaluate functions when inputs have changed.
