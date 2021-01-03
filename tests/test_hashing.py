@@ -34,3 +34,18 @@ def test_function_hash():
         return add_one(a) + b + args[0] + kwargs["test"]
 
     assert func_1_hash != metadata.function_hash(func_different_func_reference)
+
+
+class MyClass:
+    def __init__(self, public_value, private_value):
+        self.public_value = public_value
+        self._private_value = private_value
+
+
+def test_custom_class_checksum():
+    class_1_hash = metadata.get_metadata(MyClass(5, "10"))
+    class_2_hash = metadata.get_metadata(MyClass(5, 10))
+    class_3_hash = metadata.get_metadata(MyClass("5", 10))
+    class_4_hash = metadata.get_metadata(MyClass(5, "10"))
+    assert class_1_hash != class_2_hash != class_3_hash
+    assert class_1_hash == class_4_hash

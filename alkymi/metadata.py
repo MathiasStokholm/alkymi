@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, Optional, Sequence, Dict, Callable
+import pickle
 import hashlib
 import inspect
 
@@ -90,7 +91,12 @@ class Checksummer(object):
             if generator is not None:
                 self.update(generator(obj))
             else:
-                raise ValueError("Checksum not supported for type: {}".format(type(obj)))
+                # As a last resort, try to pickle the object to get bytes for hashing
+                try:
+                    pickled_bytes = pickle.dumps(obj)
+                    self.update(pickled_bytes)
+                except pickle.PicklingError:
+                    raise ValueError("Checksum not supported for type: {}".format(type(obj)))
 
     def _update_func(self, fn) -> None:
         """
