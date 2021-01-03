@@ -58,7 +58,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
         return status[recipe]
 
     # Check if recipe hasn't been evaluated yet
-    if recipe.transient or recipe.outputs is None:
+    if recipe.transient or recipe.output_metadata is None:
         status[recipe] = Status.NotEvaluatedYet
         return status[recipe]
 
@@ -77,13 +77,11 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
         if compute_status_with_cache(recipe.mapped_recipe, status) != Status.Ok:
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
-        if recipe.mapped_recipe.outputs is None:
-            raise Exception("Input to mapped recipe {} is None".format(recipe.name))
-        if len(recipe.mapped_recipe.outputs) != 1:
-            raise Exception("Input to mapped recipe {} must be a list".format(recipe.name))
-
-        # TODO(mathias): Use mapped_inputs_metadata_summary to do this check without needing to call get_metadata()
-        if not recipe.is_foreach_clean(recipe.mapped_recipe.outputs[0]):
+        if recipe.mapped_recipe.output_metadata is None:
+            raise Exception("Input checksum to mapped recipe {} is None".format(recipe.name))
+        if len(recipe.mapped_recipe.output_metadata) != 1:
+            raise Exception("Input checksum to mapped recipe {} must be a single element".format(recipe.name))
+        if not recipe.is_foreach_clean(recipe.mapped_recipe.output_metadata[0]):
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
 
@@ -102,7 +100,7 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndM
 
     :param recipe: The recipe to evaluate
     :param status: The dictionary of statuses computed using 'compute_recipe_status()' to use for targeted evaluation
-    :return: The outputs of the provided recipe (wrapped in a tuple if necessary)
+    :return: The outputs and metadata of the provided recipe (wrapped in tuples if necessary)
     """
     log.debug('Evaluating recipe: {}'.format(recipe.name))
 

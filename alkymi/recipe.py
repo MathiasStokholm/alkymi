@@ -144,6 +144,7 @@ class Recipe:
         if output is None:
             return False
         if isinstance(output, Path):
+            # FIXME(mathias): This should check whether the file checksum remains the same
             return output.exists()
         return True
 

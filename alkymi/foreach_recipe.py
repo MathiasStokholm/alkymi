@@ -37,6 +37,7 @@ class ForeachRecipe(Recipe):
         self._mapped_recipe = mapped_recipe
         self._mapped_inputs = None  # type: Optional[MappedInputs]
         self._mapped_inputs_metadata = None  # type: Optional[MappedInputsMetadata]
+        self._mapped_inputs_metadata_summary = None  # type: Optional[str]
         super().__init__(ingredients, func, name, transient, cache, cleanliness_func)
 
     @property
@@ -83,6 +84,13 @@ class ForeachRecipe(Recipe):
         """
         return self._mapped_inputs_metadata
 
+    @property
+    def mapped_inputs_metadata_summary(self) -> Optional[str]:
+        """
+        :return: The summary of the mapped inputs metadata
+        """
+        return self._mapped_inputs_metadata_summary
+
     def invoke_mapped(self, mapped_inputs: MappedInputs, mapped_inputs_metadata_summary: Optional[str],
                       inputs: Tuple[Any, ...], input_metadata: Tuple[Optional[str], ...]):
         """
@@ -95,7 +103,10 @@ class ForeachRecipe(Recipe):
                         the program to exit
 
         :param mapped_inputs: The (possibly new) sequence of inputs to apply the bound function to
+        :param mapped_inputs_metadata_summary: A single checksum for all the mapped inputs, used to quickly check
+        whether anything has changed
         :param inputs: The inputs provided by the ingredients (dependencies) of this ForeachRecipe
+        :param input_metadata: The (possibly new) input metadata to use for checking cleanliness
         :return: The outputs of this ForeachRecipe
         """
         log.debug("Invoking recipe: {}".format(self.name))
@@ -113,7 +124,10 @@ class ForeachRecipe(Recipe):
                 if input_metadata:
                     needs_full_eval = True
 
-        # TODO(mathias): Find a way to avoid computing metadata if possible (e.g. use mapped_inputs_metadata_summary)
+        # Check if we actually need to do any work (in case everything remains the same as last invocation)
+        if not needs_full_eval:
+            if mapped_inputs_metadata_summary == self.mapped_inputs_metadata_summary:
+                return self.outputs
 
         if isinstance(mapped_inputs, list):
             # Handle list input
@@ -154,34 +168,21 @@ class ForeachRecipe(Recipe):
         # Store the provided inputs and the resulting outputs and commit to cache
         self._input_metadata = input_metadata
         self.mapped_inputs = mapped_inputs
+        self._mapped_inputs_metadata_summary = mapped_inputs_metadata_summary
         self.outputs = self._canonical(outputs)
         self._save_state()
         return self.outputs
 
-    def is_foreach_clean(self, new_mapped_inputs: Union[List[Any], Dict[Any, Any]]) -> bool:
+    def is_foreach_clean(self, mapped_inputs_metadata_summary: Optional[str]) -> bool:
         """
         Check whether this ForeachRecipe is clean (in addition to the regular recipe cleanliness checks). This is done
-        by computing the metadata for each input item and checking whether it matches the metadata from the last
-        invoke evaluation
+        by comparing the overall checksum for the current mapped inputs to that from the last invoke evaluation
 
-        :param new_mapped_inputs: The (possibly new) sequence of inputs to check
-        :return: Whether the metadata of the (possibly new) new inputs match that of the previous evaluation
+        :param mapped_inputs_metadata_summary: A single checksum for all the mapped inputs, used to quickly check
+        whether anything has changed
+        :return: Whether this recipe needs to be reevaluated
         """
-        # Compute mapped input metadata and perform equality check
-        if isinstance(new_mapped_inputs, list):
-            new_mapped_input_metadata = [get_metadata(inp) for inp in new_mapped_inputs]
-            if self.mapped_inputs_metadata != new_mapped_input_metadata:
-                log.debug('{} -> dirty: mapped inputs metadata changed'.format(self._name))
-                return False
-        elif isinstance(new_mapped_inputs, dict):
-            for key, item in new_mapped_inputs.items():
-                if self.mapped_inputs_metadata[key] != get_metadata(item):  # type: ignore
-                    log.debug('{} -> dirty: mapped inputs metadata changed'.format(self._name))
-                    return False
-        else:
-            raise RuntimeError(
-                "Cleanliness not supported for mapped inputs w/ type: {}".format(type(new_mapped_inputs)))
-        return True
+        return mapped_inputs_metadata_summary == self.mapped_inputs_metadata_summary
 
     def to_dict(self) -> OrderedDict:
         """
