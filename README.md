@@ -1,4 +1,4 @@
-# alkymi
+# alkymi ⚗️
 Pythonic task automation
 
 ![Python package](https://github.com/MathiasStokholm/alkymi/workflows/Python%20package/badge.svg?branch=master)
