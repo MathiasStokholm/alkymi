@@ -1,29 +1,75 @@
 #!/usr/bin/env python
-# coding=utf-8
 import logging
 import shutil
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import alkymi as alk
 from alkymi import AlkymiConfig
+from alkymi.foreach_recipe import ForeachRecipe
 from alkymi.recipe import Recipe
-
 
 # Turn of caching for tests
 AlkymiConfig.get().cache = False
 
 
-def test_recipe_decorator():
+def test_decorators():
     @alk.recipe(transient=True)
-    def should_be_a_recipe():
-        return "example"
+    def should_be_a_recipe() -> List[str]:
+        return ["example1", "example2"]
+
+    @alk.foreach(should_be_a_recipe)
+    def should_be_a_foreach_recipe(value: str) -> str:
+        return value.upper()
 
     assert type(should_be_a_recipe) is Recipe
-    assert should_be_a_recipe() == "example"
+    assert should_be_a_recipe()[0] == "example1"
+    assert should_be_a_recipe()[1] == "example2"
     assert should_be_a_recipe.name == 'should_be_a_recipe'
     assert should_be_a_recipe.transient
+
+    assert type(should_be_a_foreach_recipe) is ForeachRecipe
+    assert should_be_a_foreach_recipe.brew()[0] == "EXAMPLE1"
+    assert should_be_a_foreach_recipe.brew()[1] == "EXAMPLE2"
+    assert should_be_a_foreach_recipe.name == 'should_be_a_foreach_recipe'
+    assert should_be_a_foreach_recipe.transient is False
+
+
+def test_brew():
+    @alk.recipe()
+    def returns_single_item() -> str:
+        return "a string"
+
+    assert type(returns_single_item.brew()) == str
+    assert returns_single_item.brew() == "a string"
+
+    @alk.recipe()
+    def returns_a_tuple() -> Tuple[int, int, int]:
+        return 1, 2, 3
+
+    assert type(returns_a_tuple.brew()) == tuple
+    assert returns_a_tuple.brew() == (1, 2, 3)
+
+    @alk.recipe()
+    def returns_a_list() -> List[int]:
+        return [1, 2, 3]
+
+    assert type(returns_a_list.brew()) == list
+    assert returns_a_list.brew() == [1, 2, 3]
+
+    @alk.recipe()
+    def returns_nothing() -> None:
+        pass
+
+    assert returns_nothing.brew() is None
+
+    @alk.recipe()
+    def returns_empty_tuple() -> Tuple:
+        return tuple()
+
+    assert type(returns_empty_tuple.brew()) == tuple
+    assert len(returns_empty_tuple.brew()) == 0
 
 
 def test_execution(caplog, tmpdir):
@@ -37,9 +83,9 @@ def test_execution(caplog, tmpdir):
         reads_a_file=0
     )
 
-    build_dir = Path(tmpdir) / 'build'
-    file = build_dir / 'file.txt'
-    copied_file = build_dir / 'file_copy.txt'
+    build_dir = Path(tmpdir) / 'build'  # type: Path
+    file = build_dir / 'file.txt'  # type: Path
+    copied_file = build_dir / 'file_copy.txt'  # type: Path
 
     @alk.recipe()
     def produces_build_dir() -> Path:
@@ -89,14 +135,25 @@ def test_execution(caplog, tmpdir):
         assert execution_counts['copies_a_file'] == 1
         assert execution_counts['reads_a_file'] == (1 + i) * 2
 
-    # Changing an output should cause reevaluation of the function that created that output (and everything after)
+    # Touching an output (but leaving the contents the exact same) should not cause reevaluation of the function that
+    # created that output
     time.sleep(0.01)
     file.touch(exist_ok=True)
     reads_a_file.brew()
     assert execution_counts['produces_build_dir'] == 1
+    assert execution_counts['produces_a_single_file'] == 1
+    assert execution_counts['copies_a_file'] == 1
+    assert execution_counts['reads_a_file'] == 5 * 2
+
+    # Changing an output should cause reevaluation of the function that created that output
+    time.sleep(0.01)
+    with file.open("w") as f:
+        f.write("something new!")
+    reads_a_file.brew()
+    assert execution_counts['produces_build_dir'] == 1
     assert execution_counts['produces_a_single_file'] == 2
     assert execution_counts['copies_a_file'] == 2
-    assert execution_counts['reads_a_file'] == 5 * 2
+    assert execution_counts['reads_a_file'] == 6 * 2
 
     # Deleting the build dir should cause full reevaluation
     shutil.rmtree(str(build_dir))
@@ -104,4 +161,4 @@ def test_execution(caplog, tmpdir):
     assert execution_counts['produces_build_dir'] == 2
     assert execution_counts['produces_a_single_file'] == 3
     assert execution_counts['copies_a_file'] == 3
-    assert execution_counts['reads_a_file'] == 6 * 2
+    assert execution_counts['reads_a_file'] == 7 * 2

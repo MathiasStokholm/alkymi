@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 import logging
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -27,6 +26,14 @@ def test_execution(caplog, tmpdir):
 
     execution_counts = {f1: 0, f2: 0, f3: 0, f1.stem: 0, f2.stem: 0, f3.stem: 0}
 
+    def _check_counts(counts: Tuple[int, int, int, int, int, int]):
+        assert execution_counts[f1] == counts[0]
+        assert execution_counts[f2] == counts[1]
+        assert execution_counts[f3] == counts[2]
+        assert execution_counts[f1.stem] == counts[3]
+        assert execution_counts[f2.stem] == counts[4]
+        assert execution_counts[f3.stem] == counts[5]
+
     args = alkymi.recipes.args([f1])
 
     @alk.foreach(args.recipe)
@@ -39,60 +46,52 @@ def test_execution(caplog, tmpdir):
     def to_dict(file_contents: List[str]) -> Dict[str, str]:
         return {f: f for f in file_contents}
 
-    @alk.foreach(to_dict)
-    def echo(file_content: str) -> str:
-        execution_counts[file_content] += 1
+    # This is used to check later whether changing an ingredient will correctly change everything
+    extra_count_arg = alkymi.recipes.args(0)
+
+    @alk.foreach(to_dict, ingredients=[extra_count_arg.recipe])
+    def change_count(file_content: str, extra_count: int) -> str:
+        execution_counts[file_content] += 1 + extra_count
         return file_content
 
     assert compute_recipe_status(read_file)[read_file] == Status.NotEvaluatedYet
-    assert compute_recipe_status(echo)[echo] == Status.NotEvaluatedYet
-    echo.brew()
+    assert compute_recipe_status(change_count)[change_count] == Status.NotEvaluatedYet
+    change_count.brew()
     assert compute_recipe_status(read_file)[read_file] == Status.Ok
-    assert compute_recipe_status(echo)[echo] == Status.Ok
-    assert execution_counts[f1] == 1
-    assert execution_counts[f2] == 0
-    assert execution_counts[f3] == 0
-    assert execution_counts[f1.stem] == 1
-    assert execution_counts[f2.stem] == 0
-    assert execution_counts[f3.stem] == 0
+    assert compute_recipe_status(change_count)[change_count] == Status.Ok
+    _check_counts((1, 0, 0, 1, 0, 0))
 
     args.set_args([f1, f2, f3])
     assert compute_recipe_status(read_file)[read_file] == Status.MappedInputsDirty
-    echo.brew()
+    change_count.brew()
     assert compute_recipe_status(read_file)[read_file] == Status.Ok
-    assert execution_counts[f1] == 1
-    assert execution_counts[f2] == 1
-    assert execution_counts[f3] == 1
-    assert execution_counts[f1.stem] == 1
-    assert execution_counts[f2.stem] == 1
-    assert execution_counts[f3.stem] == 1
+    _check_counts((1, 1, 1, 1, 1, 1))
 
     args.set_args([f3, f2])
-    echo.brew()
-    assert execution_counts[f1] == 1
-    assert execution_counts[f2] == 1
-    assert execution_counts[f3] == 1
-    assert execution_counts[f1.stem] == 1
-    assert execution_counts[f2.stem] == 1
-    assert execution_counts[f3.stem] == 1
+    change_count.brew()
+    _check_counts((1, 1, 1, 1, 1, 1))
 
     args.set_args([f1])
-    echo.brew()
-    assert execution_counts[f1] == 2
-    assert execution_counts[f2] == 1
-    assert execution_counts[f3] == 1
-    assert execution_counts[f1.stem] == 2
-    assert execution_counts[f2.stem] == 1
-    assert execution_counts[f3.stem] == 1
+    change_count.brew()
+    _check_counts((2, 1, 1, 2, 1, 1))
 
     args.set_args([])
-    echo.brew()
-    assert execution_counts[f1] == 2
-    assert execution_counts[f2] == 1
-    assert execution_counts[f3] == 1
-    assert execution_counts[f1.stem] == 2
-    assert execution_counts[f2.stem] == 1
-    assert execution_counts[f3.stem] == 1
+    change_count.brew()
+    _check_counts((2, 1, 1, 2, 1, 1))
+
+    # Test that changing an ingredient forces reevaluation of all foreach inputs
+    args.set_args([f1, f2, f3])
+    assert compute_recipe_status(change_count)[change_count] == Status.MappedInputsDirty
+    change_count.brew()
+    assert compute_recipe_status(change_count)[change_count] == Status.Ok
+    _check_counts((3, 2, 2, 3, 2, 2))
+
+    # This should cause a reevaluation of everything (+1 to all counts) and then add 10 from this arg
+    extra_count_arg.set_args(10)
+    assert compute_recipe_status(change_count)[change_count] == Status.IngredientDirty
+    change_count.brew()
+    assert compute_recipe_status(change_count)[change_count] == Status.Ok
+    _check_counts((3, 2, 2, 14, 13, 13))
 
 
 def test_lists(caplog):
@@ -101,7 +100,7 @@ def test_lists(caplog):
     """
     caplog.set_level(logging.DEBUG)
 
-    execution_counts = [0] * 5
+    execution_counts = [0] * 5  # type: List[int]
     args = alkymi.recipes.args([0])
 
     def _check_counts(counts: Tuple[int, int, int, int, int]):

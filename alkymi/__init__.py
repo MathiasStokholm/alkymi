@@ -1,6 +1,9 @@
-# coding=utf-8
-from .config import AlkymiConfig
-from .lab import Lab
-from .logging import log
-from .decorators import recipe, foreach
-from .recipes import *
+from .config import AlkymiConfig  # NOQA
+from .lab import Lab  # NOQA
+from .logging import log  # NOQA
+from .decorators import recipe, foreach  # NOQA
+from .recipes import glob_files, file, args, kwargs  # NOQA
+from .utils import call  # NOQA
+
+# Define version
+from .version import VERSION, __version__  # NOQA
