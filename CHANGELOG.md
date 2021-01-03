@@ -6,9 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.2] - 2021-01-03
+## [0.0.3] - 2021-01-03
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.2...HEAD
-[0.0.2]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.2
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.3
