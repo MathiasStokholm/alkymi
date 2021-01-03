@@ -1,7 +1,8 @@
 import setuptools
+import codecs
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+with codecs.open("README.md", encoding='utf-8') as f:
+    long_description = f.read()
 
 version = {}
 with open('alkymi/version.py') as fp:
