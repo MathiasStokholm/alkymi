@@ -94,7 +94,7 @@ class Lab:
         status = self._build_full_status()
         state = ''
         for recipe in self._recipes:
-            state += '\n\t{} - {}'.format(str(recipe), status[recipe])
+            state += '\n\t{} - {}'.format(recipe.name, status[recipe])
         return '{} lab with recipes:{}'.format(self.name, state)
 
     def open(self) -> None:
