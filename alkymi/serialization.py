@@ -50,7 +50,7 @@ class Serializer:
 additional_serializers = {}  # type: Dict[Any, Type[Serializer]]
 additional_deserializers = {}  # type: Dict[str, Type[Serializer]]
 try:
-    import numpy as np
+    import numpy as np  # NOQA
 
 
     class NdArraySerializer(Serializer):

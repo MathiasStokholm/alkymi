@@ -78,26 +78,27 @@ def test_recipe_serialization(tmpdir):
 
     # Ensure copied state is correct after brew
     for recipe in [produces_build_dir_copy, files_in_dir_copy, read_file_copy]:
-        assert recipe.input_metadata is None
+        assert recipe.input_checksums is None
         assert recipe.outputs is None
-        assert recipe.output_metadata is None
+        assert recipe.output_checksums is None
     assert read_file_copy.mapped_inputs is None
-    assert read_file_copy.mapped_inputs_metadata is None
+    assert read_file_copy.mapped_inputs_checksums is None
+    assert read_file_copy.mapped_inputs_checksum is None
 
     # Test serializing -> deserializing
     produces_build_dir_copy.restore_from_dict(produces_build_dir.to_dict())
-    assert produces_build_dir_copy.input_metadata == produces_build_dir.input_metadata
+    assert produces_build_dir_copy.input_checksums == produces_build_dir.input_checksums
     assert produces_build_dir_copy.outputs == produces_build_dir.outputs
-    assert produces_build_dir_copy.output_metadata == produces_build_dir.output_metadata
+    assert produces_build_dir_copy.output_checksums == produces_build_dir.output_checksums
 
     files_in_dir_copy.restore_from_dict(files_in_dir.to_dict())
-    assert files_in_dir_copy.input_metadata == files_in_dir.input_metadata
+    assert files_in_dir_copy.input_checksums == files_in_dir.input_checksums
     assert files_in_dir_copy.outputs == files_in_dir.outputs
-    assert files_in_dir_copy.output_metadata == files_in_dir.output_metadata
+    assert files_in_dir_copy.output_checksums == files_in_dir.output_checksums
 
     read_file_copy.restore_from_dict(read_file.to_dict())
-    assert read_file_copy.input_metadata == read_file.input_metadata
+    assert read_file_copy.input_checksums == read_file.input_checksums
     assert read_file_copy.outputs == read_file.outputs
-    assert read_file_copy.output_metadata == read_file.output_metadata
+    assert read_file_copy.output_checksums == read_file.output_checksums
     assert read_file_copy.mapped_inputs == read_file.mapped_inputs
-    assert read_file_copy.mapped_inputs_metadata == read_file.mapped_inputs_metadata
+    assert read_file_copy.mapped_inputs_checksums == read_file.mapped_inputs_checksums

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from alkymi import metadata
+from alkymi import checksums
 
 
 def test_function_hash():
@@ -21,11 +21,11 @@ def test_function_hash():
     def func_constants(a, b, *args, **kwargs):
         return add_one(a) + b + args[0] + kwargs["test"] + 10
 
-    func_1_hash = metadata.function_hash(func_1)
-    assert func_1_hash == metadata.function_hash(func_other_name)
-    assert func_1_hash != metadata.function_hash(func_different_args_idx)
-    assert func_1_hash != metadata.function_hash(func_different_kwarg_key)
-    assert func_1_hash != metadata.function_hash(func_constants)
+    func_1_hash = checksums.function_hash(func_1)
+    assert func_1_hash == checksums.function_hash(func_other_name)
+    assert func_1_hash != checksums.function_hash(func_different_args_idx)
+    assert func_1_hash != checksums.function_hash(func_different_kwarg_key)
+    assert func_1_hash != checksums.function_hash(func_constants)
 
     def add_one(a):  # NOQA: Redefinition for the purpose of testing
         return a + 2
@@ -33,7 +33,7 @@ def test_function_hash():
     def func_different_func_reference(a, b, *args, **kwargs):
         return add_one(a) + b + args[0] + kwargs["test"]
 
-    assert func_1_hash != metadata.function_hash(func_different_func_reference)
+    assert func_1_hash != checksums.function_hash(func_different_func_reference)
 
 
 class MyClass:
@@ -43,9 +43,9 @@ class MyClass:
 
 
 def test_custom_class_checksum():
-    class_1_hash = metadata.get_metadata(MyClass(5, "10"))
-    class_2_hash = metadata.get_metadata(MyClass(5, 10))
-    class_3_hash = metadata.get_metadata(MyClass("5", 10))
-    class_4_hash = metadata.get_metadata(MyClass(5, "10"))
+    class_1_hash = checksums.checksum(MyClass(5, "10"))
+    class_2_hash = checksums.checksum(MyClass(5, 10))
+    class_3_hash = checksums.checksum(MyClass("5", 10))
+    class_4_hash = checksums.checksum(MyClass(5, "10"))
     assert class_1_hash != class_2_hash != class_3_hash
     assert class_1_hash == class_4_hash

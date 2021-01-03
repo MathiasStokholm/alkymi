@@ -4,8 +4,8 @@ import pickle
 import hashlib
 import inspect
 
-# Load additional metadata generators based on available libs
-additional_metadata_generators = {}  # type: Dict[Any, Callable]
+# Load additional checksum generators based on available libs
+additional_checksum_generators = {}  # type: Dict[Any, Callable]
 try:
     import numpy as np  # NOQA
 
@@ -20,7 +20,7 @@ try:
         return hashlib.md5(array.data).hexdigest()
 
 
-    additional_metadata_generators[np.ndarray] = _handle_ndarray
+    additional_checksum_generators[np.ndarray] = _handle_ndarray
 except ImportError:
     pass
 
@@ -38,7 +38,7 @@ try:
         return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
 
 
-    additional_metadata_generators[pd.DataFrame] = _handle_dataframe
+    additional_checksum_generators[pd.DataFrame] = _handle_dataframe
 except ImportError:
     pass
 
@@ -86,8 +86,8 @@ class Checksummer(object):
         elif inspect.isroutine(obj):
             self._update_func(obj)
         else:
-            # Check if any additional metadata generator will work
-            generator = additional_metadata_generators.get(type(obj))
+            # Check if any additional checksum generator will work
+            generator = additional_checksum_generators.get(type(obj))
             if generator is not None:
                 self.update(generator(obj))
             else:
@@ -161,7 +161,7 @@ def function_hash(fn: Callable) -> str:
     return hasher.digest()
 
 
-def get_metadata(obj: Any) -> Optional[str]:
+def checksum(obj: Any) -> Optional[str]:
     """
     Computes the hash/checksum of the provided input
 

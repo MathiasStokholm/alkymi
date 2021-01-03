@@ -3,10 +3,9 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, Generator
 
-from . import metadata
+from . import checksums
 from .config import CacheType, AlkymiConfig
 from .logging import log
-from .metadata import get_metadata
 from .serialization import deserialize_items, serialize_items
 
 CleanlinessFunc = Callable[[Optional[Tuple[Any, ...]]], bool]
@@ -49,8 +48,8 @@ class Recipe:
             self._cache = cache
 
         self._outputs = None  # type: Optional[Tuple[Any, ...]]
-        self._output_metadata = None  # type: Optional[Tuple[Optional[str], ...]]
-        self._input_metadata = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._output_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
 
         if self.cache == CacheType.Cache:
             # Try to reload last state
@@ -72,18 +71,19 @@ class Recipe:
         """
         return self._func(*args, **kwargs)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_metadata: Tuple[Optional[str], ...]):
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]):
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
-        is already cached, that result will be used instead (the metadata is used to check this). Only the immediately
+        is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
         previous invoke call will be cached
 
         :param inputs: The inputs provided by the ingredients (dependencies) of this Recipe
+        :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         log.debug('Invoking recipe: {}'.format(self.name))
         self.outputs = self._canonical(self(*inputs))
-        self._input_metadata = input_metadata
+        self._input_checksums = input_checksums
         self._save_state()
         return self.outputs
 
@@ -148,11 +148,11 @@ class Recipe:
             return output.exists()
         return True
 
-    def is_clean(self, new_input_metadata: Tuple[Optional[str], ...]) -> bool:
+    def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> bool:
         """
-        Check whether this Recipe is clean (result is cached) based on a set of (potentially new) input metadata
+        Check whether this Recipe is clean (result is cached) based on a set of (potentially new) input checksums
 
-        :param new_input_metadata: The (potentially new) input metadata to use for checking cleanliness
+        :param new_input_checksums: The (potentially new) input checksums to use for checking cleanliness
         :return: Whether this recipe is clean (or needs to be reevaluated)
         """
         if self._cleanliness_func is not None:
@@ -169,9 +169,9 @@ class Recipe:
         if not all(self._check_output(output) for output in self.outputs):
             return False
 
-        # Compute input metadata and perform equality check
-        if self.input_metadata != new_input_metadata:
-            log.debug('{} -> dirty: input metadata changed'.format(self._name))
+        # Compute input checksums and perform equality check
+        if self.input_checksums != new_input_checksums:
+            log.debug('{} -> dirty: input checksums changed'.format(self._name))
             return False
 
         # All checks passed
@@ -211,14 +211,14 @@ class Recipe:
         """
         :return: The hash of the bound function as a string
         """
-        return metadata.function_hash(self._func)
+        return checksums.function_hash(self._func)
 
     @property
-    def input_metadata(self) -> Optional[Tuple[Optional[str], ...]]:
+    def input_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
         """
-        :return: The metadata for the inputs
+        :return: The checksum(s) for the inputs
         """
-        return self._input_metadata
+        return self._input_checksums
 
     @property
     def outputs(self) -> Optional[Tuple[Any, ...]]:
@@ -230,22 +230,22 @@ class Recipe:
     @outputs.setter
     def outputs(self, outputs) -> None:
         """
-        Sets the outputs of this Recipe and computes the necessary metadata needed for checking dirtiness
+        Sets the outputs of this Recipe and computes the necessary checksums needed for checking dirtiness
 
         :param outputs: outputs of this Recipe in canonical form (None or a tuple with zero or more entries)
         """
         if outputs is None:
             return
 
-        self._output_metadata = tuple(get_metadata(out) for out in outputs)
+        self._output_checksums = tuple(checksums.checksum(out) for out in outputs)
         self._outputs = outputs
 
     @property
-    def output_metadata(self) -> Optional[Tuple[Optional[str], ...]]:
+    def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
         """
-        :return: The computed metadata for the outputs (this is set when outputs is set)
+        :return: The computed checksums for the outputs (this is set when outputs is set)
         """
-        return self._output_metadata
+        return self._output_checksums
 
     def to_dict(self) -> OrderedDict:
         """
@@ -263,9 +263,9 @@ class Recipe:
 
         return OrderedDict(
             name=self.name,
-            input_metadata=self.input_metadata,
+            input_checksums=self.input_checksums,
             outputs=serialize_items(self.outputs, cache_path_generator()),
-            output_metadata=self.output_metadata,
+            output_checksums=self.output_checksums,
         )
 
     def restore_from_dict(self, old_state) -> None:
@@ -275,6 +275,6 @@ class Recipe:
         :param old_state: The old cached state to restore
         """
         log.debug("Restoring {} from dict".format(self._name))
-        self._input_metadata = old_state["input_metadata"]
+        self._input_checksums = old_state["input_checksums"]
         self._outputs = deserialize_items(old_state["outputs"])
-        self._output_metadata = old_state["output_metadata"]
+        self._output_checksums = old_state["output_checksums"]
