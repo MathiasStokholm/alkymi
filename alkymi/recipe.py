@@ -106,6 +106,14 @@ class Recipe:
             return result[0]
         return result
 
+    def status(self):
+        """
+        :return: The status of this recipe (will evaluate all upstream dependencies)
+        """
+        # Lazy import to avoid circular imports
+        from .alkymi import compute_recipe_status
+        return compute_recipe_status(self)[self]
+
     def _save_state(self) -> None:
         """
         Save the current state of this Recipe to a json file and zero or more extra data files (as needed)
@@ -131,7 +139,7 @@ class Recipe:
         return outputs,
 
     @staticmethod
-    def _check_output(output: Any) -> bool:
+    def _check_output(output: Optional[Any], expected_checksum: Optional[Any]) -> bool:
         """
         Check whether an output is still valid - this is currently only used to check files that may have been deleted
 
@@ -139,13 +147,14 @@ class Recipe:
                         lists of Paths)
 
         :param output: The output to check
+        :param expected_checksum: The expected checksum of the output
         :return: Whether the output is still valid
         """
         if output is None:
             return False
         if isinstance(output, Path):
-            # FIXME(mathias): This should check whether the file checksum remains the same
-            return output.exists()
+            checksum = checksums.checksum(output)
+            return checksum == expected_checksum
         return True
 
     def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> bool:
@@ -162,11 +171,12 @@ class Recipe:
 
         # Handle default pure function
         # Not clean if outputs were never generated
-        if self.outputs is None:
+        if self.outputs is None or self.output_checksums is None:
             return False
 
         # Not clean if any output is no longer valid
-        if not all(self._check_output(output) for output in self.outputs):
+        if not all(self._check_output(output, output_checksum) for output, output_checksum in
+                   zip(self.outputs, self.output_checksums)):
             return False
 
         # Compute input checksums and perform equality check

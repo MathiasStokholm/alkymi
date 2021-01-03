@@ -145,10 +145,20 @@ def test_execution(caplog, tmpdir):
     assert execution_counts['copies_a_file'] == 1
     assert execution_counts['reads_a_file'] == 5 * 2
 
+    # Changing an output should cause reevaluation of the function that created that output
+    time.sleep(0.01)
+    with file.open("w") as f:
+        f.write("something new!")
+    reads_a_file.brew()
+    assert execution_counts['produces_build_dir'] == 1
+    assert execution_counts['produces_a_single_file'] == 2
+    assert execution_counts['copies_a_file'] == 2
+    assert execution_counts['reads_a_file'] == 6 * 2
+
     # Deleting the build dir should cause full reevaluation
     shutil.rmtree(str(build_dir))
     reads_a_file.brew()
     assert execution_counts['produces_build_dir'] == 2
-    assert execution_counts['produces_a_single_file'] == 2
-    assert execution_counts['copies_a_file'] == 2
-    assert execution_counts['reads_a_file'] == 6 * 2
+    assert execution_counts['produces_a_single_file'] == 3
+    assert execution_counts['copies_a_file'] == 3
+    assert execution_counts['reads_a_file'] == 7 * 2
