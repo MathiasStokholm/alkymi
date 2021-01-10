@@ -16,7 +16,7 @@ glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=T
 
 
 @alk.recipe(ingredients=[glob_test_files], transient=True)
-def test(test_files) -> None:
+def test(test_files: List[Path]) -> None:
     """
     Run all alkymi unit tests
 
@@ -28,7 +28,7 @@ def test(test_files) -> None:
 
 
 @alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
-def lint(source_files: List[str], example_files: List[str], test_files: List[str]) -> None:
+def lint(source_files: List[Path], example_files: List[Path], test_files: List[Path]) -> None:
     """
     Lint all alkymi source, example and test files using flake8
 
@@ -44,7 +44,7 @@ def lint(source_files: List[str], example_files: List[str], test_files: List[str
 
 
 @alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
-def type_check(source_files: List[str], example_files: List[str], test_files: List[str]) -> None:
+def type_check(source_files: List[Path], example_files: List[Path], test_files: List[Path]) -> None:
     """
     Type check all alkymi source, example and test files using mypy
 
@@ -83,7 +83,7 @@ def build() -> Path:
 
 
 @alk.recipe(ingredients=[build], transient=True)
-def release_test(build_dir) -> None:
+def release_test(build_dir: Path) -> None:
     """
     Uploads the built alkymi distributions to the pypi test server
 
@@ -94,7 +94,7 @@ def release_test(build_dir) -> None:
 
 
 @alk.recipe(ingredients=[build], transient=True)
-def release(build_dir) -> None:
+def release(build_dir: Path) -> None:
     """
     Uploads the built alkymi distributions to the pypi production server
 

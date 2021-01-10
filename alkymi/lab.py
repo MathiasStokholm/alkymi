@@ -140,3 +140,6 @@ class Lab:
         elif args.subparser_name == 'brew':
             for recipe in args.recipe:
                 self.brew(recipe)
+        else:
+            # No recognized command provided - print help
+            parser.print_help()
