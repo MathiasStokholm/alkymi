@@ -28,6 +28,7 @@ def test_builtin_glob(tmpdir):
 
 
 def test_builtin_file(tmpdir):
+    tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
         f.write("test")
