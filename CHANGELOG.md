@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Updated README.md with "Command Line Usage", "Upcoming Features" and "Known Issues" sections
 
+### Removed
+- "clean" and "clean-cache" commands from Lab (these will be reimplemented properly at a later point)
+
 ### Fixed
 - Fixed type annotations in alkymi's labfile (`lab.py`)
 
