@@ -11,8 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - "clean" and "clean-cache" commands from Lab (these will be reimplemented properly at a later point)
 
+### Changed
+- Renamed alkymi's labfile from `lab.py` to `labfile.py` to fit the new "labfile" naming scheme
+
 ### Fixed
-- Fixed type annotations in alkymi's labfile (`lab.py`)
+- Fixed type annotations in alkymi's labfile (`labfile.py`)
 
 ## [0.0.3] - 2021-01-03
 ### Added

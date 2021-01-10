@@ -91,7 +91,7 @@ The above code will cause the script to present the user with a command-line int
 * `brew`: Runs one or more recipes with the provided names (in the above, running `python labfile.py brew test` would 
           run the units tests)
 
-alkymi uses a labfile (`lab.py` in the root of the repo) to automate tasks such as linting using flake8, static type
+alkymi uses a labfile (`labfile.py` in the root of the repo) to automate tasks such as linting using flake8, static type
 checking using mypy, running unit tests using pytest, as well as creating and uploading distributions to PyPI.
 
 ## Documentation
@@ -135,9 +135,9 @@ pip install --user git+https://github.com/MathiasStokholm/alkymi.git
 ```
 
 ### Testing
-After installing, you can run the test suite:
+After installing, you can run the test suite (use the `lint` and `type_check` recipes to perform those actions):
 ```shell script
-python3 lab.py brew test
+python3 labfile.py brew test
 ```
 
 ## License

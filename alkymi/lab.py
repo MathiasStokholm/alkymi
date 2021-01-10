@@ -11,7 +11,7 @@ class Lab:
     """
     Class used to define a collection of alkymi recipes and expose them as a command line interface (CLI)
 
-    This can be used to create files that bear resemblance to Makefiles (see alkymi/lab.py as an example)
+    This can be used to create files that bear resemblance to Makefiles (see alkymi/labfile.py as an example)
     """
 
     def __init__(self, name: str):
