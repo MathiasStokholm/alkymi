@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Updated README.md with "Command Line Usage", "Upcoming Features" and "Known Issues" sections
+- Included `labfile.py` in static type checking and linting  
 
 ### Removed
 - "clean" and "clean-cache" commands from Lab (these will be reimplemented properly at a later point)

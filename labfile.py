@@ -14,6 +14,9 @@ glob_source_files = alk.recipes.glob_files(Path("alkymi"), "*.py", recursive=Tru
 glob_example_files = alk.recipes.glob_files(Path("examples"), "*.py", recursive=True)
 glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=True)
 
+# Also run linting and type checking on this file itself
+labfile_file = alk.recipes.file(Path("labfile.py"))
+
 
 @alk.recipe(ingredients=[glob_test_files], transient=True)
 def test(test_files: List[Path]) -> None:
@@ -27,32 +30,34 @@ def test(test_files: List[Path]) -> None:
         raise Exception("Unit tests failed: {}".format(result))
 
 
-@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
-def lint(source_files: List[Path], example_files: List[Path], test_files: List[Path]) -> None:
+@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
+def lint(source_files: List[Path], example_files: List[Path], test_files: List[Path], labfile: Path) -> None:
     """
     Lint all alkymi source, example and test files using flake8
 
     :param source_files: The alkymi source files to type check
     :param example_files: The alkymi examples files to type check
     :param test_files: The alkymi unit test files to type check
+    :param labfile: This file itself to type check
     """
     style_guide = flake8.get_style_guide(max_line_length=120, max_complexity=10, ignore=["E303"])
-    all_files = source_files + example_files + test_files
+    all_files = source_files + example_files + test_files + [labfile]
     report = style_guide.check_files([str(file) for file in all_files])
     assert report.get_statistics("E") == [], "Flake8 found style violations"
     print("Flake8 found no style violations in {} files".format(len(all_files)))
 
 
-@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files], transient=True)
-def type_check(source_files: List[Path], example_files: List[Path], test_files: List[Path]) -> None:
+@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
+def type_check(source_files: List[Path], example_files: List[Path], test_files: List[Path], labfile: Path) -> None:
     """
     Type check all alkymi source, example and test files using mypy
 
     :param source_files: The alkymi source files to type check
     :param example_files: The alkymi examples files to type check
     :param test_files: The alkymi unit test files to type check
+    :param labfile: This file itself to type check
     """
-    all_files = source_files + example_files + test_files
+    all_files = source_files + example_files + test_files + [labfile]
     args = [str(file) for file in all_files]
     stdout, stderr, return_code = mypy.api.run(args)
     assert not stderr, stderr
@@ -75,7 +80,7 @@ def build() -> Path:
     # Clean output dir first
     dist_dir = Path("dist")
     if dist_dir.exists():
-        shutil.rmtree(dist_dir)
+        shutil.rmtree(str(dist_dir))  # This must be a str on Python 3.5
     dist_dir.mkdir(exist_ok=False)
 
     alk.utils.call("python3 setup.py sdist bdist_wheel")

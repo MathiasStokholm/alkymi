@@ -92,7 +92,8 @@ The above code will cause the script to present the user with a command-line int
           run the unit tests)
 
 alkymi uses a labfile (`labfile.py` in the root of the repo) to automate tasks such as linting using flake8, static type
-checking using mypy, running unit tests using pytest, as well as creating and uploading distributions to PyPI.
+checking using mypy, running unit tests using pytest, as well as creating and uploading distributions to PyPI. Note that
+`labfile.py` is also subject to static type checking and linting, just like every other Python file.
 
 ## Documentation
 Upcoming: readthedocs.org page
