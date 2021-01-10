@@ -89,7 +89,7 @@ lab.open()
 The above code will cause the script to present the user with a command-line interface (CLI) with the following options:
 * `status`: Prints detailed status of all recipes contained in the lab (cached, needs reevaluation etc.)
 * `brew`: Runs one or more recipes with the provided names (in the above, running `python labfile.py brew test` would 
-          run the units tests)
+          run the unit tests)
 
 alkymi uses a labfile (`labfile.py` in the root of the repo) to automate tasks such as linting using flake8, static type
 checking using mypy, running unit tests using pytest, as well as creating and uploading distributions to PyPI.
