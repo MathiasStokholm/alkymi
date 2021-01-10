@@ -285,6 +285,8 @@ class Recipe:
         :param old_state: The old cached state to restore
         """
         log.debug("Restoring {} from dict".format(self._name))
-        self._input_checksums = old_state["input_checksums"]
+        if old_state["input_checksums"] is not None:
+            self._input_checksums = tuple(old_state["input_checksums"])
         self._outputs = deserialize_items(old_state["outputs"])
-        self._output_checksums = old_state["output_checksums"]
+        if old_state["output_checksums"] is not None:
+            self._output_checksums = tuple(old_state["output_checksums"])
