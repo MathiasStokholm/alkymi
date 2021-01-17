@@ -1,5 +1,6 @@
 from enum import Enum
 from pathlib import Path
+import os
 from typing import Optional
 
 
@@ -69,6 +70,10 @@ class AlkymiConfig:
 
         :param cache_path: The custom location to place the cache
         """
+        if not cache_path.is_dir():
+            raise ValueError("Cache path '{}' must be a directory".format(cache_path))
+        if not os.access(cache_path, os.W_OK):
+            raise ValueError("Cache path '{}' must be writeable".format(cache_path))
         self._cache_path = cache_path
 
 
