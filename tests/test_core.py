@@ -10,11 +10,10 @@ from alkymi import AlkymiConfig
 from alkymi.foreach_recipe import ForeachRecipe
 from alkymi.recipe import Recipe
 
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
-
 
 def test_decorators():
+    AlkymiConfig.get().cache = False
+
     @alk.recipe(transient=True)
     def should_be_a_recipe() -> List[str]:
         return ["example1", "example2"]
@@ -37,6 +36,8 @@ def test_decorators():
 
 
 def test_brew():
+    AlkymiConfig.get().cache = False
+
     @alk.recipe()
     def returns_single_item() -> str:
         return "a string"
@@ -75,6 +76,7 @@ def test_brew():
 def test_execution(caplog, tmpdir):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
 
     execution_counts = dict(
         produces_build_dir=0,

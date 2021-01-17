@@ -9,13 +9,10 @@ from alkymi.alkymi import compute_recipe_status, Status
 import alkymi as alk
 
 
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
-
-
 def test_execution(caplog, tmpdir):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
 
     f1 = Path(tmpdir) / "file1.txt"
     f2 = Path(tmpdir) / "file2.txt"
@@ -99,6 +96,7 @@ def test_lists(caplog):
     Test using a list (of non-Path objects) as the input to a foreach recipe
     """
     caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
 
     execution_counts = [0] * 5  # type: List[int]
     args = alkymi.recipes.args([0])

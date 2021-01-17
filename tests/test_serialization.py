@@ -6,9 +6,6 @@ from typing import List
 import alkymi as alk
 from alkymi import serialization, AlkymiConfig
 
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
-
 
 def test_serialize_item(tmpdir):
     tmpdir = Path(str(tmpdir))
@@ -49,6 +46,7 @@ def test_serialize_deserialize_items(tmpdir):
 
 
 def test_recipe_serialization(tmpdir):
+    AlkymiConfig.get().cache = False
     tmpdir = Path(str(tmpdir))
 
     @alk.recipe()

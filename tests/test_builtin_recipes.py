@@ -6,11 +6,8 @@ from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, Status
 
 
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
-
-
 def test_builtin_glob(tmpdir):
+    AlkymiConfig.get().cache = False
     tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
@@ -28,6 +25,7 @@ def test_builtin_glob(tmpdir):
 
 
 def test_builtin_file(tmpdir):
+    AlkymiConfig.get().cache = False
     tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
@@ -45,6 +43,7 @@ def test_builtin_file(tmpdir):
 
 
 def test_builtin_args():
+    AlkymiConfig.get().cache = False
     args = alkymi.recipes.args("value1", 2)
     args_recipe = args.recipe
 
@@ -72,6 +71,7 @@ def test_builtin_args():
 
 
 def test_builtin_kwargs():
+    AlkymiConfig.get().cache = False
     args = alkymi.recipes.kwargs(argument1="value1", argument2=2)
     args_recipe = args.recipe
 

@@ -1,4 +1,6 @@
 from enum import Enum
+from pathlib import Path
+from typing import Optional
 
 
 class CacheType(Enum):
@@ -35,6 +37,7 @@ class AlkymiConfig:
         # Set default values in config
         AlkymiConfig.__instance = self
         self._cache = True  # type: bool
+        self._cache_path = None  # type: Optional[Path]
 
     @property
     def cache(self) -> bool:
@@ -51,6 +54,22 @@ class AlkymiConfig:
         :param enable_cache: Whether to enable alkymi caching globally
         """
         self._cache = enable_cache
+
+    @property
+    def cache_path(self) -> Optional[Path]:
+        """
+        :return: A user-provided location to place the cache
+        """
+        return self._cache_path
+
+    @cache_path.setter
+    def cache_path(self, cache_path: Path) -> None:
+        """
+        Set a custom cache path to override the default caching location
+
+        :param cache_path: The custom location to place the cache
+        """
+        self._cache_path = cache_path
 
 
 # Force creation of singleton
