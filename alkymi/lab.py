@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from typing import Dict, Union, Any, List
 
 from .alkymi import compute_status_with_cache, Status
@@ -50,16 +51,33 @@ class Lab:
         :param target_recipe: The recipe to evaluate, as a reference ot by name
         :return: The output of the evaluated recipe
         """
+
+        def _call_brew(r: Recipe):
+            # Lazy import to avoid circular imports
+            from .alkymi import evaluate_recipe, compute_recipe_status, EvaluateProgress
+
+            def _progress_callback(progress: EvaluateProgress, name: str):
+                print("\t{}: {}".format(name, progress.name), file=sys.stderr)
+
+            print("Running:", file=sys.stderr)
+            result, _ = evaluate_recipe(r, compute_recipe_status(r), _progress_callback)
+            if result is None:
+                return None
+
+            if isinstance(result, tuple) and len(result) == 1:
+                return result[0]
+            return result
+
         if isinstance(target_recipe, str):
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    return recipe.brew()
+                    return _call_brew(recipe)
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                return target_recipe.brew()
+                return _call_brew(target_recipe)
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property

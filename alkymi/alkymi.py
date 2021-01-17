@@ -22,6 +22,13 @@ class Status(Enum):
     MappedInputsDirty = 5  # One or more mapped inputs to the recipe have changed -> (re)evaluate (only ForeachRecipe)
 
 
+class EvaluateProgress(Enum):
+    UpToDate = 0
+    Started = 1
+    Done = 2
+    Error = 3
+
+
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
     """
     Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs)
@@ -94,7 +101,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
     return status[recipe]
 
 
-def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndChecksums:
+def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status], progress_callback=None) -> OutputsAndChecksums:
     """
     Evaluate a recipe using precomputed statuses
 
@@ -109,17 +116,23 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
         return recipe.outputs, recipe.output_checksums
 
     if status[recipe] == Status.Ok:
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.UpToDate, recipe.name)
         return _print_and_return()
 
     if len(recipe.ingredients) <= 0 and not isinstance(recipe, ForeachRecipe):
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Started, recipe.name)
         recipe.invoke(inputs=tuple(), input_checksums=tuple())
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Done, recipe.name)
         return _print_and_return()
 
     # Load ingredient inputs
     ingredient_inputs = []  # type: List[Any]
     ingredient_input_checksums = []  # type: List[Optional[str]]
     for ingredient in recipe.ingredients:
-        result, checksum = evaluate_recipe(ingredient, status)
+        result, checksum = evaluate_recipe(ingredient, status, progress_callback)
         if result is not None:
             ingredient_inputs.extend(result)
         if checksum is not None:
@@ -130,7 +143,8 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
     # Process inputs
     if isinstance(recipe, ForeachRecipe):
         # Process mapped inputs
-        mapped_inputs_tuple, mapped_inputs_checksum_tuple = evaluate_recipe(recipe.mapped_recipe, status)
+        mapped_inputs_tuple, mapped_inputs_checksum_tuple = evaluate_recipe(recipe.mapped_recipe, status,
+                                                                            progress_callback)
         if mapped_inputs_tuple is None:
             raise Exception("Input to mapped recipe {} is None".format(recipe.name))
         if len(mapped_inputs_tuple) != 1:
@@ -148,7 +162,11 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
             raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
         recipe.invoke_mapped(mapped_inputs=mapped_inputs, mapped_inputs_checksum=mapped_inputs_checksum,
                              inputs=ingredient_inputs_tuple, input_checksums=ingredient_input_checksums_tuple)
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Done, recipe.name)
     else:
         # Regular Recipe
         recipe.invoke(inputs=ingredient_inputs_tuple, input_checksums=ingredient_input_checksums_tuple)
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Done, recipe.name)
     return _print_and_return()
