@@ -50,12 +50,19 @@ class Recipe:
         self._outputs = None  # type: Optional[Tuple[Any, ...]]
         self._output_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
         self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._last_function_hash = None  # type: Optional[str]
 
         if self.cache == CacheType.Cache:
             # Try to reload last state
             func_file = Path(self._func.__code__.co_filename)
-            module_name = func_file.parents[0].stem
-            self.cache_path = Path(Recipe.CACHE_DIRECTORY_NAME) / module_name / name
+            module_name = func_file.parent.stem
+
+            # Use the cache path set in the alkymi config, or fall back to current working dir
+            cache_root = AlkymiConfig.get().cache_path
+            if cache_root is None:
+                cache_root = Path(".")
+            self.cache_path = cache_root / Recipe.CACHE_DIRECTORY_NAME / module_name / name
+
             self.cache_file = self.cache_path / '{}.json'.format(self.function_hash)
             if self.cache_file.exists():
                 with self.cache_file.open('r') as f:
@@ -84,6 +91,7 @@ class Recipe:
         log.debug('Invoking recipe: {}'.format(self.name))
         self.outputs = self._canonical(self(*inputs))
         self._input_checksums = input_checksums
+        self._last_function_hash = self.function_hash
         self._save_state()
         return self.outputs
 
@@ -184,6 +192,11 @@ class Recipe:
             log.debug('{} -> dirty: input checksums changed'.format(self._name))
             return False
 
+        # Check if bound function has changed
+        if self._last_function_hash is not None:
+            if self._last_function_hash != self.function_hash:
+                return False
+
         # All checks passed
         return True
 
@@ -276,6 +289,7 @@ class Recipe:
             input_checksums=self.input_checksums,
             outputs=serialize_items(self.outputs, cache_path_generator()),
             output_checksums=self.output_checksums,
+            last_function_hash=self._last_function_hash,
         )
 
     def restore_from_dict(self, old_state) -> None:
@@ -290,3 +304,4 @@ class Recipe:
         self._outputs = deserialize_items(old_state["outputs"])
         if old_state["output_checksums"] is not None:
             self._output_checksums = tuple(old_state["output_checksums"])
+        self._last_function_hash = old_state["last_function_hash"]
