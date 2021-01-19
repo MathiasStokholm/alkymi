@@ -8,6 +8,7 @@ from .recipe import Recipe, CacheType, CleanlinessFunc
 from .serialization import serialize_item, deserialize_item
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
+MappedOutputs = Union[List[Any], Dict[Any, Any]]
 MappedInputsChecksums = Union[List[Optional[str]], Dict[Any, Optional[str]]]
 
 
@@ -98,10 +99,6 @@ class ForeachRecipe(Recipe):
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
         is used to check this). Only items from the immediately previous invoke call will be cached
 
-        FIXME(mathias): As of right now, the evaluation state is only saved to the cache once all inputs have been
-                        processed. This is obviously not ideal if one of the bound function evaluations fails and causes
-                        the program to exit
-
         :param mapped_inputs: The (possibly new) sequence of inputs to apply the bound function to
         :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
         whether anything has changed
@@ -110,8 +107,10 @@ class ForeachRecipe(Recipe):
         :return: The outputs of this ForeachRecipe
         """
         log.debug("Invoking recipe: {}".format(self.name))
+        if not (isinstance(mapped_inputs, list) or isinstance(mapped_inputs, dict)):
+            raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
+
         mapped_inputs_of_same_type = type(self.mapped_inputs) == type(mapped_inputs)
-        outputs = None  # type: Optional[MappedInputs]  # This is needed to make mypy happy in Python 3.5
 
         # Check if a full reevaluation across all mapped inputs is needed
         needs_full_eval = self.transient or not mapped_inputs_of_same_type
@@ -127,50 +126,74 @@ class ForeachRecipe(Recipe):
         # Check if we actually need to do any work (in case everything remains the same as last invocation)
         if not needs_full_eval:
             if mapped_inputs_checksum == self.mapped_inputs_checksum:
+                log.debug("Returning early since mapped inputs did not change since last evaluation")
                 return self.outputs
 
-        if isinstance(mapped_inputs, list):
-            # Handle list input
-            outputs_list = []  # type: List[Any]
-            for item in mapped_inputs:
-                if not needs_full_eval and self.outputs is not None:
-                    # Try to look up cached result for this input, fall back to recomputing
+        # Catch up on already done work
+        # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
+        outputs = [] if isinstance(mapped_inputs, list) else {}  # type: MappedOutputs
+        evaluated = [] if isinstance(mapped_inputs, list) else {}  # type: MappedInputs
+        not_evaluated = [] if isinstance(mapped_inputs, list) else {}  # type: MappedInputs
+        if needs_full_eval or self.outputs is None:
+            not_evaluated = mapped_inputs
+        else:
+            if isinstance(mapped_inputs, list) and isinstance(outputs, list) \
+                    and isinstance(evaluated, list) and isinstance(not_evaluated, list):
+                for item in mapped_inputs:
+                    # Try to look up cached result for this input
                     try:
                         new_checksum = checksum(item)
                         idx = self.mapped_inputs_checksums.index(new_checksum)  # type: ignore
                         found_checksum = self.mapped_inputs_checksums[idx]  # type: ignore
-                        log.debug("Comparing checksum: {} / {}".format(new_checksum, found_checksum))
                         if new_checksum == found_checksum:
-                            outputs_list.append(self.outputs[0][idx])
+                            outputs.append(self.outputs[0][idx])
+                            evaluated.append(item)
                             continue
                     except ValueError:
                         pass
-                outputs_list.append(self(item, *inputs))
-            outputs = outputs_list
-        elif isinstance(mapped_inputs, dict):
-            # Handle dict input
-            outputs_dict = {}  # type: Dict[Any, Any]
-            for key, item in mapped_inputs.items():
-                # Try to look up cached result for this input, fall back to recomputing
-                if not needs_full_eval and self.outputs is not None:
+                    not_evaluated.append(item)
+            elif isinstance(mapped_inputs, dict):
+                for key, item in mapped_inputs.items():
+                    # Try to look up cached result for this input
                     found_checksum = self.mapped_inputs_checksums.get(key, None)  # type: ignore
                     if found_checksum is not None:
                         new_checksum = checksum(key)
-                        log.debug('Comparing checksum: {} / {}'.format(new_checksum, found_checksum))
                         if new_checksum == found_checksum:
-                            outputs_dict[key] = self.outputs[0][key]
+                            outputs[key] = self.outputs[0][key]
+                            evaluated[key] = item
                             continue
-                outputs_dict[key] = self(item, *inputs)
-            outputs = outputs_dict
-        else:
-            raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
+                    not_evaluated[key] = item
 
-        # Store the provided inputs and the resulting outputs and commit to cache
-        self._input_checksums = input_checksums
-        self.mapped_inputs = mapped_inputs
-        self._mapped_inputs_checksum = mapped_inputs_checksum
-        self.outputs = self._canonical(outputs)
-        self._save_state()
+        def _checkpoint(all_done: bool, save_state: bool = True) -> None:
+            self._input_checksums = input_checksums
+            self.mapped_inputs = evaluated
+            self.outputs = self._canonical(outputs)
+            if all_done:
+                self._mapped_inputs_checksum = mapped_inputs_checksum
+            else:
+                self._mapped_inputs_checksum = "0xmissing_mapped_inputs_eval"
+            if save_state:
+                self._save_state()
+
+        log.debug("Num already cached results: {}/{}".format(len(evaluated), len(mapped_inputs)))
+        if len(evaluated) == len(mapped_inputs):
+            log.debug("Returning early since all items were already cached")
+            _checkpoint(all_done=True, save_state=False)
+            return self.outputs
+
+        # Perform remaining work - store state every time an evaluation is successful
+        if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
+            for item in not_evaluated:
+                outputs.append(self(item, *inputs))
+                evaluated.append(item)
+                _checkpoint(False)
+        elif isinstance(not_evaluated, dict):
+            for key, item in not_evaluated.items():
+                outputs[key] = self(item, *inputs)
+                evaluated[key] = item
+                _checkpoint(False)
+
+        _checkpoint(True)
         return self.outputs
 
     def is_foreach_clean(self, mapped_inputs_checksum: Optional[str]) -> bool:
@@ -203,6 +226,7 @@ class ForeachRecipe(Recipe):
         if serialized_items is not None:
             dictionary["mapped_inputs"] = next(serialized_items)
         dictionary["mapped_inputs_checksums"] = self.mapped_inputs_checksums
+        dictionary["mapped_inputs_checksum"] = self.mapped_inputs_checksum
         return dictionary
 
     def restore_from_dict(self, old_state: Dict) -> None:
@@ -214,3 +238,4 @@ class ForeachRecipe(Recipe):
         super(ForeachRecipe, self).restore_from_dict(old_state)
         self._mapped_inputs = next(deserialize_item(old_state["mapped_inputs"]))
         self._mapped_inputs_checksums = old_state["mapped_inputs_checksums"]
+        self._mapped_inputs_checksum = old_state["mapped_inputs_checksum"]

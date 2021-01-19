@@ -54,7 +54,7 @@ class Recipe:
         if self.cache == CacheType.Cache:
             # Try to reload last state
             func_file = Path(self._func.__code__.co_filename)
-            module_name = func_file.parents[0].stem
+            module_name = func_file.parent.stem
 
             # Use the cache path set in the alkymi config, or fall back to current working dir
             cache_root = AlkymiConfig.get().cache_path

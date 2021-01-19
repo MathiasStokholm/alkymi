@@ -72,7 +72,7 @@ class AlkymiConfig:
         """
         if not cache_path.is_dir():
             raise ValueError("Cache path '{}' must be a directory".format(cache_path))
-        if not os.access(cache_path, os.W_OK):
+        if not os.access(str(cache_path), os.W_OK):
             raise ValueError("Cache path '{}' must be writeable".format(cache_path))
         self._cache_path = cache_path
 
