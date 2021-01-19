@@ -168,6 +168,7 @@ class ForeachRecipe(Recipe):
             self._input_checksums = input_checksums
             self.mapped_inputs = evaluated
             self.outputs = self._canonical(outputs)
+            self._last_function_hash = self.function_hash
             if all_done:
                 self._mapped_inputs_checksum = mapped_inputs_checksum
             else:

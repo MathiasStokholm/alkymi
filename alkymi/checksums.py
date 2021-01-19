@@ -76,7 +76,7 @@ class Checksummer(object):
                 self.update(e)
         elif isinstance(obj, Dict):
             keys = obj.keys()
-            for k in sorted(keys):
+            for k in keys:
                 self.update(k)
                 self.update(obj[k])
         elif isinstance(obj, Path):

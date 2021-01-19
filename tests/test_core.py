@@ -3,7 +3,7 @@ import logging
 import shutil
 import time
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import alkymi as alk
 from alkymi import AlkymiConfig
@@ -73,11 +73,16 @@ def test_brew():
     assert len(returns_empty_tuple.brew()) == 0
 
 
+# We use this global to avoid altering the hashes of bound functions when the execution count changes
+execution_counts = {}  # type: Dict[str, int]
+
+
 def test_execution(caplog, tmpdir):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
 
+    global execution_counts
     execution_counts = dict(
         produces_build_dir=0,
         produces_a_single_file=0,

@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, Status
 import alkymi as alk
+
+# We use this global to avoid altering the hashes of bound functions when the execution count changes
+execution_counts = {}  # type: Dict[Union[Path, str], int]
 
 
 def test_execution(caplog, tmpdir):
@@ -21,6 +24,7 @@ def test_execution(caplog, tmpdir):
     f2.write_text(f2.stem)
     f3.write_text(f3.stem)
 
+    global execution_counts
     execution_counts = {f1: 0, f2: 0, f3: 0, f1.stem: 0, f2.stem: 0, f3.stem: 0}
 
     def _check_counts(counts: Tuple[int, int, int, int, int, int]):

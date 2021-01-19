@@ -50,6 +50,7 @@ class Recipe:
         self._outputs = None  # type: Optional[Tuple[Any, ...]]
         self._output_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
         self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._last_function_hash = None  # type: Optional[str]
 
         if self.cache == CacheType.Cache:
             # Try to reload last state
@@ -90,6 +91,7 @@ class Recipe:
         log.debug('Invoking recipe: {}'.format(self.name))
         self.outputs = self._canonical(self(*inputs))
         self._input_checksums = input_checksums
+        self._last_function_hash = self.function_hash
         self._save_state()
         return self.outputs
 
@@ -190,6 +192,11 @@ class Recipe:
             log.debug('{} -> dirty: input checksums changed'.format(self._name))
             return False
 
+        # Check if bound function has changed
+        if self._last_function_hash is not None:
+            if self._last_function_hash != self.function_hash:
+                return False
+
         # All checks passed
         return True
 
@@ -282,6 +289,7 @@ class Recipe:
             input_checksums=self.input_checksums,
             outputs=serialize_items(self.outputs, cache_path_generator()),
             output_checksums=self.output_checksums,
+            last_function_hash=self._last_function_hash,
         )
 
     def restore_from_dict(self, old_state) -> None:
@@ -296,3 +304,4 @@ class Recipe:
         self._outputs = deserialize_items(old_state["outputs"])
         if old_state["output_checksums"] is not None:
             self._output_checksums = tuple(old_state["output_checksums"])
+        self._last_function_hash = old_state["last_function_hash"]

@@ -33,8 +33,8 @@ def test_caching(caplog, tmpdir):
 
 
 # We use these globals to avoid altering the hashes of bound functions when these change
-execution_counts = [0] * 5  # type: List[int]
-stopping_point = 2  # type: int
+execution_counts = []  # type: List[int]
+stopping_point = 0  # type: int
 
 
 def test_foreach_caching(caplog, tmpdir):
@@ -57,7 +57,6 @@ def test_foreach_caching(caplog, tmpdir):
             assert actual_count == expected_count
 
     def record_execution(idx: int) -> int:
-        global stopping_point, execution_counts
         if idx == stopping_point:
             raise InterruptedError("Simulated failure")
         execution_counts[idx] += 1

@@ -20,6 +20,7 @@ of interruption/failure
 - Renamed alkymi's labfile from `lab.py` to `labfile.py` to fit the new "labfile" naming scheme
 - ForeachRecipe now supports saving/restoring partial evaluation states to the cache. This fixes the issue where a
 failure in one of the foreach evaluations could cause all the work to be lost
+- Recipes will now be marked dirty if their bound function has changed between invocations
 
 ### Fixed
 - Fixed type annotations in alkymi's labfile (`labfile.py`)
