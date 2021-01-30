@@ -1,12 +1,12 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, Generator
+from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from . import checksums
 from .config import CacheType, AlkymiConfig
 from .logging import log
-from .serialization import deserialize_items, serialize_items
+from .serialization import Object, ObjectWithValue, cache, CachedObject
 
 CleanlinessFunc = Callable[[Optional[Tuple[Any, ...]]], bool]
 
@@ -47,8 +47,7 @@ class Recipe:
         else:
             self._cache = cache
 
-        self._outputs = None  # type: Optional[Tuple[Any, ...]]
-        self._output_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._outputs = None  # type: Optional[Tuple[Object, ...]]
         self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
         self._last_function_hash = None  # type: Optional[str]
 
@@ -78,7 +77,8 @@ class Recipe:
         """
         return self._func(*args, **kwargs)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]):
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) \
+            -> Optional[Tuple[Object, ...]]:
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
@@ -183,9 +183,10 @@ class Recipe:
             return False
 
         # Not clean if any output is no longer valid
-        if not all(self._check_output(output, output_checksum) for output, output_checksum in
-                   zip(self.outputs, self.output_checksums)):
-            return False
+        # TODO(mathias): Add this back in somehow
+        # if not all(self._check_output(output, output_checksum) for output, output_checksum in
+        #            zip(self.outputs, self.output_checksums)):
+        #     return False
 
         # Compute input checksums and perform equality check
         if self.input_checksums != new_input_checksums:
@@ -248,7 +249,9 @@ class Recipe:
         """
         :return: The outputs of this Recipe in canonical form (None or a tuple with zero or more entries)
         """
-        return self._outputs
+        if self._outputs is None:
+            return None
+        return tuple(output.value() for output in self._outputs)
 
     @outputs.setter
     def outputs(self, outputs) -> None:
@@ -259,35 +262,29 @@ class Recipe:
         """
         if outputs is None:
             return
-
-        self._output_checksums = tuple(checksums.checksum(out) for out in outputs)
-        self._outputs = outputs
+        self._outputs = tuple(ObjectWithValue(output, checksums.checksum(output)) for output in outputs)
 
     @property
     def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
         """
         :return: The computed checksums for the outputs (this is set when outputs is set)
         """
-        return self._output_checksums
+        if self._outputs is None:
+            return None
+        return tuple(output.checksum for output in self._outputs)
 
     def to_dict(self) -> OrderedDict:
         """
-        :return: The ForeachRecipe as a dict for serialization purposes
+        :return: The Recipe as a dict for serialization purposes
         """
-
-        def cache_path_generator() -> Generator[Path, None, None]:
-            """
-            :return: A generator that provides paths for storing serialized (cached) data to the recipe cache dir
-            """
-            i = 0
-            while True:
-                yield self.cache_path / str(i)
-                i += 1
+        outputs = tuple(cache(output, self.cache_path) for output in self._outputs)
+        serialized_outputs = tuple(output.serialized for output in outputs)
+        self._outputs = outputs
 
         return OrderedDict(
             name=self.name,
             input_checksums=self.input_checksums,
-            outputs=serialize_items(self.outputs, cache_path_generator()),
+            outputs=serialized_outputs,
             output_checksums=self.output_checksums,
             last_function_hash=self._last_function_hash,
         )
@@ -301,7 +298,7 @@ class Recipe:
         log.debug("Restoring {} from dict".format(self._name))
         if old_state["input_checksums"] is not None:
             self._input_checksums = tuple(old_state["input_checksums"])
-        self._outputs = deserialize_items(old_state["outputs"])
-        if old_state["output_checksums"] is not None:
-            self._output_checksums = tuple(old_state["output_checksums"])
+        self._outputs = tuple(CachedObject(None, checksum, serialized)
+                              for serialized, checksum in
+                              zip(old_state["outputs"], old_state["output_checksums"]))
         self._last_function_hash = old_state["last_function_hash"]

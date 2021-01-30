@@ -2,7 +2,9 @@ import itertools
 import pickle
 import re
 from pathlib import Path
-from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type
+from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, Callable, \
+    cast
+from abc import ABCMeta, abstractmethod
 
 # TODO(mathias): This file needs to be reworked to be less complex/crazy. Some sort of class w/ recursive serialization
 #                might help make this a lot more readable
@@ -200,3 +202,75 @@ def deserialize_items(items: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, .
     if items is None:
         return None
     return tuple(itertools.chain.from_iterable(deserialize_item(item) for item in items))
+
+
+T = TypeVar('T')
+
+
+class Object(Generic[T], metaclass=ABCMeta):
+    def __init__(self, checksum: str):
+        self._checksum = checksum
+
+    @property
+    def checksum(self) -> str:
+        return self._checksum
+
+    @abstractmethod
+    def value(self) -> T:
+        pass
+
+
+class ObjectWithValue(Object):
+    def __init__(self, value: T, checksum: str):
+        super().__init__(checksum)
+        self._value = value
+
+    def value(self) -> T:
+        return self._value
+
+
+class CachedObject(Object):
+    def __init__(self, value: Optional[T], checksum: str, serialized_representation: Any):
+        super().__init__(checksum)
+        self._value = value
+        self._serialized_representation = serialized_representation
+
+    def value(self) -> T:
+        if self._value is None:
+            if self._serialized_representation is None:
+                raise RuntimeError("Serialized representation is None, this should never happen")
+            value = from_cache(self._serialized_representation)
+            self._value = cast(T, value)
+        return self._value
+
+    @property
+    def serialized(self) -> Any:
+        return self._serialized_representation
+
+
+def cache(obj: ObjectWithValue, base_path: Path) -> CachedObject:
+    cache_path = base_path / obj.checksum
+    cache_path.mkdir(exist_ok=True)
+
+    def cache_path_generator() -> Generator[Path, None, None]:
+        i = 0
+        while True:
+            yield cache_path / str(i)
+            i += 1
+
+    serialized_items = []
+    generator = serialize_item(obj.value(), cache_path_generator())
+    if generator is not None:
+        for serialized_item in generator:
+            serialized_items.append(serialized_item)
+    if len(serialized_items) == 1:
+        serialized = serialized_items[0]
+    else:
+        serialized = serialized_items
+    return CachedObject(obj.value(), obj.checksum, serialized)
+
+
+def from_cache(serialized_representation: Any) -> Any:
+    if serialized_representation is None:
+        return None
+    return next(deserialize_item(serialized_representation))
