@@ -1,7 +1,13 @@
 import argparse
 import logging
+import signal
 import sys
-from typing import Dict, Union, Any, List
+
+from yaspin.core import Yaspin
+from yaspin.spinners import Spinners
+from typing import Dict, Union, Any, List, Optional
+
+from yaspin.termcolor import colored
 
 from .alkymi import compute_status_with_cache, Status
 from .logging import log
@@ -23,6 +29,7 @@ class Lab:
         """
         self._name = name
         self._recipes = []  # type: List[Recipe]
+        self._spinner = None  # type: Optional[Yaspin]
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         """
@@ -56,11 +63,39 @@ class Lab:
             # Lazy import to avoid circular imports
             from .alkymi import evaluate_recipe, compute_recipe_status, EvaluateProgress
 
-            def _progress_callback(progress: EvaluateProgress, name: str):
-                print("\t{}: {}".format(name, progress.name), file=sys.stderr)
+            def sigint_handler(signum, frame, spinner):
+                self._spinner.red.fail("✘")
+                self._spinner.stop()
+                sys.exit(0)
 
-            print("Running:", file=sys.stderr)
-            result, _ = evaluate_recipe(r, compute_recipe_status(r), _progress_callback)
+            sigmap = {signal.SIGINT: sigint_handler}
+            self._spinner = Yaspin(Spinners.dots, color="blue", sigmap=sigmap)
+            self._spinner.start()
+
+            def _progress_callback(progress: EvaluateProgress, name: str, units_done=0, units_total=0):
+                # print("{}: {}".format(name, progress))
+                if progress == EvaluateProgress.Started:
+                    self._spinner.text = name
+                elif progress == EvaluateProgress.InProgress:
+                    text = name
+                    if units_total != 0:
+                        text += " ({}/{})".format(units_done, units_total)
+                    self._spinner.text = text
+                elif progress == EvaluateProgress.Done:
+                    self._spinner.write("✔ {}".format(name))
+                elif progress == EvaluateProgress.UpToDate:
+                    self._spinner.write(colored("○", color="yellow") + " {}".format(name))
+                elif progress == EvaluateProgress.Error:
+                    self._spinner.write("✘")
+
+            try:
+                result, _ = evaluate_recipe(r, compute_recipe_status(r), _progress_callback)
+            except Exception:
+                self._spinner.red.fail("✘")
+                raise
+            finally:
+                self._spinner.stop()
+
             if result is None:
                 return None
 

@@ -14,8 +14,8 @@ import numpy as np
 import alkymi as alk
 
 # Print alkymi logging to stderr
-alk.log.addHandler(logging.StreamHandler())
-alk.log.setLevel(logging.DEBUG)
+# alk.log.addHandler(logging.StreamHandler())
+# alk.log.setLevel(logging.DEBUG)
 
 
 def parse_idx(fd: BinaryIO) -> np.ndarray:
@@ -85,7 +85,10 @@ def parse_gzip_to_arrays(data: bytes) -> np.ndarray:
 
 
 def main():
-    train_images, train_labels, test_images, test_labels = parse_gzip_to_arrays.brew()
+    # train_images, train_labels, test_images, test_labels = parse_gzip_to_arrays.brew()
+    lab = alk.Lab("mnist")
+    lab.add_recipes(parse_gzip_to_arrays)
+    train_images, train_labels, test_images, test_labels = lab.brew(parse_gzip_to_arrays)
     plt.imshow(train_images[0], cmap="gray")
     plt.title("Digit: {}".format(train_labels[0]))
     plt.show()

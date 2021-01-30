@@ -93,7 +93,8 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs_checksum
 
     def invoke_mapped(self, mapped_inputs: MappedInputs, mapped_inputs_checksum: Optional[str],
-                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]):
+                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...],
+                      progress_callback=None):
         """
         Evaluate this ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
@@ -106,6 +107,8 @@ class ForeachRecipe(Recipe):
         :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
         :return: The outputs of this ForeachRecipe
         """
+        from .alkymi import EvaluateProgress
+
         log.debug("Invoking recipe: {}".format(self.name))
         if not (isinstance(mapped_inputs, list) or isinstance(mapped_inputs, dict)):
             raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
@@ -176,11 +179,17 @@ class ForeachRecipe(Recipe):
             if save_state:
                 self._save_state()
 
+            if progress_callback is not None:
+                progress_callback(EvaluateProgress.InProgress, self.name, len(evaluated), len(mapped_inputs))
+
         log.debug("Num already cached results: {}/{}".format(len(evaluated), len(mapped_inputs)))
         if len(evaluated) == len(mapped_inputs):
             log.debug("Returning early since all items were already cached")
             _checkpoint(all_done=True, save_state=False)
             return self.outputs
+
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.InProgress, self.name, len(evaluated), len(mapped_inputs))
 
         # Perform remaining work - store state every time an evaluation is successful
         if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):

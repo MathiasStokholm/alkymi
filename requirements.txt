@@ -1,1 +1,1 @@
-# No requirements yet
+yaspin==1.3.0

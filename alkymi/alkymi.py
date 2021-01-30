@@ -1,4 +1,4 @@
-from enum import Enum
+import enum
 from typing import Dict, List, Any, Tuple, Optional
 
 from .recipe import Recipe
@@ -10,7 +10,8 @@ from .foreach_recipe import ForeachRecipe
 OutputsAndChecksums = Tuple[Optional[Tuple[Any, ...]], Optional[Tuple[Optional[str], ...]]]
 
 
-class Status(Enum):
+@enum.unique
+class Status(enum.Enum):
     """
     Status of a Recipe denoting whether (re)evaluation is needed
     """
@@ -22,11 +23,13 @@ class Status(Enum):
     MappedInputsDirty = 5  # One or more mapped inputs to the recipe have changed -> (re)evaluate (only ForeachRecipe)
 
 
-class EvaluateProgress(Enum):
+@enum.unique
+class EvaluateProgress(enum.Enum):
     UpToDate = 0
     Started = 1
-    Done = 2
-    Error = 3
+    InProgress = 2
+    Done = 3
+    Error = 4
 
 
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
@@ -160,12 +163,17 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status], progress_callb
         # Mapped inputs can either be a list or a dictionary
         if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
             raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Started, recipe.name)
         recipe.invoke_mapped(mapped_inputs=mapped_inputs, mapped_inputs_checksum=mapped_inputs_checksum,
-                             inputs=ingredient_inputs_tuple, input_checksums=ingredient_input_checksums_tuple)
+                             inputs=ingredient_inputs_tuple, input_checksums=ingredient_input_checksums_tuple,
+                             progress_callback=progress_callback)
         if progress_callback is not None:
             progress_callback(EvaluateProgress.Done, recipe.name)
     else:
         # Regular Recipe
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Started, recipe.name)
         recipe.invoke(inputs=ingredient_inputs_tuple, input_checksums=ingredient_input_checksums_tuple)
         if progress_callback is not None:
             progress_callback(EvaluateProgress.Done, recipe.name)
