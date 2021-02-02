@@ -3,7 +3,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
-from . import checksums
+from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .serialization import Object, ObjectWithValue, cache, CachedObject
@@ -277,14 +277,21 @@ class Recipe:
         """
         :return: The Recipe as a dict for serialization purposes
         """
-        outputs = tuple(cache(output, self.cache_path) for output in self._outputs)
-        serialized_outputs = tuple(output.serialized for output in outputs)
+        # Force caching of all outputs (if they aren't already)
+        outputs = []
+        for output in self._outputs:
+            if isinstance(output, CachedObject):
+                outputs.append(output)
+            elif isinstance(output, ObjectWithValue):
+                outputs.append(serialization.cache(output, self.cache_path))
+            else:
+                raise RuntimeError("Output is of wrong type")
         self._outputs = outputs
 
         return OrderedDict(
             name=self.name,
             input_checksums=self.input_checksums,
-            outputs=serialized_outputs,
+            outputs=tuple(output.serialized for output in outputs),
             output_checksums=self.output_checksums,
             last_function_hash=self._last_function_hash,
         )

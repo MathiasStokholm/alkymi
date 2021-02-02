@@ -46,8 +46,9 @@ def test_serialize_deserialize_items(tmpdir):
 
 
 def test_recipe_serialization(tmpdir):
-    AlkymiConfig.get().cache = False
+    AlkymiConfig.get().cache = True
     tmpdir = Path(str(tmpdir))
+    AlkymiConfig.get().cache_path = tmpdir  # Use temporary directory for caching
 
     @alk.recipe()
     def produces_build_dir() -> Path:
@@ -98,5 +99,4 @@ def test_recipe_serialization(tmpdir):
     assert read_file_copy.input_checksums == read_file.input_checksums
     assert read_file_copy.outputs == read_file.outputs
     assert read_file_copy.output_checksums == read_file.output_checksums
-    assert read_file_copy.mapped_inputs == read_file.mapped_inputs
     assert read_file_copy.mapped_inputs_checksums == read_file.mapped_inputs_checksums

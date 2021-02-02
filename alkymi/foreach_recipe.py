@@ -1,10 +1,10 @@
 from collections import OrderedDict
 from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union
 
-from . import checksums
+from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
-from .serialization import Object, ObjectWithValue, cache, CachedObject
+from .serialization import Object, ObjectWithValue, CachedObject
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Object], Dict[Any, Object]]
@@ -255,21 +255,21 @@ class ForeachRecipe(Recipe):
         """
         :return: The ForeachRecipe as a dict for serialization purposes
         """
+        # Force caching of all outputs (if they aren't already)
         outputs = []
         for output in self._mapped_outputs:
             if isinstance(output, CachedObject):
                 outputs.append(output)
             elif isinstance(output, ObjectWithValue):
-                outputs.append(cache(output, self.cache_path))
+                outputs.append(serialization.cache(output, self.cache_path))
             else:
                 raise RuntimeError("Output is of wrong type")
-        serialized_outputs = tuple(output.serialized for output in outputs)
         self._mapped_outputs = outputs
 
         return OrderedDict(
             name=self.name,
             input_checksums=self.input_checksums,
-            mapped_outputs=serialized_outputs,
+            mapped_outputs=tuple(output.serialized for output in self._mapped_outputs),
             mapped_outputs_checksums=self.mapped_outputs_checksums,
             output_checksums=self.output_checksums,
             last_function_hash=self._last_function_hash,
