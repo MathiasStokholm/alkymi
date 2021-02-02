@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Optional, Sequence, Dict, Callable
+from typing import Any, Sequence, Dict, Callable
 import pickle
 import hashlib
 import inspect
@@ -161,16 +161,13 @@ def function_hash(fn: Callable) -> str:
     return hasher.digest()
 
 
-def checksum(obj: Any) -> Optional[str]:
+def checksum(obj: Any) -> str:
     """
     Computes the hash/checksum of the provided input
 
     :param obj: The object to compute a hash/checksum for
     :return: The checksum as a string
     """
-    if obj is None:
-        return None
-
     hasher = Checksummer()
     hasher.update(obj)
     return hasher.digest()

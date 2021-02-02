@@ -6,7 +6,7 @@ from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
-from .serialization import Object, ObjectWithValue, cache, CachedObject
+from .serialization import Object, ObjectWithValue, CachedObject
 
 CleanlinessFunc = Callable[[Optional[Tuple[Any, ...]]], bool]
 
@@ -254,15 +254,14 @@ class Recipe:
         return tuple(output.value() for output in self._outputs)
 
     @outputs.setter
-    def outputs(self, outputs) -> None:
+    def outputs(self, outputs: Optional[Tuple[Any, ...]]) -> None:
         """
         Sets the outputs of this Recipe and computes the necessary checksums needed for checking dirtiness
 
         :param outputs: outputs of this Recipe in canonical form (None or a tuple with zero or more entries)
         """
-        if outputs is None:
-            return
-        self._outputs = tuple(ObjectWithValue(output, checksums.checksum(output)) for output in outputs)
+        if outputs is not None:
+            self._outputs = tuple(ObjectWithValue(output, checksums.checksum(output)) for output in outputs)
 
     @property
     def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
@@ -278,20 +277,23 @@ class Recipe:
         :return: The Recipe as a dict for serialization purposes
         """
         # Force caching of all outputs (if they aren't already)
-        outputs = []
-        for output in self._outputs:
-            if isinstance(output, CachedObject):
-                outputs.append(output)
-            elif isinstance(output, ObjectWithValue):
-                outputs.append(serialization.cache(output, self.cache_path))
-            else:
-                raise RuntimeError("Output is of wrong type")
-        self._outputs = outputs
+        serialized_outputs = None
+        if self._outputs is not None:
+            outputs = []
+            for output in self._outputs:
+                if isinstance(output, CachedObject):
+                    outputs.append(output)
+                elif isinstance(output, ObjectWithValue):
+                    outputs.append(serialization.cache(output, self.cache_path))
+                else:
+                    raise RuntimeError("Output is of wrong type")
+            self._outputs = tuple(outputs)
+            serialized_outputs = tuple(output.serialized for output in outputs)
 
         return OrderedDict(
             name=self.name,
             input_checksums=self.input_checksums,
-            outputs=tuple(output.serialized for output in outputs),
+            outputs=serialized_outputs,
             output_checksums=self.output_checksums,
             last_function_hash=self._last_function_hash,
         )
@@ -305,7 +307,8 @@ class Recipe:
         log.debug("Restoring {} from dict".format(self._name))
         if old_state["input_checksums"] is not None:
             self._input_checksums = tuple(old_state["input_checksums"])
-        self._outputs = tuple(CachedObject(None, checksum, serialized)
-                              for serialized, checksum in
-                              zip(old_state["outputs"], old_state["output_checksums"]))
+        if old_state["outputs"] is not None and old_state["output_checksums"] is not None:
+            self._outputs = tuple(CachedObject(None, checksum, serialized)
+                                  for serialized, checksum in
+                                  zip(old_state["outputs"], old_state["output_checksums"]))
         self._last_function_hash = old_state["last_function_hash"]

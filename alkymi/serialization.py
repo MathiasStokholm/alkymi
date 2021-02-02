@@ -2,8 +2,7 @@ import itertools
 import pickle
 import re
 from pathlib import Path
-from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, Callable, \
-    cast
+from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
 from abc import ABCMeta, abstractmethod
 
 # TODO(mathias): This file needs to be reworked to be less complex/crazy. Some sort of class w/ recursive serialization
@@ -264,10 +263,9 @@ def cache(obj: ObjectWithValue, base_path: Path) -> CachedObject:
         for serialized_item in generator:
             serialized_items.append(serialized_item)
     if len(serialized_items) == 1:
-        serialized = serialized_items[0]
+        return CachedObject(obj.value(), obj.checksum, serialized_items[0])
     else:
-        serialized = serialized_items
-    return CachedObject(obj.value(), obj.checksum, serialized)
+        return CachedObject(obj.value(), obj.checksum, serialized_items)
 
 
 def from_cache(serialized_representation: Any) -> Any:

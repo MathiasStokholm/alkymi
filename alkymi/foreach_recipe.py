@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union
+from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, cast
 
 from . import checksums, serialization
 from .logging import log
@@ -8,6 +8,7 @@ from .serialization import Object, ObjectWithValue, CachedObject
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Object], Dict[Any, Object]]
+MappedOutputsCached = Union[List[CachedObject], Dict[Any, CachedObject]]
 MappedInputsChecksums = Union[List[Optional[str]], Dict[Any, Optional[str]]]
 
 
@@ -40,6 +41,7 @@ class ForeachRecipe(Recipe):
         self._mapped_inputs_checksums = None  # type: Optional[MappedInputsChecksums]
         self._mapped_inputs_checksum = None  # type: Optional[str]
         self._mapped_outputs = None  # type: Optional[MappedOutputs]
+        self._mapped_outputs_checksum = None  # type: Optional[str]
         super().__init__(ingredients, func, name, transient, cache, cleanliness_func)
 
     @property
@@ -50,15 +52,15 @@ class ForeachRecipe(Recipe):
         return self._mapped_recipe
 
     @property
+    def mapped_inputs_type(self) -> Optional[type]:
+        return self._mapped_inputs_type
+
+    @property
     def mapped_inputs(self) -> Optional[MappedInputs]:
         """
         :return: The sequence of inputs to apply the bound function to
         """
         return self._mapped_inputs
-
-    @property
-    def mapped_inputs_type(self) -> Optional[type]:
-        return self._mapped_inputs_type
 
     @mapped_inputs.setter
     def mapped_inputs(self, mapped_inputs: MappedInputs) -> None:
@@ -98,7 +100,7 @@ class ForeachRecipe(Recipe):
         """
         return self._mapped_inputs_checksum
 
-    @Recipe.outputs.getter
+    @Recipe.outputs.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def outputs(self) -> Optional[Tuple[Any, ...]]:
         """
         :return: The outputs of this ForeachRecipe in canonical form (None or a tuple with zero or more entries)
@@ -116,9 +118,11 @@ class ForeachRecipe(Recipe):
         """
         :return: The computed checksums for the outputs (this is set when outputs is set)
         """
-        if self._mapped_outputs is None:
+        if self._mapped_outputs_checksum is None:
             return None
-        return checksums.checksum(self.outputs)
+        # A ForeachRecipe has just 1 "output", which is a list or dict. So we return a tuple with the checksum for that
+        # single entry
+        return self._mapped_outputs_checksum,
 
     @property
     def mapped_outputs_checksums(self) -> Optional[MappedInputsChecksums]:
@@ -209,6 +213,7 @@ class ForeachRecipe(Recipe):
             self._input_checksums = input_checksums
             self.mapped_inputs = evaluated
             self._mapped_outputs = outputs
+            self._mapped_outputs_checksum = checksums.checksum(outputs)
             self._last_function_hash = self.function_hash
             if all_done:
                 self._mapped_inputs_checksum = mapped_inputs_checksum
@@ -256,21 +261,37 @@ class ForeachRecipe(Recipe):
         :return: The ForeachRecipe as a dict for serialization purposes
         """
         # Force caching of all outputs (if they aren't already)
-        outputs = []
-        for output in self._mapped_outputs:
-            if isinstance(output, CachedObject):
-                outputs.append(output)
-            elif isinstance(output, ObjectWithValue):
-                outputs.append(serialization.cache(output, self.cache_path))
-            else:
-                raise RuntimeError("Output is of wrong type")
-        self._mapped_outputs = outputs
+        serialized_mapped_outputs = None  # type: Optional[Union[Dict, List]]
+        if self._mapped_outputs is not None:
+            if isinstance(self._mapped_outputs, list):
+                outputs_list = []  # type: List[CachedObject]
+                for output in self._mapped_outputs:
+                    if isinstance(output, CachedObject):
+                        outputs_list.append(output)
+                    elif isinstance(output, ObjectWithValue):
+                        outputs_list.append(serialization.cache(output, self.cache_path))
+                    else:
+                        raise RuntimeError("Output is of wrong type")
+                serialized_mapped_outputs = [output.serialized for output in outputs_list]
+                self._mapped_outputs = cast(List[Object], outputs_list)
+            elif isinstance(self._mapped_outputs, dict):
+                outputs_dict = {}  # type: Dict[Any, CachedObject]
+                for key, output in self._mapped_outputs:
+                    if isinstance(output, CachedObject):
+                        outputs_dict[key] = output
+                    elif isinstance(output, ObjectWithValue):
+                        outputs_dict[key] = serialization.cache(output, self.cache_path)
+                    else:
+                        raise RuntimeError("Output is of wrong type")
+                serialized_mapped_outputs = {key: output.serialized for key, output in outputs_dict.items()}
+                self._mapped_outputs = cast(Dict[Any, Object], outputs_dict)
 
         return OrderedDict(
             name=self.name,
             input_checksums=self.input_checksums,
-            mapped_outputs=tuple(output.serialized for output in self._mapped_outputs),
+            mapped_outputs=serialized_mapped_outputs,
             mapped_outputs_checksums=self.mapped_outputs_checksums,
+            mapped_outputs_checksum=self._mapped_outputs_checksum,
             output_checksums=self.output_checksums,
             last_function_hash=self._last_function_hash,
             mapped_inputs_checksums=self.mapped_inputs_checksums,
@@ -303,3 +324,4 @@ class ForeachRecipe(Recipe):
         self._last_function_hash = old_state["last_function_hash"]
         self._mapped_inputs_checksums = old_state["mapped_inputs_checksums"]
         self._mapped_inputs_checksum = old_state["mapped_inputs_checksum"]
+        self._mapped_outputs_checksum = old_state["mapped_outputs_checksum"]
