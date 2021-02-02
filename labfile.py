@@ -27,7 +27,7 @@ def test(test_files: List[Path]) -> None:
     """
     result = pytest.main(args=[str(file) for file in test_files])
     if result != pytest.ExitCode.OK:
-        raise Exception("Unit tests failed: {}".format(result))
+        exit(1)
 
 
 @alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
@@ -43,7 +43,8 @@ def lint(source_files: List[Path], example_files: List[Path], test_files: List[P
     style_guide = flake8.get_style_guide(max_line_length=120, max_complexity=10, ignore=["E303"])
     all_files = source_files + example_files + test_files + [labfile]
     report = style_guide.check_files([str(file) for file in all_files])
-    assert report.get_statistics("E") == [], "Flake8 found style violations"
+    if report.get_statistics("E"):
+        exit(1)
     print("Flake8 found no style violations in {} files".format(len(all_files)))
 
 
@@ -67,7 +68,8 @@ def type_check(source_files: List[Path], example_files: List[Path], test_files: 
     print(stdout)
 
     # If no violations were found, mypy will return 0 as the return code
-    assert return_code == 0, "mypy returned exit code: {}".format(return_code)
+    if return_code == 0:
+        exit(return_code)
 
 
 @alk.recipe(transient=True)
