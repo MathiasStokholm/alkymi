@@ -175,10 +175,6 @@ class Recipe:
         if self.outputs is None or self.output_checksums is None:
             return False
 
-        # Not clean if any output is no longer valid
-        if not self.outputs_valid:
-            return False
-
         # Compute input checksums and perform equality check
         if self.input_checksums != new_input_checksums:
             log.debug('{} -> dirty: input checksums changed'.format(self._name))
@@ -188,6 +184,10 @@ class Recipe:
         if self._last_function_hash is not None:
             if self._last_function_hash != self.function_hash:
                 return False
+
+        # Not clean if any output is no longer valid
+        if not self.outputs_valid:
+            return False
 
         # All checks passed
         return True
