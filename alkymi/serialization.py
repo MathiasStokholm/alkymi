@@ -1,14 +1,16 @@
 import itertools
 import pickle
 import re
+from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
-from abc import ABCMeta, abstractmethod
+
+# Shorthands for generator types used below
+from . import checksums
 
 # TODO(mathias): This file needs to be reworked to be less complex/crazy. Some sort of class w/ recursive serialization
 #                might help make this a lot more readable
 
-# Shorthands for generator types used below
 CachePathGenerator = Generator[Path, None, None]
 SerializationGenerator = Generator[Union[str, int, float], None, None]
 
@@ -104,7 +106,9 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optio
     elif serializer is not None:
         yield serializer.serialize(item, next(cache_path_generator))
     elif isinstance(item, Path):
-        yield "{}{}".format(PATH_TOKEN, item)
+        # External path - store the checksum of the file at the current point in time
+        file_checksum = checksums.checksum(item)
+        yield "{}{}:{}".format(PATH_TOKEN, file_checksum, item)
     elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
         yield item
     elif isinstance(item, bytes):
@@ -166,8 +170,10 @@ def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float
             yield item
         else:
             if item.startswith(PATH_TOKEN):
-                # Path encoded as string
-                yield Path(item[len(PATH_TOKEN):])
+                # Path encoded as string with checksum, e.g. "!#path#!CHECKSUM_HERE:/what/a/path"
+                non_token_part = item[len(PATH_TOKEN):]
+                _, path_str = non_token_part.split(":", maxsplit=1)
+                yield Path(path_str)
             elif item.startswith(BYTES_TOKEN):
                 # Bytes dumped to file
                 with open(item[len(BYTES_TOKEN):], "rb") as f:
@@ -203,6 +209,29 @@ def deserialize_items(items: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, .
     return tuple(itertools.chain.from_iterable(deserialize_item(item) for item in items))
 
 
+def is_valid_serialized(item: Union[str, int, float, Iterable[Union[str, int, float]]]) -> bool:
+    """
+    Recursively check validity of a serialized representation. Currently just looks for external files represented by
+    Path objects, and then compares the stored checksum of each such item with the current checksum (computed from the
+    current file contents)
+
+    :param item: The serialized representation to check validity for
+    :return: True if the input is still valid
+    """
+    if isinstance(item, str):
+        if item.startswith(PATH_TOKEN):
+            # Path encoded as string with checksum, e.g. "!#path#!CHECKSUM_HERE:/what/a/path"
+            non_token_part = item[len(PATH_TOKEN):]
+            stored_checksum, path_str = non_token_part.split(":", maxsplit=1)
+            current_checksum = checksums.checksum(Path(path_str))
+            return stored_checksum == current_checksum
+    elif isinstance(item, Sequence):
+        return all(is_valid_serialized(subitem) for subitem in item)
+
+    # Other types are always valid
+    return True
+
+
 T = TypeVar('T')
 
 
@@ -214,6 +243,10 @@ class Object(Generic[T], metaclass=ABCMeta):
     def checksum(self) -> str:
         return self._checksum
 
+    @property
+    def valid(self) -> bool:
+        return NotImplemented
+
     @abstractmethod
     def value(self) -> T:
         pass
@@ -224,6 +257,11 @@ class ObjectWithValue(Object):
         super().__init__(checksum)
         self._value = value
 
+    @Object.valid.getter
+    def valid(self) -> bool:
+        # TODO(mathias): Find out if this is too expensive in general
+        return checksums.checksum(self._value) == self.checksum
+
     def value(self) -> T:
         return self._value
 
@@ -233,6 +271,10 @@ class CachedObject(Object):
         super().__init__(checksum)
         self._value = value
         self._serialized_representation = serialized_representation
+
+    @Object.valid.getter
+    def valid(self) -> bool:
+        return is_valid_serialized(self._serialized_representation)
 
     def value(self) -> T:
         if self._value is None:

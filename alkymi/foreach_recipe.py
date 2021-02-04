@@ -256,6 +256,23 @@ class ForeachRecipe(Recipe):
         """
         return mapped_inputs_checksum == self.mapped_inputs_checksum
 
+    @property
+    def outputs_valid(self) -> bool:
+        """
+        Check whether an output is still valid - this is currently only used to check files that may have been deleted
+        or altered outside of alkymi's cache. If no outputs have been produced yet, True will be returned.
+
+        :return: Whether all outputs are still valid
+        """
+        if self._mapped_outputs is None:
+            return True
+        if isinstance(self._mapped_outputs, list):
+            return all(output.valid for output in self._mapped_outputs)
+        elif isinstance(self._mapped_outputs, dict):
+            return all(output.valid for output in self._mapped_outputs.values())
+        else:
+            raise ValueError("Invalid type of mapped_outputs")
+
     def to_dict(self) -> OrderedDict:
         """
         :return: The ForeachRecipe as a dict for serialization purposes

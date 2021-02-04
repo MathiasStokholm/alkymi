@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import List
 
 import alkymi as alk
-from alkymi import serialization, AlkymiConfig
+from alkymi import serialization, AlkymiConfig, checksums
+from alkymi.serialization import ObjectWithValue
 
 
 def test_serialize_item(tmpdir):
@@ -100,3 +101,43 @@ def test_recipe_serialization(tmpdir):
     assert read_file_copy.outputs == read_file.outputs
     assert read_file_copy.output_checksums == read_file.output_checksums
     assert read_file_copy.mapped_inputs_checksums == read_file.mapped_inputs_checksums
+
+
+def test_complex_serialization(tmpdir):
+    """
+    Test serializing a complex nested structure and checking it for validity (without deserializing) by inspecting Path
+    objects in the value hierarchy
+    """
+    AlkymiConfig.get().cache = True
+    tmpdir = Path(str(tmpdir))
+    AlkymiConfig.get().cache_path = tmpdir  # Use temporary directory for caching
+    subdir = tmpdir / "subdir"
+    subdir.mkdir()
+
+    file_a = tmpdir / "file_a.txt"
+    with file_a.open("w") as f:
+        f.write(f.name)
+
+    file_b = tmpdir / "file_a.txt"
+    with file_b.open("w") as f:
+        f.write(f.name)
+
+    # Cache object - everything should be valid at this point
+    value = (1, 2, 3, ["a", "b", "c"], [file_a, file_b])
+    obj = ObjectWithValue(value, checksums.checksum(value))
+    obj_cached = serialization.cache(obj, subdir)
+    assert obj_cached.valid
+
+    # Touching an external file shouldn't cause invalidation
+    file_a.touch()
+    assert obj_cached.valid
+
+    # Changing one of the "external" files _should_ cause invalidation
+    with file_a.open("a") as f:
+        f.write("Changed!")
+    assert not obj_cached.valid
+
+    # Changing it back to the original value should cause things to work again
+    with file_a.open("w") as f:
+        f.write(f.name)
+    assert obj_cached.valid

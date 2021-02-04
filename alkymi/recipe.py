@@ -146,24 +146,17 @@ class Recipe:
             return outputs
         return outputs,
 
-    @staticmethod
-    def _check_output(output: Optional[Any], expected_checksum: Optional[Any]) -> bool:
+    @property
+    def outputs_valid(self) -> bool:
         """
         Check whether an output is still valid - this is currently only used to check files that may have been deleted
+        or altered outside of alkymi's cache. If no outputs have been produced yet, True will be returned.
 
-        FIXME(mathias): This doesn't support nested structures, and will just return True in those cases (e.g. list of
-                        lists of Paths)
-
-        :param output: The output to check
-        :param expected_checksum: The expected checksum of the output
-        :return: Whether the output is still valid
+        :return: Whether all outputs are still valid
         """
-        if output is None:
-            return False
-        if isinstance(output, Path):
-            checksum = checksums.checksum(output)
-            return checksum == expected_checksum
-        return True
+        if self._outputs is None:
+            return True
+        return all(output.valid for output in self._outputs)
 
     def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> bool:
         """
@@ -183,10 +176,8 @@ class Recipe:
             return False
 
         # Not clean if any output is no longer valid
-        # TODO(mathias): Add this back in somehow
-        # if not all(self._check_output(output, output_checksum) for output, output_checksum in
-        #            zip(self.outputs, self.output_checksums)):
-        #     return False
+        if not self.outputs_valid:
+            return False
 
         # Compute input checksums and perform equality check
         if self.input_checksums != new_input_checksums:

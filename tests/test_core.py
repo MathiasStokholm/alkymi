@@ -2,6 +2,7 @@
 import logging
 import shutil
 import time
+import tempfile
 from pathlib import Path
 from typing import List, Tuple, Dict
 
@@ -90,6 +91,7 @@ def test_execution(caplog, tmpdir):
         reads_a_file=0
     )
 
+    # FIXME(mathias): These should somehow be converted to global variables to avoid them influencing function hashes
     build_dir = Path(tmpdir) / 'build'  # type: Path
     file = build_dir / 'file.txt'  # type: Path
     copied_file = build_dir / 'file_copy.txt'  # type: Path
