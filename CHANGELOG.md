@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.4] - 2021-02-05
 ### Added
 - Updated README.md with "Command Line Usage", "Upcoming Features" and "Known Issues" sections
 - Included `labfile.py` in static type checking and linting
@@ -27,6 +29,7 @@ actually needed for computation.
 - alkymi's labfile now uses `exit()` instead of raising exceptions in order to not clutter the output of tests etc.
 - Adapted the way that external (outside alkymi's cache) files are checked for validity to see if they have changed
 between alkymi evaluations
+- Updated README.md to reflect recently merged features
 
 ### Fixed
 - Fixed type annotations in alkymi's labfile (`labfile.py`)
@@ -39,5 +42,6 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.3

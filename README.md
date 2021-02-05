@@ -102,18 +102,14 @@ Upcoming: readthedocs.org page
 
 ## Upcoming Features
 The following features are being considered for future implementation:
-* Lazy loading of outputs from cache (loading checksums is sufficient for checking status of recipes - outputs can then
-be loaded as needed for actual evaluation)
 * Arguments to recipes when calling `brew` in `Lab` CLI
 * Type annotations propagated from bound functions to recipes
 * Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
 * Code coverage for tests
 
 ## Known Issues
-* alkymi currently doesn't check nested structures for altered external files when computing cleanliness (e.g. `MyClass`
-has a `self._some_path` that points to a file somewhere outside of alkymi's internal cache)
-* Recipes created with `alk.foreach()` save their entire state after evaluating each input - this ensures that work is
-not lost if the program crashes, but this wastes time by serializing results multiple times
+* alkymi currently doesn't check custom objects for altered external files when computing cleanliness (e.g. `MyClass`
+has a `self._some_path` that points to a file somewhere outside alkymi's internal cache)
 * `alk.foreach()` currently only supports enumerable inputs of type `List` or `Dict`
 * Recipes marked `transient` will always be dirty, and thus always require reevaluation. This functionality should be
 replaced by a proper means of creating recipes that don't cache outputs, but only run when needed to provide inputs for
