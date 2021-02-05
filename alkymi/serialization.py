@@ -13,6 +13,7 @@ from . import checksums
 
 CachePathGenerator = Generator[Path, None, None]
 SerializationGenerator = Generator[Union[str, int, float], None, None]
+SerializableRepresentation = Union[str, int, float, Iterable[Union[str, int, float]]]
 
 # Tokens used to signify to the deserializer func how to deserializer a given value
 TOKEN_TEMPLATE = "!#{}#!"
@@ -156,7 +157,7 @@ def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: Cach
     return tuple(serialized_items)
 
 
-def deserialize_item(item: Union[str, int, float, Iterable[Union[str, int, float]]]) -> Generator[Any, None, None]:
+def deserialize_item(item: SerializableRepresentation) -> Generator[Any, None, None]:
     """
     Deserializes an item (potentially recursively) and returns the result(s) as a generator
 
@@ -209,7 +210,7 @@ def deserialize_items(items: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, .
     return tuple(itertools.chain.from_iterable(deserialize_item(item) for item in items))
 
 
-def is_valid_serialized(item: Union[str, int, float, Iterable[Union[str, int, float]]]) -> bool:
+def is_valid_serialized(item: SerializableRepresentation) -> bool:
     """
     Recursively check validity of a serialized representation. Currently just looks for external files represented by
     Path objects, and then compares the stored checksum of each such item with the current checksum (computed from the
@@ -242,7 +243,7 @@ class Output(Generic[T], metaclass=ABCMeta):
 
     def __init__(self, checksum: str):
         """
-        Create a new Object and assign the checksum
+        Create a new Output and assign the checksum
 
         :param checksum: The checksum for the object
         """
@@ -250,19 +251,39 @@ class Output(Generic[T], metaclass=ABCMeta):
 
     @property
     def checksum(self) -> str:
+        """
+        :return: The checksum of this Output
+        """
         return self._checksum
 
     @property
     def valid(self) -> bool:
+        """
+        :return: Whether this Output is still valid (e.g. an external file pointed to by a Path instance can have been
+        altered)
+        """
         return NotImplemented
 
     @abstractmethod
     def value(self) -> T:
+        """
+        :return: The value associated with this Output
+        """
         pass
 
 
 class OutputWithValue(Output):
+    """
+    An Output that is guaranteed to have an in-memory value - all outputs start out as this before being cached
+    """
+
     def __init__(self, value: T, checksum: str):
+        """
+        Create a new OutputWithValue
+
+        :param value: The value of the output
+        :param checksum: The checksum of the output
+        """
         super().__init__(checksum)
         self._value = value
 
@@ -276,30 +297,57 @@ class OutputWithValue(Output):
 
 
 class CachedOutput(Output):
-    def __init__(self, value: Optional[T], checksum: str, serialized_representation: Any):
+    """
+    An Output that has been cached - may or may not have it's associated value in-memory
+    """
+
+    def __init__(self, value: Optional[T], checksum: str, serializable_representation: SerializableRepresentation):
+        """
+        Create a new CachedOutput
+
+        :param value: The value of the output
+        :param checksum: The checksum of the output
+        :param serializable_representation: The serialized representation of the output
+        """
         super().__init__(checksum)
         self._value = value
-        self._serialized_representation = serialized_representation
+        self._serializable_representation = serializable_representation
 
     @Output.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def valid(self) -> bool:
-        return is_valid_serialized(self._serialized_representation)
+        return is_valid_serialized(self._serializable_representation)
 
     def value(self) -> T:
+        # Deserialize the value if it isn't already in memory
         if self._value is None:
-            if self._serialized_representation is None:
-                raise RuntimeError("Serialized representation is None, this should never happen")
-            value = from_cache(self._serialized_representation)
+            if self._serializable_representation is None:
+                raise RuntimeError("Serializable representation is None, this should never happen")
+            value = from_cache(self._serializable_representation)
             self._value = cast(T, value)
         return self._value
 
     @property
-    def serialized(self) -> Any:
-        return self._serialized_representation
+    def serialized(self) -> SerializableRepresentation:
+        """
+        :return: A serializable representation of the value of this output
+        """
+        return self._serializable_representation
 
 
-def cache(obj: OutputWithValue, base_path: Path) -> CachedOutput:
-    cache_path = base_path / obj.checksum
+def cache(output: OutputWithValue, base_path: Path) -> CachedOutput:
+    """
+    Cache an in-memory OutputWithValue, thus converting it to a CachedOutput. The resulting output will retain the value
+    in-memory
+
+    :param output: The Output to cache
+    :param base_path: The directory to use for this serialization. A subdirectory will be created to store complex
+    serialized objects
+    :return: The cached output
+    """
+    value = output.value()  # type: ignore  # Make all Output types fully generic for this to work
+    checksum = output.checksum
+
+    cache_path = base_path / checksum
     cache_path.mkdir(exist_ok=True)
 
     def cache_path_generator() -> Generator[Path, None, None]:
@@ -309,17 +357,23 @@ def cache(obj: OutputWithValue, base_path: Path) -> CachedOutput:
             i += 1
 
     serialized_items = []
-    generator = serialize_item(obj.value(), cache_path_generator())
+    generator = serialize_item(value, cache_path_generator())
     if generator is not None:
         for serialized_item in generator:
             serialized_items.append(serialized_item)
     if len(serialized_items) == 1:
-        return CachedOutput(obj.value(), obj.checksum, serialized_items[0])
+        return CachedOutput(value, checksum, serialized_items[0])
     else:
-        return CachedOutput(obj.value(), obj.checksum, serialized_items)
+        return CachedOutput(value, checksum, serialized_items)
 
 
-def from_cache(serialized_representation: Any) -> Any:
-    if serialized_representation is None:
+def from_cache(serializable_representation: SerializableRepresentation) -> Any:
+    """
+    Deserialize an output from the cache using its serialized representation
+
+    :param serializable_representation: The serialized representation to deserialize
+    :return: The deserialized object
+    """
+    if serializable_representation is None:
         return None
-    return next(deserialize_item(serialized_representation))
+    return next(deserialize_item(serializable_representation))
