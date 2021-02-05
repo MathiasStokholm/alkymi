@@ -21,6 +21,12 @@ of interruption/failure
 - ForeachRecipe now supports saving/restoring partial evaluation states to the cache. This fixes the issue where a
 failure in one of the foreach evaluations could cause all the work to be lost
 - Recipes will now be marked dirty if their bound function has changed between invocations
+- ForeachRecipe now only serializes each output once
+- Outputs are now loaded lazily from the cache. This means that actual deserialization is deferred until an output is
+actually needed for computation.
+- alkymi's labfile now uses `exit()` instead of raising exceptions in order to not clutter the output of tests etc.
+- Adapted the way that external (outside alkymi's cache) files are checked for validity to see if they have changed
+between alkymi evaluations
 
 ### Fixed
 - Fixed type annotations in alkymi's labfile (`labfile.py`)
