@@ -43,5 +43,5 @@ from cache
 - Initial release
 
 [Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...HEAD
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...v0.0.4
+[0.0.4]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.3
