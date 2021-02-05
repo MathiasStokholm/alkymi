@@ -73,6 +73,7 @@ class ForeachRecipe(Recipe):
         if mapped_inputs is None:
             return
 
+        # FIXME(mathias): This does unnecessary work by checksumming the same items multiple times during evaluation
         if isinstance(mapped_inputs, list):
             self._mapped_inputs_checksums = []
             for inp in mapped_inputs:

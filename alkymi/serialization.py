@@ -257,7 +257,7 @@ class ObjectWithValue(Object):
         super().__init__(checksum)
         self._value = value
 
-    @Object.valid.getter
+    @Object.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def valid(self) -> bool:
         # TODO(mathias): Find out if this is too expensive in general
         return checksums.checksum(self._value) == self.checksum
@@ -272,7 +272,7 @@ class CachedObject(Object):
         self._value = value
         self._serialized_representation = serialized_representation
 
-    @Object.valid.getter
+    @Object.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def valid(self) -> bool:
         return is_valid_serialized(self._serialized_representation)
 

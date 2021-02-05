@@ -2,7 +2,6 @@
 import logging
 import shutil
 import time
-import tempfile
 from pathlib import Path
 from typing import List, Tuple, Dict
 
