@@ -68,7 +68,7 @@ def type_check(source_files: List[Path], example_files: List[Path], test_files: 
     print(stdout)
 
     # If no violations were found, mypy will return 0 as the return code
-    if return_code == 0:
+    if return_code != 0:
         exit(return_code)
 
 

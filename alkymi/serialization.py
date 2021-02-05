@@ -235,8 +235,17 @@ def is_valid_serialized(item: Union[str, int, float, Iterable[Union[str, int, fl
 T = TypeVar('T')
 
 
-class Object(Generic[T], metaclass=ABCMeta):
+class Output(Generic[T], metaclass=ABCMeta):
+    """
+    Abstract base class for keeping track of outputs of Recipes
+    """
+
     def __init__(self, checksum: str):
+        """
+        Create a new Object and assign the checksum
+
+        :param checksum: The checksum for the object
+        """
         self._checksum = checksum
 
     @property
@@ -252,12 +261,12 @@ class Object(Generic[T], metaclass=ABCMeta):
         pass
 
 
-class ObjectWithValue(Object):
+class OutputWithValue(Output):
     def __init__(self, value: T, checksum: str):
         super().__init__(checksum)
         self._value = value
 
-    @Object.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
+    @Output.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def valid(self) -> bool:
         # TODO(mathias): Find out if this is too expensive in general
         return checksums.checksum(self._value) == self.checksum
@@ -266,13 +275,13 @@ class ObjectWithValue(Object):
         return self._value
 
 
-class CachedObject(Object):
+class CachedOutput(Output):
     def __init__(self, value: Optional[T], checksum: str, serialized_representation: Any):
         super().__init__(checksum)
         self._value = value
         self._serialized_representation = serialized_representation
 
-    @Object.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
+    @Output.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def valid(self) -> bool:
         return is_valid_serialized(self._serialized_representation)
 
@@ -289,7 +298,7 @@ class CachedObject(Object):
         return self._serialized_representation
 
 
-def cache(obj: ObjectWithValue, base_path: Path) -> CachedObject:
+def cache(obj: OutputWithValue, base_path: Path) -> CachedOutput:
     cache_path = base_path / obj.checksum
     cache_path.mkdir(exist_ok=True)
 
@@ -305,9 +314,9 @@ def cache(obj: ObjectWithValue, base_path: Path) -> CachedObject:
         for serialized_item in generator:
             serialized_items.append(serialized_item)
     if len(serialized_items) == 1:
-        return CachedObject(obj.value(), obj.checksum, serialized_items[0])
+        return CachedOutput(obj.value(), obj.checksum, serialized_items[0])
     else:
-        return CachedObject(obj.value(), obj.checksum, serialized_items)
+        return CachedOutput(obj.value(), obj.checksum, serialized_items)
 
 
 def from_cache(serialized_representation: Any) -> Any:

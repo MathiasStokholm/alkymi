@@ -4,11 +4,11 @@ from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, 
 from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
-from .serialization import Object, ObjectWithValue, CachedObject
+from .serialization import Output, OutputWithValue, CachedOutput
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
-MappedOutputs = Union[List[Object], Dict[Any, Object]]
-MappedOutputsCached = Union[List[CachedObject], Dict[Any, CachedObject]]
+MappedOutputs = Union[List[Output], Dict[Any, Output]]
+MappedOutputsCached = Union[List[CachedOutput], Dict[Any, CachedOutput]]
 MappedInputsChecksums = Union[List[Optional[str]], Dict[Any, Optional[str]]]
 
 
@@ -233,13 +233,13 @@ class ForeachRecipe(Recipe):
         if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
             for item in not_evaluated:
                 result = self(item, *inputs)
-                outputs.append(ObjectWithValue(result, checksums.checksum(result)))
+                outputs.append(OutputWithValue(result, checksums.checksum(result)))
                 evaluated.append(item)
                 _checkpoint(False)
         elif isinstance(not_evaluated, dict):
             for key, item in not_evaluated.items():
                 result = self(item, *inputs)
-                outputs[key] = ObjectWithValue(result, checksums.checksum(result))
+                outputs[key] = OutputWithValue(result, checksums.checksum(result))
                 evaluated[key] = item
                 _checkpoint(False)
 
@@ -282,27 +282,27 @@ class ForeachRecipe(Recipe):
         serialized_mapped_outputs = None  # type: Optional[Union[Dict, List]]
         if self._mapped_outputs is not None:
             if isinstance(self._mapped_outputs, list):
-                outputs_list = []  # type: List[CachedObject]
+                outputs_list = []  # type: List[CachedOutput]
                 for output in self._mapped_outputs:
-                    if isinstance(output, CachedObject):
+                    if isinstance(output, CachedOutput):
                         outputs_list.append(output)
-                    elif isinstance(output, ObjectWithValue):
+                    elif isinstance(output, OutputWithValue):
                         outputs_list.append(serialization.cache(output, self.cache_path))
                     else:
                         raise RuntimeError("Output is of wrong type")
                 serialized_mapped_outputs = [output.serialized for output in outputs_list]
-                self._mapped_outputs = cast(List[Object], outputs_list)
+                self._mapped_outputs = cast(List[Output], outputs_list)
             elif isinstance(self._mapped_outputs, dict):
-                outputs_dict = {}  # type: Dict[Any, CachedObject]
+                outputs_dict = {}  # type: Dict[Any, CachedOutput]
                 for key, output in self._mapped_outputs:
-                    if isinstance(output, CachedObject):
+                    if isinstance(output, CachedOutput):
                         outputs_dict[key] = output
-                    elif isinstance(output, ObjectWithValue):
+                    elif isinstance(output, OutputWithValue):
                         outputs_dict[key] = serialization.cache(output, self.cache_path)
                     else:
                         raise RuntimeError("Output is of wrong type")
                 serialized_mapped_outputs = {key: output.serialized for key, output in outputs_dict.items()}
-                self._mapped_outputs = cast(Dict[Any, Object], outputs_dict)
+                self._mapped_outputs = cast(Dict[Any, Output], outputs_dict)
 
         return OrderedDict(
             name=self.name,
@@ -329,12 +329,12 @@ class ForeachRecipe(Recipe):
         mapped_type = old_state["mapped_type"]
         if mapped_type == "list":
             self._mapped_inputs_type = list
-            self._mapped_outputs = [CachedObject(None, checksum, serialized)
+            self._mapped_outputs = [CachedOutput(None, checksum, serialized)
                                     for serialized, checksum in
                                     zip(old_state["mapped_outputs"], old_state["mapped_outputs_checksums"])]
         elif mapped_type == "dict":
             self._mapped_inputs_type = dict
-            self._mapped_outputs = {key: CachedObject(None, checksum, serialized)
+            self._mapped_outputs = {key: CachedOutput(None, checksum, serialized)
                                     for (key, serialized), checksum in
                                     zip(old_state["mapped_outputs"].items(), old_state["mapped_outputs_checksums"])}
         else:

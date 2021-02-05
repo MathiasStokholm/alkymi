@@ -5,7 +5,7 @@ from typing import List
 
 import alkymi as alk
 from alkymi import serialization, AlkymiConfig, checksums
-from alkymi.serialization import ObjectWithValue
+from alkymi.serialization import OutputWithValue
 
 
 def test_serialize_item(tmpdir):
@@ -124,7 +124,7 @@ def test_complex_serialization(tmpdir):
 
     # Cache object - everything should be valid at this point
     value = (1, 2, 3, ["a", "b", "c"], [file_a, file_b])
-    obj = ObjectWithValue(value, checksums.checksum(value))
+    obj = OutputWithValue(value, checksums.checksum(value))
     obj_cached = serialization.cache(obj, subdir)
     assert obj_cached.valid
 

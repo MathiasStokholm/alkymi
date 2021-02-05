@@ -6,7 +6,7 @@ from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
-from .serialization import Object, ObjectWithValue, CachedObject
+from .serialization import Output, OutputWithValue, CachedOutput
 
 CleanlinessFunc = Callable[[Optional[Tuple[Any, ...]]], bool]
 
@@ -47,7 +47,7 @@ class Recipe:
         else:
             self._cache = cache
 
-        self._outputs = None  # type: Optional[Tuple[Object, ...]]
+        self._outputs = None  # type: Optional[Tuple[Output, ...]]
         self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
         self._last_function_hash = None  # type: Optional[str]
 
@@ -78,7 +78,7 @@ class Recipe:
         return self._func(*args, **kwargs)
 
     def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) \
-            -> Optional[Tuple[Object, ...]]:
+            -> Optional[Tuple[Output, ...]]:
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
@@ -252,7 +252,7 @@ class Recipe:
         :param outputs: outputs of this Recipe in canonical form (None or a tuple with zero or more entries)
         """
         if outputs is not None:
-            self._outputs = tuple(ObjectWithValue(output, checksums.checksum(output)) for output in outputs)
+            self._outputs = tuple(OutputWithValue(output, checksums.checksum(output)) for output in outputs)
 
     @property
     def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
@@ -272,9 +272,9 @@ class Recipe:
         if self._outputs is not None:
             outputs = []
             for output in self._outputs:
-                if isinstance(output, CachedObject):
+                if isinstance(output, CachedOutput):
                     outputs.append(output)
-                elif isinstance(output, ObjectWithValue):
+                elif isinstance(output, OutputWithValue):
                     outputs.append(serialization.cache(output, self.cache_path))
                 else:
                     raise RuntimeError("Output is of wrong type")
@@ -299,7 +299,7 @@ class Recipe:
         if old_state["input_checksums"] is not None:
             self._input_checksums = tuple(old_state["input_checksums"])
         if old_state["outputs"] is not None and old_state["output_checksums"] is not None:
-            self._outputs = tuple(CachedObject(None, checksum, serialized)
+            self._outputs = tuple(CachedOutput(None, checksum, serialized)
                                   for serialized, checksum in
                                   zip(old_state["outputs"], old_state["output_checksums"]))
         self._last_function_hash = old_state["last_function_hash"]
