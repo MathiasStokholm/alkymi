@@ -6,11 +6,8 @@ from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, Status
 
 
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
-
-
 def test_builtin_glob(tmpdir):
+    AlkymiConfig.get().cache = False
     tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
@@ -18,10 +15,35 @@ def test_builtin_glob(tmpdir):
     glob_recipe = alkymi.recipes.glob_files(Path(tmpdir), '*', recursive=False)
 
     assert len(glob_recipe.ingredients) == 0
-    assert glob_recipe()[0][0] == test_file
+    assert glob_recipe.brew() == [test_file]
+    assert glob_recipe.status() == Status.Ok
+
+    # Altering the file should NOT mark the recipe dirty - we only care about finding the files
+    with test_file.open('w') as f:
+        f.write("something else")
+    assert glob_recipe.status() == Status.Ok
+
+
+def test_builtin_file(tmpdir):
+    AlkymiConfig.get().cache = False
+    tmpdir = Path(str(tmpdir))
+    test_file = Path(tmpdir) / 'test_file.txt'
+    with test_file.open('w') as f:
+        f.write("test")
+    file_recipe = alkymi.recipes.file(test_file)
+
+    assert len(file_recipe.ingredients) == 0
+    assert file_recipe.brew() == test_file
+    assert file_recipe.status() == Status.Ok
+
+    # Altering the file should mark the recipe dirty
+    with test_file.open('w') as f:
+        f.write("something else")
+    assert file_recipe.status() == Status.Dirty
 
 
 def test_builtin_args():
+    AlkymiConfig.get().cache = False
     args = alkymi.recipes.args("value1", 2)
     args_recipe = args.recipe
 
@@ -49,6 +71,7 @@ def test_builtin_args():
 
 
 def test_builtin_kwargs():
+    AlkymiConfig.get().cache = False
     args = alkymi.recipes.kwargs(argument1="value1", argument2=2)
     args_recipe = args.recipe
 

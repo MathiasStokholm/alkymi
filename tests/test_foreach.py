@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, Status
 import alkymi as alk
 
-
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
+# We use this global to avoid altering the hashes of bound functions when the execution count changes
+execution_counts = {}  # type: Dict[Union[Path, str], int]
 
 
 def test_execution(caplog, tmpdir):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
 
     f1 = Path(tmpdir) / "file1.txt"
     f2 = Path(tmpdir) / "file2.txt"
@@ -24,6 +24,7 @@ def test_execution(caplog, tmpdir):
     f2.write_text(f2.stem)
     f3.write_text(f3.stem)
 
+    global execution_counts
     execution_counts = {f1: 0, f2: 0, f3: 0, f1.stem: 0, f2.stem: 0, f3.stem: 0}
 
     def _check_counts(counts: Tuple[int, int, int, int, int, int]):
@@ -99,6 +100,7 @@ def test_lists(caplog):
     Test using a list (of non-Path objects) as the input to a foreach recipe
     """
     caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
 
     execution_counts = [0] * 5  # type: List[int]
     args = alkymi.recipes.args([0])

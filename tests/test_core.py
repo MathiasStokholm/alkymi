@@ -3,18 +3,17 @@ import logging
 import shutil
 import time
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import alkymi as alk
 from alkymi import AlkymiConfig
 from alkymi.foreach_recipe import ForeachRecipe
 from alkymi.recipe import Recipe
 
-# Turn of caching for tests
-AlkymiConfig.get().cache = False
-
 
 def test_decorators():
+    AlkymiConfig.get().cache = False
+
     @alk.recipe(transient=True)
     def should_be_a_recipe() -> List[str]:
         return ["example1", "example2"]
@@ -37,6 +36,8 @@ def test_decorators():
 
 
 def test_brew():
+    AlkymiConfig.get().cache = False
+
     @alk.recipe()
     def returns_single_item() -> str:
         return "a string"
@@ -72,10 +73,16 @@ def test_brew():
     assert len(returns_empty_tuple.brew()) == 0
 
 
+# We use this global to avoid altering the hashes of bound functions when the execution count changes
+execution_counts = {}  # type: Dict[str, int]
+
+
 def test_execution(caplog, tmpdir):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
 
+    global execution_counts
     execution_counts = dict(
         produces_build_dir=0,
         produces_a_single_file=0,
@@ -83,6 +90,7 @@ def test_execution(caplog, tmpdir):
         reads_a_file=0
     )
 
+    # FIXME(mathias): These should somehow be converted to global variables to avoid them influencing function hashes
     build_dir = Path(tmpdir) / 'build'  # type: Path
     file = build_dir / 'file.txt'  # type: Path
     copied_file = build_dir / 'file_copy.txt'  # type: Path

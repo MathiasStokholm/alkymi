@@ -11,7 +11,7 @@ class Lab:
     """
     Class used to define a collection of alkymi recipes and expose them as a command line interface (CLI)
 
-    This can be used to create files that bear resemblance to Makefiles (see alkymi/lab.py as an example)
+    This can be used to create files that bear resemblance to Makefiles (see alkymi/labfile.py as an example)
     """
 
     def __init__(self, name: str):
@@ -111,14 +111,6 @@ class Lab:
         # Create the parser for the "status" command
         subparsers.add_parser('status', help='Prints the detailed status of the lab')
 
-        # Create the parser for the "clean-cache" command
-        subparsers.add_parser('clean-cache', help='Cleans the cache of the lab')
-
-        # Create the parser for the "clean" command
-        clean_parser = subparsers.add_parser('clean', help='Cleans the outputs of a provided recipe')
-        clean_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes],
-                                  help='Recipe to clean')
-
         # Create the parser for the "brew" command
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
         brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
@@ -133,10 +125,9 @@ class Lab:
 
         if args.subparser_name == 'status':
             print(self)
-        elif args.subparser_name == 'clean':
-            raise NotImplementedError("clean doesn't work yet!")
-        elif args.subparser_name == 'clean-cache':
-            raise NotImplementedError("clean-cache doesn't work yet!")
         elif args.subparser_name == 'brew':
             for recipe in args.recipe:
                 self.brew(recipe)
+        else:
+            # No recognized command provided - print help
+            parser.print_help()
