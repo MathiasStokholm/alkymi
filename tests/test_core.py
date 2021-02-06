@@ -73,8 +73,11 @@ def test_brew():
     assert len(returns_empty_tuple.brew()) == 0
 
 
-# We use this global to avoid altering the hashes of bound functions when the execution count changes
+# We use these globals to avoid altering the hashes of bound functions when any of these change
 execution_counts = {}  # type: Dict[str, int]
+build_dir = Path()
+file = Path()
+copied_file = Path()
 
 
 def test_execution(caplog, tmpdir):
@@ -82,15 +85,13 @@ def test_execution(caplog, tmpdir):
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
 
-    global execution_counts
+    global execution_counts, build_dir, file, copied_file
     execution_counts = dict(
         produces_build_dir=0,
         produces_a_single_file=0,
         copies_a_file=0,
         reads_a_file=0
     )
-
-    # FIXME(mathias): These should somehow be converted to global variables to avoid them influencing function hashes
     build_dir = Path(tmpdir) / 'build'  # type: Path
     file = build_dir / 'file.txt'  # type: Path
     copied_file = build_dir / 'file_copy.txt'  # type: Path

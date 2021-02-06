@@ -8,14 +8,19 @@ from alkymi import AlkymiConfig
 from alkymi.alkymi import compute_recipe_status, Status
 import alkymi as alk
 
-# We use this global to avoid altering the hashes of bound functions when the execution count changes
+# We use these globals to avoid altering the hashes of bound functions when any of these change
 execution_counts = {}  # type: Dict[Union[Path, str], int]
+f1 = Path()
+f2 = Path()
+f3 = Path()
 
 
 def test_execution(caplog, tmpdir):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
+
+    global execution_counts, f1, f2, f3
 
     f1 = Path(tmpdir) / "file1.txt"
     f2 = Path(tmpdir) / "file2.txt"
@@ -24,7 +29,6 @@ def test_execution(caplog, tmpdir):
     f2.write_text(f2.stem)
     f3.write_text(f3.stem)
 
-    global execution_counts
     execution_counts = {f1: 0, f2: 0, f3: 0, f1.stem: 0, f2.stem: 0, f3.stem: 0}
 
     def _check_counts(counts: Tuple[int, int, int, int, int, int]):
@@ -95,6 +99,9 @@ def test_execution(caplog, tmpdir):
     _check_counts((3, 2, 2, 14, 13, 13))
 
 
+execution_counts_list = []  # type: List[int]
+
+
 def test_lists(caplog):
     """
     Test using a list (of non-Path objects) as the input to a foreach recipe
@@ -102,20 +109,21 @@ def test_lists(caplog):
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
 
-    execution_counts = [0] * 5  # type: List[int]
+    global execution_counts_list
+    execution_counts_list = [0] * 5
     args = alkymi.recipes.args([0])
 
     def _check_counts(counts: Tuple[int, int, int, int, int]):
-        assert execution_counts[0] == counts[0]
-        assert execution_counts[1] == counts[1]
-        assert execution_counts[2] == counts[2]
-        assert execution_counts[3] == counts[3]
-        assert execution_counts[4] == counts[4]
+        assert execution_counts_list[0] == counts[0]
+        assert execution_counts_list[1] == counts[1]
+        assert execution_counts_list[2] == counts[2]
+        assert execution_counts_list[3] == counts[3]
+        assert execution_counts_list[4] == counts[4]
 
     @alk.foreach(args.recipe)
     def record_execution(idx: int) -> int:
-        execution_counts[idx] += 1
-        return execution_counts[idx]
+        execution_counts_list[idx] += 1
+        return execution_counts_list[idx]
 
     # Initial brew should only increment first id
     record_execution.brew()

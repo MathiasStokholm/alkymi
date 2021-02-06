@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound
+functions 
+
 ## [0.0.4] - 2021-02-05
 ### Added
 - Updated README.md with "Command Line Usage", "Upcoming Features" and "Known Issues" sections
