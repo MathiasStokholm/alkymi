@@ -6,9 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
+built-in recipe generator). This ensures that changes to external files and others are correctly caught and handled.
+
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound
-functions 
+functions
 
 ## [0.0.4] - 2021-02-05
 ### Added

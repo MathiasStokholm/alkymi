@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Union
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
-from alkymi.alkymi import compute_recipe_status, Status
+from alkymi.alkymi import Status
 import alkymi as alk
 
 # We use these globals to avoid altering the hashes of bound functions when any of these change
@@ -59,17 +59,17 @@ def test_execution(caplog, tmpdir):
         execution_counts[file_content] += 1 + extra_count
         return file_content
 
-    assert compute_recipe_status(read_file)[read_file] == Status.NotEvaluatedYet
-    assert compute_recipe_status(change_count)[change_count] == Status.NotEvaluatedYet
+    assert read_file.status() == Status.NotEvaluatedYet
+    assert change_count.status() == Status.NotEvaluatedYet
     change_count.brew()
-    assert compute_recipe_status(read_file)[read_file] == Status.Ok
-    assert compute_recipe_status(change_count)[change_count] == Status.Ok
+    assert read_file.status() == Status.Ok
+    assert change_count.status() == Status.Ok
     _check_counts((1, 0, 0, 1, 0, 0))
 
     args.set_args([f1, f2, f3])
-    assert compute_recipe_status(read_file)[read_file] == Status.MappedInputsDirty
+    assert read_file.status() == Status.MappedInputsDirty
     change_count.brew()
-    assert compute_recipe_status(read_file)[read_file] == Status.Ok
+    assert read_file.status() == Status.Ok
     _check_counts((1, 1, 1, 1, 1, 1))
 
     args.set_args([f3, f2])
@@ -86,16 +86,16 @@ def test_execution(caplog, tmpdir):
 
     # Test that changing an ingredient forces reevaluation of all foreach inputs
     args.set_args([f1, f2, f3])
-    assert compute_recipe_status(change_count)[change_count] == Status.MappedInputsDirty
+    assert change_count.status() == Status.MappedInputsDirty
     change_count.brew()
-    assert compute_recipe_status(change_count)[change_count] == Status.Ok
+    assert change_count.status() == Status.Ok
     _check_counts((3, 2, 2, 3, 2, 2))
 
     # This should cause a reevaluation of everything (+1 to all counts) and then add 10 from this arg
     extra_count_arg.set_args(10)
-    assert compute_recipe_status(change_count)[change_count] == Status.IngredientDirty
+    assert change_count.status() == Status.IngredientDirty
     change_count.brew()
-    assert compute_recipe_status(change_count)[change_count] == Status.Ok
+    assert change_count.status() == Status.Ok
     _check_counts((3, 2, 2, 14, 13, 13))
 
 

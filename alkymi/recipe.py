@@ -165,12 +165,11 @@ class Recipe:
         :param new_input_checksums: The (potentially new) input checksums to use for checking cleanliness
         :return: Whether this recipe is clean (or needs to be reevaluated)
         """
+        # Non-pure function may have been changed by external circumstances, use custom check
         if self._cleanliness_func is not None:
-            # Non-pure function may have been changed by external circumstances, use custom check
-            # TODO(mathias): Should we return here, or do we need to still perform the additional checks below?
-            return self._cleanliness_func(self.outputs)
+            if not self._cleanliness_func(self.outputs):
+                return False
 
-        # Handle default pure function
         # Not clean if outputs were never generated
         if self.outputs is None or self.output_checksums is None:
             return False
