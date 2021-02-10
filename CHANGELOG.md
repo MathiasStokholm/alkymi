@@ -13,6 +13,7 @@ built-in recipe generator). This ensures that changes to external files and othe
 the user why a given recipe has been marked dirty
 - Moved functions for checking Recipe and ForeachRecipe dirtiness to alkymi.alkymi to reduce the complexity of the
   classes
+- Moved the core logic of the `Recipe.brew()` function to alkymi.alkymi
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

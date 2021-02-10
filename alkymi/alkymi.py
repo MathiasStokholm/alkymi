@@ -184,3 +184,22 @@ def is_foreach_clean(recipe: ForeachRecipe, mapped_inputs_checksum: Optional[str
     :return: Whether the input recipe needs to be reevaluated
     """
     return recipe.mapped_inputs_checksum == mapped_inputs_checksum
+
+
+def brew(recipe: Recipe) -> Any:
+    """
+    Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
+    dependencies to produce the outputs of the input Recipe
+
+    :param recipe: The Recipe to evaluate
+    :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
+    """
+    result, _ = evaluate_recipe(recipe, compute_recipe_status(recipe))
+    if result is None:
+        return None
+
+    # Unwrap single item tuples
+    # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
+    if isinstance(result, tuple) and len(result) == 1:
+        return result[0]
+    return result

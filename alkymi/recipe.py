@@ -103,16 +103,8 @@ class Recipe:
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import evaluate_recipe, compute_recipe_status
-        result, _ = evaluate_recipe(self, compute_recipe_status(self))
-        if result is None:
-            return None
-
-        # Unwrap single item tuples
-        # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
-        if isinstance(result, tuple) and len(result) == 1:
-            return result[0]
-        return result
+        from .alkymi import brew
+        return brew(self)
 
     def status(self):
         """
