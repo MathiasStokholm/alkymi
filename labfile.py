@@ -85,7 +85,7 @@ def build() -> Path:
         shutil.rmtree(str(dist_dir))  # This must be a str on Python 3.5
     dist_dir.mkdir(exist_ok=False)
 
-    alk.utils.call("python3 setup.py sdist bdist_wheel")
+    alk.utils.call(["python3", "setup.py", "sdist", "bdist_wheel"])
     return dist_dir
 
 
@@ -96,8 +96,8 @@ def release_test(build_dir: Path) -> None:
 
     :param build_dir: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call("pip3 install --user twine==3.2.0")
-    alk.utils.call("python3 -m twine upload --repository testpypi {}/*".format(build_dir))
+    alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
+    alk.utils.call(["python3", "-m", "twine", "upload", "--repository", "testpypi", "{}/*".format(build_dir)])
 
 
 @alk.recipe(ingredients=[build], transient=True)
@@ -107,8 +107,8 @@ def release(build_dir: Path) -> None:
 
     :param build_dir: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call("pip3 install --user twine==3.2.0")
-    alk.utils.call("python3 -m twine upload {}/*".format(build_dir))
+    alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
+    alk.utils.call(["python3", "-m", "twine", "upload", "{}/*".format(build_dir)])
 
 
 def main():

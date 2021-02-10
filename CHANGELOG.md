@@ -23,6 +23,7 @@ classes
 functions
 - Fixed an issue where a bound function changing between evaluations could cause the status to be reported as
 "NotEvaluated" instead of "BoundFunctionChanged". Added a test step to check this.
+- Fixed `utils.call()` to work regardless of operating system and added a small unit test
 
 ## [0.0.4] - 2021-02-05
 ### Added
