@@ -17,6 +17,8 @@ the user why a given recipe has been marked dirty
 - Moved functions for checking Recipe and ForeachRecipe dirtiness to alkymi.alkymi to reduce the complexity of the
 classes
 - Moved the core logic of the `Recipe.brew()` function to alkymi.alkymi
+- Provide names explicitly to built-in recipe generators to avoid name clashes when a built-in recipe generator is used
+multiple times in a single module
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

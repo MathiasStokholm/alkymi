@@ -59,7 +59,7 @@ def test_foreach_caching(caplog, tmpdir):
     execution_counts = [0] * 5
     stopping_point = 2
 
-    args = alk.recipes.args(list(range(len(execution_counts))))
+    args = alk.recipes.args(list(range(len(execution_counts))), name="args")
 
     def _check_counts(expected_counts: Tuple[int, int, int, int, int]):
         for actual_count, expected_count in zip(execution_counts, expected_counts):

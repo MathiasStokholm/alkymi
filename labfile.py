@@ -10,12 +10,12 @@ from flake8.api import legacy as flake8
 import alkymi as alk
 
 # Glob all source and test files and make them available as recipe outputs
-glob_source_files = alk.recipes.glob_files(Path("alkymi"), "*.py", recursive=True)
-glob_example_files = alk.recipes.glob_files(Path("examples"), "*.py", recursive=True)
-glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=True)
+glob_source_files = alk.recipes.glob_files("glob_source_files", Path("alkymi"), "*.py", recursive=True)
+glob_example_files = alk.recipes.glob_files("glob_example_files", Path("examples"), "*.py", recursive=True)
+glob_test_files = alk.recipes.glob_files("glob_test_files", Path("tests"), "test_*.py", recursive=True)
 
 # Also run linting and type checking on this file itself
-labfile_file = alk.recipes.file(Path("labfile.py"))
+labfile_file = alk.recipes.file("get_labfile", Path("labfile.py"))
 
 
 @alk.recipe(ingredients=[glob_test_files], transient=True)

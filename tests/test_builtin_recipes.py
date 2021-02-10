@@ -14,7 +14,7 @@ def test_builtin_glob(tmpdir):
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
         f.write("test")
-    glob_recipe = alkymi.recipes.glob_files(Path(tmpdir), '*', recursive=False)
+    glob_recipe = alkymi.recipes.glob_files("glob_test", Path(tmpdir), '*', recursive=False)
 
     assert len(glob_recipe.ingredients) == 0
     assert glob_recipe.brew() == [test_file]
@@ -37,7 +37,7 @@ def test_builtin_file(tmpdir):
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
         f.write("test")
-    file_recipe = alkymi.recipes.file(test_file)
+    file_recipe = alkymi.recipes.file("file_test", test_file)
 
     assert len(file_recipe.ingredients) == 0
     assert file_recipe.brew() == test_file
@@ -52,7 +52,7 @@ def test_builtin_file(tmpdir):
 def test_builtin_args(tmpdir):
     tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache = False
-    args = alkymi.recipes.args("value1", 2)
+    args = alkymi.recipes.args("value1", 2, name="args")
     args_recipe = args.recipe
 
     assert len(args_recipe.ingredients) == 0
@@ -98,7 +98,7 @@ def test_builtin_args(tmpdir):
 def test_builtin_kwargs(tmpdir):
     tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache = False
-    args = alkymi.recipes.kwargs(argument1="value1", argument2=2)
+    args = alkymi.recipes.kwargs("kwargs_test", argument1="value1", argument2=2)
     args_recipe = args.recipe
 
     assert len(args_recipe.ingredients) == 0
@@ -160,7 +160,7 @@ def test_zip_results():
     def spelled() -> List[str]:
         return ["zero", "one", "two", "three"]
 
-    zipped = alkymi.recipes.zip_results((numbers, strings, spelled))
+    zipped = alkymi.recipes.zip_results("zip_lists", (numbers, strings, spelled))
     results = zipped.brew()
     assert isinstance(results, list)
     assert all(isinstance(result, tuple) for result in results)
@@ -173,7 +173,7 @@ def test_zip_results():
     def few_items() -> List[int]:
         return [42, 42]
 
-    zipped_should_fail = alkymi.recipes.zip_results((numbers, few_items))
+    zipped_should_fail = alkymi.recipes.zip_results("zip_fail_1", (numbers, few_items))
     with pytest.raises(ValueError):
         zipped_should_fail.brew()
 
@@ -181,7 +181,7 @@ def test_zip_results():
     def not_iterable() -> int:
         return 42
 
-    zipped_should_fail_2 = alkymi.recipes.zip_results((numbers, not_iterable))
+    zipped_should_fail_2 = alkymi.recipes.zip_results("zip_fail_2", (numbers, not_iterable))
     with pytest.raises(ValueError):
         zipped_should_fail_2.brew()
 
@@ -194,7 +194,7 @@ def test_zip_results():
     def strings_dict() -> Dict[str, str]:
         return dict(zero="0", one="1", two="2", three="3")
 
-    zipped_dict = alkymi.recipes.zip_results((numbers_dict, strings_dict))
+    zipped_dict = alkymi.recipes.zip_results("zip_dicts", (numbers_dict, strings_dict))
     results_dict = zipped_dict.brew()
     assert isinstance(results_dict, dict)
     assert all(isinstance(result, tuple) for result in results)
@@ -205,4 +205,4 @@ def test_zip_results():
 
     # Test that zipping different types fails
     with pytest.raises(ValueError):
-        alkymi.recipes.zip_results((numbers, numbers_dict)).brew()
+        alkymi.recipes.zip_results("zip_fail_3", (numbers, numbers_dict)).brew()

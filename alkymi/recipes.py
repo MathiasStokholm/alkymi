@@ -5,11 +5,12 @@ from .config import CacheType
 from .recipe import Recipe
 
 
-def glob_files(directory: Path, pattern: str, recursive: bool, cache=CacheType.Auto) -> Recipe:
+def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=CacheType.Auto) -> Recipe:
     """
     Create a Recipe that will glob files in a directory and return them as a list. The created recipe will only be
     considered dirty if the file paths contained in the glob changes (not if the contents of any one file changes)
 
+    :param name: The name to give the created Recipe
     :param directory: The directory in which to perform the glob
     :param pattern: The pattern to use for the glob, e.g. '*.py'
     :param recursive: Whether to glob recursively into subdirectories
@@ -37,13 +38,14 @@ def glob_files(directory: Path, pattern: str, recursive: bool, cache=CacheType.A
         """
         return _glob_recipe() == last_outputs
 
-    return Recipe([], _glob_recipe, 'glob_files', transient=False, cache=cache, cleanliness_func=_check_clean)
+    return Recipe([], _glob_recipe, name, transient=False, cache=cache, cleanliness_func=_check_clean)
 
 
-def file(path: Path, cache=CacheType.Auto) -> Recipe:
+def file(name: str, path: Path, cache=CacheType.Auto) -> Recipe:
     """
     Create a Recipe that outputs a single file
 
+    :param name: The name to give the created Recipe
     :param path: The path to the file to output
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
@@ -54,16 +56,17 @@ def file(path: Path, cache=CacheType.Auto) -> Recipe:
     def _file_recipe() -> Path:
         return Path(path_as_str)
 
-    return Recipe([], _file_recipe, 'file', transient=False, cache=cache)
+    return Recipe([], _file_recipe, name, transient=False, cache=cache)
 
 
-def zip_results(recipes: Iterable[Recipe], cache=CacheType.Auto) -> Recipe:
+def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) -> Recipe:
     """
     Create a Recipe that zips the outputs from a number of recipes into elements, similar to Python's built-in zip().
     Notably, dictionaries are handled a bit differently, in that a dictionary is returned with keys mapping to tuples
     from the different inputs, i.e.:
         {"1": 1} zip {"1", "one"} -> {"1", (1, "one")}
 
+    :param name: The name to give the created Recipe
     :param recipes: The recipes to zip. These must return lists or dictionaries
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
@@ -97,7 +100,7 @@ def zip_results(recipes: Iterable[Recipe], cache=CacheType.Auto) -> Recipe:
         else:
             raise ValueError("Type: {} not supported in _zip_results()".format(type(first_iterable)))
 
-    return Recipe(recipes, _zip_results, "zip", transient=False, cache=cache)
+    return Recipe(recipes, _zip_results, name, transient=False, cache=cache)
 
 
 class NamedArgs:
@@ -109,15 +112,16 @@ class NamedArgs:
     again - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
     """
 
-    def __init__(self, cache=CacheType.Auto, **_kwargs: Any):
+    def __init__(self, name: str, cache=CacheType.Auto, **_kwargs: Any):
         """
         Create a new NamedArgs instance with initial argument value(s)
 
+        :param name: The name to give the created Recipe
         :param cache: The type of caching to use for this Recipe
         :param _kwargs: The initial keyword argument value(s)
         """
         self._kwargs = _kwargs  # type: Dict[Any, Any]
-        self._recipe = Recipe([], self._produce_kwargs, "kwargs", transient=False, cache=cache,
+        self._recipe = Recipe([], self._produce_kwargs, name, transient=False, cache=cache,
                               cleanliness_func=self._clean)
 
     def _produce_kwargs(self) -> Dict[Any, Any]:
@@ -163,15 +167,16 @@ class Args:
     contained recipe as dirty and cause reevaluation of downstream recipes
     """
 
-    def __init__(self, *_args: Any, cache=CacheType.Auto):
+    def __init__(self, *_args: Any, name: str, cache=CacheType.Auto):
         """
         Create a new Args instance with initial argument value(s)
 
         :param _args: The initial argument value(s)
+        :param name: The name to give the created Recipe
         :param cache: The type of caching to use for this Recipe
         """
         self._args = _args  # type: Tuple[Any, ...]
-        self._recipe = Recipe([], self._produce_args, "args", transient=False, cache=cache,
+        self._recipe = Recipe([], self._produce_args, name, transient=False, cache=cache,
                               cleanliness_func=self._clean)
 
     def _produce_args(self) -> Tuple[Any, ...]:
@@ -206,23 +211,25 @@ class Args:
         self._args = _args
 
 
-def kwargs(cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
+def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
     """
     Shorthand for creating an 'NamedArgs' instance
 
+    :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
     :param _kwargs: The initial keyword arguments to use
     :return: The created 'NamedArgs' instance
     """
-    return NamedArgs(cache, **_kwargs)
+    return NamedArgs(name, cache, **_kwargs)
 
 
-def args(*_args: Any, cache=CacheType.Auto) -> Args:
+def args(*_args: Any, name: str, cache=CacheType.Auto) -> Args:
     """
     Shorthand for creating an 'Args' instance
 
     :param _args: The initial arguments to use
+    :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
     :return: The created 'Args' instance
     """
-    return Args(*_args, cache=cache)
+    return Args(*_args, name=name, cache=cache)
