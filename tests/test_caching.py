@@ -18,8 +18,10 @@ def test_caching(caplog, tmpdir):
     AlkymiConfig.get().cache_path = tmpdir
 
     # Manually wrap the function
+    a_value = 42
+
     def should_cache() -> int:
-        return 42
+        return a_value
 
     should_cache_recipe = alk.recipe()(should_cache)
 
@@ -30,6 +32,13 @@ def test_caching(caplog, tmpdir):
     # Create a "copy" to force reloading from cache
     should_cache_recipe_copy = alk.recipe()(should_cache)
     assert should_cache_recipe_copy.status() == Status.Ok
+
+    # Try changing the bound function and seeing that we catch it
+    a_value = 1337
+    assert should_cache_recipe.status() == Status.BoundFunctionChanged
+    assert should_cache_recipe_copy.status() == Status.BoundFunctionChanged
+    should_cache_recipe_copy_2 = alk.recipe()(should_cache)
+    assert should_cache_recipe_copy_2.status() == Status.BoundFunctionChanged
 
 
 # We use these globals to avoid altering the hashes of bound functions when these change

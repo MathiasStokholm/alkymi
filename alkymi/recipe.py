@@ -62,7 +62,7 @@ class Recipe:
                 cache_root = Path(".")
             self.cache_path = cache_root / Recipe.CACHE_DIRECTORY_NAME / module_name / name
 
-            self.cache_file = self.cache_path / '{}.json'.format(self.function_hash)
+            self.cache_file = self.cache_path / 'cache.json'
             if self.cache_file.exists():
                 with self.cache_file.open('r') as f:
                     self.restore_from_dict(json.loads(f.read()))
