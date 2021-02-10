@@ -1,8 +1,7 @@
 from pathlib import Path
-from typing import List, Tuple, Optional, Any, Dict, Iterable, TypeVar, Union
+from typing import List, Tuple, Optional, Any, Dict, Iterable, Union
 
 from .config import CacheType
-from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
 
 
@@ -70,7 +69,7 @@ def zip_results(recipes: Iterable[Recipe], cache=CacheType.Auto) -> Recipe:
     :return: The created Recipe
     """
 
-    def _zip_results(*iterables: Optional[Tuple[Union[List, Dict], ...]]) \
+    def _zip_results(*iterables: Union[List, Dict]) \
             -> Union[List[Tuple[Any, ...]], Dict[Any, Tuple[Any, ...]]]:
         # Sanity checks
         if not iterables or len(iterables) == 0:
