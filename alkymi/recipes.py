@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import List, Tuple, Optional, Any, Dict
+from typing import List, Tuple, Optional, Any, Dict, Iterable, TypeVar, Union
 
 from .config import CacheType
+from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
 
 
@@ -55,6 +56,49 @@ def file(path: Path, cache=CacheType.Auto) -> Recipe:
         return Path(path_as_str)
 
     return Recipe([], _file_recipe, 'file', transient=False, cache=cache)
+
+
+def zip_results(recipes: Iterable[Recipe], cache=CacheType.Auto) -> Recipe:
+    """
+    Create a Recipe that zips the outputs from a number of recipes into elements, similar to Python's built-in zip().
+    Notably, dictionaries are handled a bit differently, in that a dictionary is returned with keys mapping to tuples
+    from the different inputs, i.e.:
+        {"1": 1} zip {"1", "one"} -> {"1", (1, "one")}
+
+    :param recipes: The recipes to zip. These must return lists or dictionaries
+    :param cache: The type of caching to use for this Recipe
+    :return: The created Recipe
+    """
+
+    def _zip_results(*iterables: Optional[Tuple[Union[List, Dict], ...]]) \
+            -> Union[List[Tuple[Any, ...]], Dict[Any, Tuple[Any, ...]]]:
+        # Sanity checks
+        if not iterables or len(iterables) == 0:
+            return []
+
+        if any(not isinstance(iterable, Iterable) for iterable in iterables):
+            raise ValueError("Cannot zip non-iterable inputs")
+
+        first_iterable = iterables[0]
+        if any(not isinstance(iterable, type(first_iterable)) for iterable in iterables):
+            raise ValueError("Cannot zip inputs of different types")
+
+        num_items = len(first_iterable)
+        if any(len(iterable) != num_items for iterable in iterables):
+            raise ValueError("Cannot zip inputs of different length")
+
+        # Handle the actual zipping operation
+        if isinstance(first_iterable, list):
+            return list(zip(*iterables))
+        elif isinstance(first_iterable, dict):
+            return {
+                key: tuple(iterable[key] for iterable in iterables)
+                for key in first_iterable.keys()
+            }
+        else:
+            raise ValueError("Type: {} not supported in _zip_results()".format(type(first_iterable)))
+
+    return Recipe(recipes, _zip_results, "zip", transient=False, cache=cache)
 
 
 class NamedArgs:

@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added a new `zip_results()` built-in recipe generator to zip together outputs from multiple recipes
+
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
 built-in recipe generator). This ensures that changes to external files and others are correctly caught and handled.
