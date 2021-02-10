@@ -1,6 +1,6 @@
-from enum import Enum
 from typing import Dict, List, Any, Tuple, Optional
 
+from .types import Status
 from .recipe import Recipe
 from .logging import log
 from .foreach_recipe import ForeachRecipe
@@ -8,18 +8,6 @@ from .foreach_recipe import ForeachRecipe
 # TODO(mathias): Rename this file to something more fitting
 
 OutputsAndChecksums = Tuple[Optional[Tuple[Any, ...]], Optional[Tuple[Optional[str], ...]]]
-
-
-class Status(Enum):
-    """
-    Status of a Recipe denoting whether (re)evaluation is needed
-    """
-    Ok = 0  # Recipe does not need (re)evaluation
-    IngredientDirty = 1  # One or more ingredients of the recipe have changed -> (re)evaluate
-    NotEvaluatedYet = 2  # Recipe has not been evaluated yet
-    Dirty = 3  # One or more inputs to the recipe have changed -> (re)evaluate
-    BoundFunctionChanged = 4  # The function referenced by the recipe has changed -> (re)evaluate
-    MappedInputsDirty = 5  # One or more mapped inputs to the recipe have changed -> (re)evaluate (only ForeachRecipe)
 
 
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
@@ -81,16 +69,12 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
             raise Exception("Input checksum to mapped recipe {} is None".format(recipe.name))
         if len(recipe.mapped_recipe.output_checksums) != 1:
             raise Exception("Input checksum to mapped recipe {} must be a single element".format(recipe.name))
-        if not recipe.is_foreach_clean(recipe.mapped_recipe.output_checksums[0]):
+        if not is_foreach_clean(recipe, recipe.mapped_recipe.output_checksums[0]):
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
 
     # Check cleanliness of inputs and outputs
-    if not recipe.is_clean(ingredient_output_checksums_tuple):
-        status[recipe] = Status.Dirty
-        return status[recipe]
-
-    status[recipe] = Status.Ok
+    status[recipe] = is_clean(recipe, ingredient_output_checksums_tuple)
     return status[recipe]
 
 
@@ -152,3 +136,70 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
         # Regular Recipe
         recipe.invoke(inputs=ingredient_inputs_tuple, input_checksums=ingredient_input_checksums_tuple)
     return _print_and_return()
+
+
+def is_clean(recipe, new_input_checksums: Tuple[Optional[str], ...]) -> Status:
+    """
+    Check whether a Recipe is clean (result is cached) based on a set of (potentially new) input checksums
+
+    :param recipe: The Recipe to check for cleanliness
+    :param new_input_checksums: The (potentially new) input checksums to use for checking cleanliness
+    :return: Whether the recipe is clean represented by the Status enum
+    """
+    # Non-pure function may have been changed by external circumstances, use custom check
+    if recipe.custom_cleanliness_func is not None:
+        if not recipe.custom_cleanliness_func(recipe.outputs):
+            return Status.CustomDirty
+
+    # Not clean if outputs were never generated
+    if recipe.output_checksums is None:
+        return Status.NotEvaluatedYet
+
+    # Compute input checksums and perform equality check
+    if recipe.input_checksums != new_input_checksums:
+        log.debug('{} -> dirty: input checksums changed'.format(recipe.name))
+        return Status.InputsChanged
+
+    # Check if bound function has changed
+    if recipe.last_function_hash is not None:
+        if recipe.last_function_hash != recipe.function_hash:
+            return Status.BoundFunctionChanged
+
+    # Not clean if any output is no longer valid
+    if not recipe.outputs_valid:
+        return Status.OutputsInvalid
+
+    # All checks passed
+    return Status.Ok
+
+
+def is_foreach_clean(recipe: ForeachRecipe, mapped_inputs_checksum: Optional[str]) -> bool:
+    """
+    Check whether a ForeachRecipe is clean (in addition to the regular recipe cleanliness checks). This is done by
+    comparing the overall checksum for the current mapped inputs to that from the last invoke evaluation
+
+    :param recipe: The ForeachRecipe to check cleanliness of mapped inputs for
+    :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
+    whether anything has changed
+    :return: Whether the input recipe needs to be reevaluated
+    """
+    return recipe.mapped_inputs_checksum == mapped_inputs_checksum
+
+
+def brew(recipe: Recipe) -> Any:
+    """
+    Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
+    dependencies to produce the outputs of the input Recipe
+
+    :param recipe: The Recipe to evaluate
+    :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
+    """
+    result, _ = evaluate_recipe(recipe, compute_recipe_status(recipe))
+    if result is None:
+        return None
+
+    # Unwrap single item tuples
+    # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
+    if isinstance(result, tuple) and len(result) == 1:
+        return result[0]
+    return result

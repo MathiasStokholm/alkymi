@@ -3,7 +3,7 @@ from pathlib import Path
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
-from alkymi.alkymi import compute_recipe_status, Status
+from alkymi.alkymi import Status
 
 
 def test_builtin_glob(tmpdir):
@@ -18,9 +18,14 @@ def test_builtin_glob(tmpdir):
     assert glob_recipe.brew() == [test_file]
     assert glob_recipe.status() == Status.Ok
 
-    # Altering the file should NOT mark the recipe dirty - we only care about finding the files
+    # Altering the file should mark the recipe dirty
     with test_file.open('w') as f:
         f.write("something else")
+    assert glob_recipe.status() == Status.OutputsInvalid
+
+    # Changing the file back again should make things work again
+    with test_file.open('w') as f:
+        f.write("test")
     assert glob_recipe.status() == Status.Ok
 
 
@@ -39,60 +44,96 @@ def test_builtin_file(tmpdir):
     # Altering the file should mark the recipe dirty
     with test_file.open('w') as f:
         f.write("something else")
-    assert file_recipe.status() == Status.Dirty
+    assert file_recipe.status() == Status.OutputsInvalid
 
 
-def test_builtin_args():
+def test_builtin_args(tmpdir):
+    tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache = False
     args = alkymi.recipes.args("value1", 2)
     args_recipe = args.recipe
 
     assert len(args_recipe.ingredients) == 0
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.NotEvaluatedYet
+    assert args.recipe.status() == Status.NotEvaluatedYet
     results = args.recipe.brew()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
+    assert args.recipe.status() == Status.Ok
     assert results is not None
     assert results[0] == "value1"
     assert results[1] == 2
 
     args.set_args("3")
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
+    assert args.recipe.status() == Status.Ok
     assert results is not None
     assert results[0] == "3"
 
     args.set_args()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
+    assert args.recipe.status() == Status.Ok
     assert results is not None
     assert len(results) == 0
 
+    # Check that altering an external file triggers dirtyness
+    file_a = tmpdir / "file_a.txt"
+    file_a.write_text(file_a.name)
+    args.set_args(file_a)
+    assert args.recipe.status() == Status.CustomDirty
+    result = args.recipe.brew()
+    assert args.recipe.status() == Status.Ok
+    assert result == file_a
 
-def test_builtin_kwargs():
+    # Now change the file and check that recipe is dirty
+    file_a.write_text("something_else")
+    assert args.recipe.status() == Status.OutputsInvalid
+
+    # Changing the file contents back should fix things
+    file_a.write_text(file_a.name)
+    assert args.recipe.status() == Status.Ok
+
+
+def test_builtin_kwargs(tmpdir):
+    tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache = False
     args = alkymi.recipes.kwargs(argument1="value1", argument2=2)
     args_recipe = args.recipe
 
     assert len(args_recipe.ingredients) == 0
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.NotEvaluatedYet
+    assert args.recipe.status() == Status.NotEvaluatedYet
     results = args_recipe.brew()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
+    assert args.recipe.status() == Status.Ok
     assert results is not None
     assert results["argument1"] == "value1"
     assert results["argument2"] == 2
 
     args.set_args(argument3="3")
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
+    assert args.recipe.status() == Status.Ok
     assert results is not None
     assert results["argument3"] == "3"
 
     args.set_args()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
-    assert compute_recipe_status(args_recipe)[args.recipe] == Status.Ok
+    assert args.recipe.status() == Status.Ok
     assert results is not None
     assert len(results) == 0
+
+    # Check that altering an external file triggers dirtyness
+    file_a = tmpdir / "file_a.txt"
+    file_a.write_text(file_a.name)
+    args.set_args(path=file_a)
+    assert args.recipe.status() == Status.CustomDirty
+    results = args.recipe.brew()
+    assert args.recipe.status() == Status.Ok
+    assert results["path"] == file_a
+
+    # Now change the file and check that recipe is dirty
+    file_a.write_text("something_else")
+    assert args.recipe.status() == Status.OutputsInvalid
+
+    # Changing the file contents back should fix things
+    file_a.write_text(file_a.name)
+    assert args.recipe.status() == Status.Ok

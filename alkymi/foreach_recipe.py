@@ -246,17 +246,6 @@ class ForeachRecipe(Recipe):
         _checkpoint(True)
         return self._mapped_outputs
 
-    def is_foreach_clean(self, mapped_inputs_checksum: Optional[str]) -> bool:
-        """
-        Check whether this ForeachRecipe is clean (in addition to the regular recipe cleanliness checks). This is done
-        by comparing the overall checksum for the current mapped inputs to that from the last invoke evaluation
-
-        :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-        whether anything has changed
-        :return: Whether this recipe needs to be reevaluated
-        """
-        return mapped_inputs_checksum == self.mapped_inputs_checksum
-
     @property
     def outputs_valid(self) -> bool:
         """

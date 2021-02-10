@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
+built-in recipe generator). This ensures that changes to external files and others are correctly caught and handled.
+- Broke `Status.Dirty` into several more explicit causes of dirtiness (e.g. `OutputsInvalid`) to make it more clear to
+the user why a given recipe has been marked dirty
+- Moved functions for checking Recipe and ForeachRecipe dirtiness to alkymi.alkymi to reduce the complexity of the
+classes
+- Moved the core logic of the `Recipe.brew()` function to alkymi.alkymi
+
+### Fixed
+- Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound
+functions
+- Fixed an issue where a bound function changing between evaluations could cause the status to be reported as
+"NotEvaluated" instead of "BoundFunctionChanged". Added a test step to check this.
+
 ## [0.0.4] - 2021-02-05
 ### Added
 - Updated README.md with "Command Line Usage", "Upcoming Features" and "Known Issues" sections

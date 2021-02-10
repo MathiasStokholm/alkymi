@@ -1,10 +1,11 @@
-from enum import Enum
+import enum
 from pathlib import Path
 import os
 from typing import Optional
 
 
-class CacheType(Enum):
+@enum.unique
+class CacheType(enum.Enum):
     """
     Supported caching mechanisms
     """

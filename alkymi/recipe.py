@@ -62,7 +62,7 @@ class Recipe:
                 cache_root = Path(".")
             self.cache_path = cache_root / Recipe.CACHE_DIRECTORY_NAME / module_name / name
 
-            self.cache_file = self.cache_path / '{}.json'.format(self.function_hash)
+            self.cache_file = self.cache_path / 'cache.json'
             if self.cache_file.exists():
                 with self.cache_file.open('r') as f:
                     self.restore_from_dict(json.loads(f.read()))
@@ -103,16 +103,8 @@ class Recipe:
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import evaluate_recipe, compute_recipe_status
-        result, _ = evaluate_recipe(self, compute_recipe_status(self))
-        if result is None:
-            return None
-
-        # Unwrap single item tuples
-        # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
-        if isinstance(result, tuple) and len(result) == 1:
-            return result[0]
-        return result
+        from .alkymi import brew
+        return brew(self)
 
     def status(self):
         """
@@ -158,39 +150,13 @@ class Recipe:
             return True
         return all(output.valid for output in self._outputs)
 
-    def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> bool:
-        """
-        Check whether this Recipe is clean (result is cached) based on a set of (potentially new) input checksums
+    @property
+    def custom_cleanliness_func(self) -> Optional[CleanlinessFunc]:
+        return self._cleanliness_func
 
-        :param new_input_checksums: The (potentially new) input checksums to use for checking cleanliness
-        :return: Whether this recipe is clean (or needs to be reevaluated)
-        """
-        if self._cleanliness_func is not None:
-            # Non-pure function may have been changed by external circumstances, use custom check
-            # TODO(mathias): Should we return here, or do we need to still perform the additional checks below?
-            return self._cleanliness_func(self.outputs)
-
-        # Handle default pure function
-        # Not clean if outputs were never generated
-        if self.outputs is None or self.output_checksums is None:
-            return False
-
-        # Compute input checksums and perform equality check
-        if self.input_checksums != new_input_checksums:
-            log.debug('{} -> dirty: input checksums changed'.format(self._name))
-            return False
-
-        # Check if bound function has changed
-        if self._last_function_hash is not None:
-            if self._last_function_hash != self.function_hash:
-                return False
-
-        # Not clean if any output is no longer valid
-        if not self.outputs_valid:
-            return False
-
-        # All checks passed
-        return True
+    @property
+    def last_function_hash(self) -> Optional[str]:
+        return self._last_function_hash
 
     @property
     def name(self) -> str:
