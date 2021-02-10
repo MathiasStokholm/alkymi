@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
 
 from . import checksums, serialization
+from .alkymi import Status
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .serialization import Output, OutputWithValue, CachedOutput
@@ -158,38 +159,38 @@ class Recipe:
             return True
         return all(output.valid for output in self._outputs)
 
-    def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> bool:
+    def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> Status:
         """
         Check whether this Recipe is clean (result is cached) based on a set of (potentially new) input checksums
 
         :param new_input_checksums: The (potentially new) input checksums to use for checking cleanliness
-        :return: Whether this recipe is clean (or needs to be reevaluated)
+        :return: Whether this recipe is clean represented by the Status enum
         """
         # Non-pure function may have been changed by external circumstances, use custom check
         if self._cleanliness_func is not None:
             if not self._cleanliness_func(self.outputs):
-                return False
+                return Status.CustomDirty
 
         # Not clean if outputs were never generated
         if self.outputs is None or self.output_checksums is None:
-            return False
+            return Status.NotEvaluatedYet
 
         # Compute input checksums and perform equality check
         if self.input_checksums != new_input_checksums:
             log.debug('{} -> dirty: input checksums changed'.format(self._name))
-            return False
+            return Status.InputsChanged
 
         # Check if bound function has changed
         if self._last_function_hash is not None:
             if self._last_function_hash != self.function_hash:
-                return False
+                return Status.BoundFunctionChanged
 
         # Not clean if any output is no longer valid
         if not self.outputs_valid:
-            return False
+            return Status.OutputsInvalid
 
         # All checks passed
-        return True
+        return Status.Ok
 
     @property
     def name(self) -> str:

@@ -21,7 +21,7 @@ def test_builtin_glob(tmpdir):
     # Altering the file should mark the recipe dirty
     with test_file.open('w') as f:
         f.write("something else")
-    assert glob_recipe.status() == Status.Dirty
+    assert glob_recipe.status() == Status.OutputsInvalid
 
     # Changing the file back again should make things work again
     with test_file.open('w') as f:
@@ -44,7 +44,7 @@ def test_builtin_file(tmpdir):
     # Altering the file should mark the recipe dirty
     with test_file.open('w') as f:
         f.write("something else")
-    assert file_recipe.status() == Status.Dirty
+    assert file_recipe.status() == Status.OutputsInvalid
 
 
 def test_builtin_args(tmpdir):
@@ -62,14 +62,14 @@ def test_builtin_args(tmpdir):
     assert results[1] == 2
 
     args.set_args("3")
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
     assert args.recipe.status() == Status.Ok
     assert results is not None
     assert results[0] == "3"
 
     args.set_args()
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
     assert args.recipe.status() == Status.Ok
     assert results is not None
@@ -79,14 +79,14 @@ def test_builtin_args(tmpdir):
     file_a = tmpdir / "file_a.txt"
     file_a.write_text(file_a.name)
     args.set_args(file_a)
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     result = args.recipe.brew()
     assert args.recipe.status() == Status.Ok
     assert result == file_a
 
     # Now change the file and check that recipe is dirty
     file_a.write_text("something_else")
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.OutputsInvalid
 
     # Changing the file contents back should fix things
     file_a.write_text(file_a.name)
@@ -108,14 +108,14 @@ def test_builtin_kwargs(tmpdir):
     assert results["argument2"] == 2
 
     args.set_args(argument3="3")
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
     assert args.recipe.status() == Status.Ok
     assert results is not None
     assert results["argument3"] == "3"
 
     args.set_args()
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
     assert args.recipe.status() == Status.Ok
     assert results is not None
@@ -125,14 +125,14 @@ def test_builtin_kwargs(tmpdir):
     file_a = tmpdir / "file_a.txt"
     file_a.write_text(file_a.name)
     args.set_args(path=file_a)
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.CustomDirty
     results = args.recipe.brew()
     assert args.recipe.status() == Status.Ok
     assert results["path"] == file_a
 
     # Now change the file and check that recipe is dirty
     file_a.write_text("something_else")
-    assert args.recipe.status() == Status.Dirty
+    assert args.recipe.status() == Status.OutputsInvalid
 
     # Changing the file contents back should fix things
     file_a.write_text(file_a.name)

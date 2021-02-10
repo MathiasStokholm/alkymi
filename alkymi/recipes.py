@@ -48,9 +48,11 @@ def file(path: Path, cache=CacheType.Auto) -> Recipe:
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
     """
+    # Reference the path as a string to avoid changes to the Path object to change the checksum of the function
+    path_as_str = str(path)
 
     def _file_recipe() -> Path:
-        return path
+        return Path(path_as_str)
 
     return Recipe([], _file_recipe, 'file', transient=False, cache=cache)
 

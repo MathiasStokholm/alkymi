@@ -1,6 +1,6 @@
-from enum import Enum
 from typing import Dict, List, Any, Tuple, Optional
 
+from .types import Status
 from .recipe import Recipe
 from .logging import log
 from .foreach_recipe import ForeachRecipe
@@ -8,18 +8,6 @@ from .foreach_recipe import ForeachRecipe
 # TODO(mathias): Rename this file to something more fitting
 
 OutputsAndChecksums = Tuple[Optional[Tuple[Any, ...]], Optional[Tuple[Optional[str], ...]]]
-
-
-class Status(Enum):
-    """
-    Status of a Recipe denoting whether (re)evaluation is needed
-    """
-    Ok = 0  # Recipe does not need (re)evaluation
-    IngredientDirty = 1  # One or more ingredients of the recipe have changed -> (re)evaluate
-    NotEvaluatedYet = 2  # Recipe has not been evaluated yet
-    Dirty = 3  # One or more inputs to the recipe have changed -> (re)evaluate
-    BoundFunctionChanged = 4  # The function referenced by the recipe has changed -> (re)evaluate
-    MappedInputsDirty = 5  # One or more mapped inputs to the recipe have changed -> (re)evaluate (only ForeachRecipe)
 
 
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
@@ -86,11 +74,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
             return status[recipe]
 
     # Check cleanliness of inputs and outputs
-    if not recipe.is_clean(ingredient_output_checksums_tuple):
-        status[recipe] = Status.Dirty
-        return status[recipe]
-
-    status[recipe] = Status.Ok
+    status[recipe] = recipe.is_clean(ingredient_output_checksums_tuple)
     return status[recipe]
 
 
