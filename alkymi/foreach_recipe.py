@@ -283,7 +283,7 @@ class ForeachRecipe(Recipe):
                 self._mapped_outputs = cast(List[Output], outputs_list)
             elif isinstance(self._mapped_outputs, dict):
                 outputs_dict = {}  # type: Dict[Any, CachedOutput]
-                for key, output in self._mapped_outputs:
+                for key, output in self._mapped_outputs.items():
                     if isinstance(output, CachedOutput):
                         outputs_dict[key] = output
                     elif isinstance(output, OutputWithValue):
