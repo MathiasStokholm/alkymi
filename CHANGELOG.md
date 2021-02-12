@@ -27,6 +27,8 @@ functions
 "NotEvaluated" instead of "BoundFunctionChanged". Added a test step to check this.
 - Fixed `utils.call()` to work regardless of operating system and added a small unit test
 - Fixed caching of dictionaries output by ForeachRecipe
+- Dictionaries are now serialized using a dict with key and value entries supporting arbitrary nesting, instead of being
+pickled
 
 ## [0.0.4] - 2021-02-05
 ### Added

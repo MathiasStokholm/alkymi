@@ -12,8 +12,9 @@ from . import checksums
 #                might help make this a lot more readable
 
 CachePathGenerator = Generator[Path, None, None]
-SerializationGenerator = Generator[Union[str, int, float], None, None]
-SerializableRepresentation = Union[str, int, float, Iterable[Union[str, int, float]]]
+BaseSerializable = Union[str, int, float]
+SerializationGenerator = Generator[BaseSerializable, None, None]
+SerializableRepresentation = Union[BaseSerializable, Iterable[BaseSerializable], Dict[str, BaseSerializable]]
 
 # Tokens used to signify to the deserializer func how to deserializer a given value
 TOKEN_TEMPLATE = "!#{}#!"
@@ -125,6 +126,14 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optio
                 for item in generator:
                     items.append(item)
         yield items
+    elif isinstance(item, dict):
+        keys = serialize_item(list(item.keys()), cache_path_generator)
+        values = serialize_item(list(item.values()), cache_path_generator)
+        if keys is not None and values is not None:
+            yield dict(keys=next(keys), values=next(values))
+        else:
+            # This should never happen
+            yield None
     else:
         # As a last resort, try to dump as pickle
         try:
@@ -194,6 +203,16 @@ def deserialize_item(item: SerializableRepresentation) -> Generator[Any, None, N
         yield item
     elif isinstance(item, Sequence):
         yield list(itertools.chain.from_iterable(deserialize_item(subitem) for subitem in item))
+    elif isinstance(item, dict):
+        # These should never be triggered, because we always store keys and values as lists in serialize_item(), but
+        # this makes the type-checker happy
+        if not isinstance(item["keys"], Iterable):
+            raise ValueError("'keys' entry must be a list")
+        if not isinstance(item["values"], Iterable):
+            raise ValueError("'values' entry must be a list")
+        keys = list(itertools.chain.from_iterable(deserialize_item(key) for key in item["keys"]))
+        values = list(itertools.chain.from_iterable(deserialize_item(val) for val in item["values"]))
+        yield {key: value for key, value in zip(keys, values)}
     else:
         raise Exception("Cannot deserialize item of type: {}".format(type(item)))
 
