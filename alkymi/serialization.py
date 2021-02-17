@@ -2,7 +2,7 @@ import pickle
 import re
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
+from typing import Optional, Any, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
 
 from . import checksums
 
@@ -136,18 +136,6 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Seria
             raise Exception("Cannot serialize item of type: {}".format(type(item)))
 
 
-def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: CachePathGenerator) -> \
-        SerializableRepresentation:
-    """
-    Serialize items (potentially recursively) and returns the results as a tuple
-
-    :param items: The items to serialize
-    :param cache_path_generator: The generator to use for generating cache paths
-    :return: The results of serialization as a tuple
-    """
-    return serialize_item(items, cache_path_generator)
-
-
 def deserialize_item(item: SerializableRepresentation) -> Any:
     """
     Deserializes an item (potentially recursively)
@@ -200,16 +188,6 @@ def deserialize_item(item: SerializableRepresentation) -> Any:
         return {key: value for key, value in zip(keys, values)}
     else:
         raise Exception("Cannot deserialize item of type: {}".format(type(item)))
-
-
-def deserialize_items(items: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, ...]]:
-    """
-    Deserialize items (potentially recursively) and returns the results as a tuple
-
-    :param items: The items to deserialize
-    :return: The results of deserialization as a tuple
-    """
-    return deserialize_item(items)
 
 
 def is_valid_serialized(item: SerializableRepresentation) -> bool:

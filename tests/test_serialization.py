@@ -29,7 +29,7 @@ def test_serialize_deserialize_items(tmpdir):
 
     items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5})
     cache_path_generator = (tmpdir / str(i) for i in range(5))
-    serialized_items = serialization.serialize_items(items, cache_path_generator)
+    serialized_items = serialization.serialize_item(items, cache_path_generator)
     assert serialized_items is not None
     assert len(serialized_items) == len(items)
     assert isinstance(serialized_items[0], str)
@@ -39,7 +39,7 @@ def test_serialize_deserialize_items(tmpdir):
     assert isinstance(serialized_items[4], list)
     assert len(serialized_items[4]) == len(items[4])
 
-    deserialized_items = serialization.deserialize_items(serialized_items)
+    deserialized_items = serialization.deserialize_item(serialized_items)
     assert deserialized_items is not None
     assert len(deserialized_items) == len(items)
     for deserialized_item, item in zip(deserialized_items, items):
