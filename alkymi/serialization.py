@@ -104,14 +104,15 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Seria
     if item is None:
         return None
 
-    serializer = additional_serializers.get(type(item), None)
+    itype = type(item)
+    serializer = additional_serializers.get(itype, None)
     if serializer is not None:
         return serializer.serialize(item, next(cache_path_generator))
     elif isinstance(item, Path):
         # External path - store the checksum of the file at the current point in time
         file_checksum = checksums.checksum(item)
         return "{}{}:{}".format(PATH_TOKEN, file_checksum, item)
-    elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
+    elif itype in (str, float, int, bool):
         return item
     elif isinstance(item, bytes):
         output_file = next(cache_path_generator)

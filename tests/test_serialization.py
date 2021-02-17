@@ -21,7 +21,15 @@ def test_serialize_item(tmpdir):
 
     # Test serialization of dicts
     result = serialization.serialize_item(dict(key="value"), cache_path_generator)
-    assert result is not None
+    assert isinstance(result, dict)
+    assert result["keys"] == ["key"]
+    assert result["values"] == ["value"]
+
+    # test serialization of standard types
+    items = [0, "1", 2.5, True, None]
+    result = serialization.serialize_item(items, cache_path_generator)
+    print(items)
+    assert result == items
 
 
 def test_serialize_deserialize_items(tmpdir):
