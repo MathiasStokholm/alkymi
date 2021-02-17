@@ -19,6 +19,7 @@ classes
 - Moved the core logic of the `Recipe.brew()` function to alkymi.alkymi
 - Provide names explicitly to built-in recipe generators to avoid name clashes when a built-in recipe generator is used
 multiple times in a single module
+- Greatly simplified the serialization and deserialization logic and got rid of generators
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

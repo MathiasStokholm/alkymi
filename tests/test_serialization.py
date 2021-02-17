@@ -12,16 +12,16 @@ def test_serialize_item(tmpdir):
     tmpdir = Path(str(tmpdir))
 
     cache_path_generator = (tmpdir / str(i) for i in range(5))
-    generator = serialization.serialize_item(Path("/test_path/test.txt"), cache_path_generator)
-    assert next(generator).startswith(serialization.PATH_TOKEN)
+    result = serialization.serialize_item(Path("/test_path/test.txt"), cache_path_generator)
+    assert result.startswith(serialization.PATH_TOKEN)
 
     test_string = "test_string"
-    generator = serialization.serialize_item(test_string, cache_path_generator)
-    assert next(generator) == test_string
+    result = serialization.serialize_item(test_string, cache_path_generator)
+    assert result == test_string
 
     # Test serialization of dicts
-    generator = serialization.serialize_item(dict(key="value"), cache_path_generator)
-    assert next(generator) is not None
+    result = serialization.serialize_item(dict(key="value"), cache_path_generator)
+    assert result is not None
 
 
 def test_serialize_deserialize_items(tmpdir):
