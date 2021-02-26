@@ -1,5 +1,5 @@
-API Reference
-=============
+The alkymi API
+==============
 
 Decorators
 ----------
