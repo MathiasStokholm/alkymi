@@ -180,7 +180,7 @@ def is_foreach_clean(recipe: ForeachRecipe, mapped_inputs_checksum: Optional[str
 
     :param recipe: The ForeachRecipe to check cleanliness of mapped inputs for
     :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-    whether anything has changed
+        whether anything has changed
     :return: Whether the input recipe needs to be reevaluated
     """
     return recipe.mapped_inputs_checksum == mapped_inputs_checksum

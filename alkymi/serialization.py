@@ -240,8 +240,7 @@ class Output(Generic[T], metaclass=ABCMeta):
     @property
     def valid(self) -> bool:
         """
-        :return: Whether this Output is still valid (e.g. an external file pointed to by a Path instance can have been
-        altered)
+        :return: Whether this Output is still valid (e.g. an external file pointed to by a Path can have been altered)
         """
         return NotImplemented
 
@@ -322,7 +321,7 @@ def cache(output: OutputWithValue, base_path: Path) -> CachedOutput:
 
     :param output: The Output to cache
     :param base_path: The directory to use for this serialization. A subdirectory will be created to store complex
-    serialized objects
+        serialized objects
     :return: The cached output
     """
     value = output.value()  # type: ignore  # Make all Output types fully generic for this to work

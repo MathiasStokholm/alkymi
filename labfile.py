@@ -5,6 +5,7 @@ from typing import List
 
 import mypy.api
 import pytest
+from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
 
 import alkymi as alk
@@ -72,6 +73,19 @@ def type_check(source_files: List[Path], example_files: List[Path], test_files: 
         exit(return_code)
 
 
+@alk.recipe()
+def docs() -> None:
+    """
+    Build the documentation in docs/source using Sphinx and stores it in docs/build/index.html
+    """
+    doc_dir = Path("docs")
+    source_dir = doc_dir / "source"
+    build_dir = doc_dir / "build"
+    sphinx = Sphinx(source_dir, confdir=source_dir, outdir=build_dir, doctreedir=build_dir / "doctrees",
+                    buildername="html")
+    sphinx.build()
+
+
 @alk.recipe(transient=True)
 def build() -> Path:
     """
@@ -113,7 +127,7 @@ def release(build_dir: Path) -> None:
 
 def main():
     lab = alk.Lab("alkymi")
-    lab.add_recipes(test, lint, type_check, build, release_test, release)
+    lab.add_recipes(test, lint, type_check, docs, build, release_test, release)
     lab.open()
 
 

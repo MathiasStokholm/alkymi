@@ -147,7 +147,7 @@ class ForeachRecipe(Recipe):
 
         :param mapped_inputs: The (possibly new) sequence of inputs to apply the bound function to
         :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-        whether anything has changed
+            whether anything has changed
         :param inputs: The inputs provided by the ingredients (dependencies) of this ForeachRecipe
         :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
         :return: The outputs of this ForeachRecipe

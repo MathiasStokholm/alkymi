@@ -12,7 +12,7 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
 
     :param name: The name to give the created Recipe
     :param directory: The directory in which to perform the glob
-    :param pattern: The pattern to use for the glob, e.g. '*.py'
+    :param pattern: The pattern to use for the glob, e.g. `*.py`
     :param recursive: Whether to glob recursively into subdirectories
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
@@ -63,7 +63,8 @@ def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) -> R
     """
     Create a Recipe that zips the outputs from a number of recipes into elements, similar to Python's built-in zip().
     Notably, dictionaries are handled a bit differently, in that a dictionary is returned with keys mapping to tuples
-    from the different inputs, i.e.:
+    from the different inputs, i.e.::
+
         {"1": 1} zip {"1", "one"} -> {"1", (1, "one")}
 
     :param name: The name to give the created Recipe
