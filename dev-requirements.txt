@@ -2,3 +2,5 @@
 pytest==5.4.3
 mypy==0.782
 flake8==3.8.3
+sphinx==1.8.5
+sphinx_rtd_theme==0.5.1

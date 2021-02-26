@@ -1,0 +1,24 @@
+Installation Guide
+==================
+
+Install via pip:
+
+.. code-block:: bash
+
+    pip install --user alkymi
+
+
+Or clone and install directly from source:
+
+.. code-block:: bash
+
+    git clone https://github.com/MathiasStokholm/alkymi.git
+    cd alkymi
+    pip install --user .
+
+Or install using pip and github:
+
+.. code-block:: bash
+
+    pip install --user git+https://github.com/MathiasStokholm/alkymi.git
+
