@@ -1,7 +1,7 @@
 Installation
 ============
 
-Install via pip:
+Install via pip - note that alkymi has no dependencies and works on Linux, Windows and Mac:
 
 .. code-block:: bash
 

@@ -11,21 +11,32 @@ of caching to only evaluate functions when inputs have changed.
     :hidden:
     :maxdepth: 1
 
-    install/installation.rst
-    tutorial/quick_start.rst
+    getting_started/installation.rst
+    getting_started/quick_start.rst
 
 
 .. toctree::
-    :caption: User Guide
-    :name: user_guide
+    :caption: Examples
+    :name: examples
     :hidden:
     :maxdepth: 1
 
-    user_guide/execution.rst
-    user_guide/sequences.rst
-    user_guide/caching.rst
-    user_guide/checksums.rst
-    user_guide/configuration.rst
+    examples/mnist.rst
+    examples/command_line.rst
+    examples/notebook.rst
+
+
+.. toctree::
+    :caption: Advanced
+    :name: advanced
+    :hidden:
+    :maxdepth: 1
+
+    advanced/execution.rst
+    advanced/sequences.rst
+    advanced/caching.rst
+    advanced/checksums.rst
+    advanced/configuration.rst
 
 
 .. toctree::
