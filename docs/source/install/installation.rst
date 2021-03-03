@@ -1,5 +1,5 @@
-Installation Guide
-==================
+Installation
+============
 
 Install via pip:
 

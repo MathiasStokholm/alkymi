@@ -6,16 +6,31 @@ alkymi uses Python's basic building blocks to describe a directed-acyclic-graph 
 of caching to only evaluate functions when inputs have changed.
 
 .. toctree::
-    :caption: Getting started
+    :caption: Getting Started
     :name: getting_started
     :hidden:
     :maxdepth: 1
 
-    install/index.rst
+    install/installation.rst
+    tutorial/quick_start.rst
+
+
+.. toctree::
+    :caption: User Guide
+    :name: user_guide
+    :hidden:
+    :maxdepth: 1
+
+    user_guide/execution.rst
+    user_guide/sequences.rst
+    user_guide/caching.rst
+    user_guide/checksums.rst
+    user_guide/configuration.rst
+
 
 .. toctree::
     :caption: API Reference
-    :name: api-reference
+    :name: api_reference
     :hidden:
     :maxdepth: 1
 
@@ -30,11 +45,3 @@ of caching to only evaluate functions when inputs have changed.
 
     project_info/history
     project_info/license
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
