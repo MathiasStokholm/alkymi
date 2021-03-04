@@ -11,6 +11,8 @@ Recipe
 .. automodule:: alkymi.recipe
     :members:
 
+.. _foreach_recipe:
+
 ForeachRecipe
 -------------
 .. automodule:: alkymi.foreach_recipe
@@ -39,4 +41,12 @@ Built-in Recipes
 Core
 ----
 .. automodule:: alkymi.alkymi
+    :members:
+
+.. _alkymi_config:
+
+AlkymiConfig
+------------
+
+.. automodule:: alkymi.config
     :members:
