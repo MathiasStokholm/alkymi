@@ -37,6 +37,7 @@ of caching to only evaluate functions when inputs have changed.
     advanced/caching.rst
     advanced/checksums.rst
     advanced/configuration.rst
+    advanced/built_in_recipes.rst
 
 
 .. toctree::
