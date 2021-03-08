@@ -81,8 +81,8 @@ def docs() -> None:
     doc_dir = Path("docs")
     source_dir = doc_dir / "source"
     build_dir = doc_dir / "build"
-    sphinx = Sphinx(source_dir, confdir=source_dir, outdir=build_dir, doctreedir=build_dir / "doctrees",
-                    buildername="html")
+    sphinx = Sphinx(str(source_dir), confdir=str(source_dir), outdir=str(build_dir),
+                    doctreedir=str(build_dir / "doctrees"), buildername="html")
     sphinx.build()
 
 

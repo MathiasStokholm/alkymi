@@ -1,4 +1,4 @@
-.. _checksums::
+.. _checksums:
 
 Checksums
 =========
@@ -25,6 +25,8 @@ the checksum changing - alkymi will pick this up and mark the associated recipe 
 Finally, note that **globals are ignored** in the checksumming process. Changing a global referenced by a bound function
 will not result in the function being marked dirty.
 
+
+.. _checksums_external_files:
 
 .. rubric:: External Files
 
