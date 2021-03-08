@@ -4,9 +4,13 @@ Execution
 =========
 
 The core of alkymi is the ability to avoid doing work when possible - this is achieved by caching outputs of recipes
-(see :ref:`Caching`), and by establishing the conditions that caused a bound function to return a given set of outputs.
+(see :ref:`caching`), and by establishing the conditions that caused a bound function to return a given set of outputs.
 Furthermore, alkymi also takes into account whether the dependencies of a recipe will result in the need for
-re-evaluation. Whenever ``.brew()`` or ``.status()`` is called on a ``Recipe`` instance, alkymi will traverse the graph
+re-evaluation.
+
+.. rubric:: Determining Status
+
+Whenever ``.status()`` (or ``.brew()``) is called on a ``Recipe`` instance, alkymi will traverse the graph
 of dependencies all the way down to determine the status for the recipe itself, as well as for all dependent nodes in
 the graph. The status can take on the following states:
 
@@ -18,14 +22,14 @@ the graph. The status can take on the following states:
   (see :ref:`checksums_external_files`)
 * ``BoundFunctionChanged``: The function referenced by the recipe has changed
 * ``CustomDirty``: The recipe has been marked dirty through a custom cleanliness function
-* ``MappedInputsDirty``: One or more mapped inputs to the recipe have changed (see :ref:`Sequences`)
+* ``MappedInputsDirty``: One or more mapped inputs to the recipe have changed (see :ref:`sequences`)
 
 Throughout the documentation, "clean" will be used to refer to the ``Ok`` status, in which everything is up-to-date, and
 no work needs to be done; and "dirty", which is all the status states that require some sort of (re)evaluation.
 
 To facilitate computing the status for a recipe, each recipe stores the following information after an evaluation
 (the information is always stored in the state of the recipe, but is also cached to disk if caching is enabled, see
-:ref:`Caching`):
+:ref:`caching`):
 
 * Input checksums
 * Output checksums
@@ -43,6 +47,20 @@ Finally, if the bound function is unchanged, alkymi will check if any "external"
 cache have been changed. This is expensive, since alkymi needs to read and compute an MD5 checksum for each external
 file that is referenced (see :ref:`checksums_external_files`). This step is needed to support traditional "Make"-like
 behavior.
+
+.. rubric:: Evaluation
+
+When ``.brew()`` is called on a recipe, alkymi will compute the status of nodes in the graph, and then continue on to
+actually evaluating the recipes that are dirty. When starting this procedure, alkymi will traverse the graph back to the
+first recipe(s) that have the ``Ok`` status, grab the corresponding outputs, and then proceed back up the graph toward
+the target recipe. As described in the :ref:`Caching` section, alkymi will only load cached outputs when they are
+actually needed for calling a bound function. For each node that is visited as part of the evaluation, alkymi will call
+the bound function and cache the outputs if enabled, before proceeding to the next node. When the target recipe has been
+evaluated, the outputs are returned from the ``.brew()`` call to the caller.
+
+Note that when a sequence of similar values (e.g. a list of strings) needs to have a function applied to each of them
+(similar to Python's built-in ``map`` function), alkymi can perform partial evaluation and caching of the results (see
+:ref:`sequences`)
 
 .. rubric:: Custom Cleanliness Functions
 

@@ -23,6 +23,8 @@ Checksums
 .. automodule:: alkymi.checksums
     :members:
 
+.. _serialization:
+
 Serialization
 -------------
 .. automodule:: alkymi.serialization
