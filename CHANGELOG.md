@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added a new `zip_results()` built-in recipe generator to zip together outputs from multiple recipes
+- Documentation in the `docs/` directory. The documentation is built using Sphinx and hosted on
+https://alkymi.readthedocs.io/en/latest/. The documentation can be built by running `python labfile.py brew docs`.
 
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
