@@ -108,9 +108,9 @@ class NamedArgs:
     """
     Class providing stateful keyword argument(s)
 
-    To use, create a NamedArgsArgs instance with the initial value for your arguments, e.g. Args(val0=0, val1=1,
-    val2=2), then provide the 'recipe' property to downstream recipes. To change the input arguments, call 'set_args()'
-    again - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
+    To use, create a NamedArgs instance with the initial value for your arguments, e.g. ``NamedArgs(val0=0, val1=1,
+    val2=2)``, then provide the ``recipe`` property to downstream recipes. To change the input arguments, call
+    ``set_args()`` again - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
     """
 
     def __init__(self, name: str, cache=CacheType.Auto, **_kwargs: Any):
@@ -163,9 +163,9 @@ class Args:
     """
     Class providing stateful non-keyword argument(s)
 
-    To use, create an Args instance with the initial value for your arguments, e.g. Args(0, 1, 2), then provide the
-    'recipe' property to downstream recipes. To change the input arguments, call 'set_args()' again - this will mark the
-    contained recipe as dirty and cause reevaluation of downstream recipes
+    To use, create an Args instance with the initial value for your arguments, e.g. ``Args(0, 1, 2)``, then provide the
+    ``recipe`` property to downstream recipes. To change the input arguments, call ``set_args()`` again - this will mark
+    the contained recipe as dirty and cause reevaluation of downstream recipes
     """
 
     def __init__(self, *_args: Any, name: str, cache=CacheType.Auto):
@@ -214,23 +214,23 @@ class Args:
 
 def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
     """
-    Shorthand for creating an 'NamedArgs' instance
+    Shorthand for creating a ``NamedArgs`` instance
 
     :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
     :param _kwargs: The initial keyword arguments to use
-    :return: The created 'NamedArgs' instance
+    :return: The created ``NamedArgs`` instance
     """
     return NamedArgs(name, cache, **_kwargs)
 
 
 def args(*_args: Any, name: str, cache=CacheType.Auto) -> Args:
     """
-    Shorthand for creating an 'Args' instance
+    Shorthand for creating an ``Args`` instance
 
     :param _args: The initial arguments to use
     :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
-    :return: The created 'Args' instance
+    :return: The created ``Args`` instance
     """
     return Args(*_args, name=name, cache=cache)

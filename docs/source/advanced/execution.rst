@@ -62,6 +62,7 @@ Note that when a sequence of similar values (e.g. a list of strings) needs to ha
 (similar to Python's built-in ``map`` function), alkymi can perform partial evaluation and caching of the results (see
 :ref:`sequences`)
 
+.. _custom_cleanliness:
 .. rubric:: Custom Cleanliness Functions
 
 Normally, alkymi operates under the assumption that bound functions are "pure", in that they take some inputs, and

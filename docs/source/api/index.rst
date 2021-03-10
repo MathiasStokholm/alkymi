@@ -18,6 +18,8 @@ ForeachRecipe
 .. automodule:: alkymi.foreach_recipe
     :members:
 
+.. _checksums_api:
+
 Checksums
 ---------
 .. automodule:: alkymi.checksums
@@ -30,10 +32,14 @@ Serialization
 .. automodule:: alkymi.serialization
     :members:
 
+.. _lab:
+
 Lab
 ---
 .. automodule:: alkymi.lab
     :members:
+
+.. _built_in_recipes_api:
 
 Built-in Recipes
 ----------------

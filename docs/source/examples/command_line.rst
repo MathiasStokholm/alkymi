@@ -3,7 +3,7 @@ Command Line Interface
 
 In some scenarios, you may need to automate multiple tasks, and writing a Python script script for each might be a bit
 tedious - a common example of this is a Makefile that has rules for "style" (style checking), "install" (fetch
-dependencies), etc. In this case, you can use alkymi's ``Lab`` functionality:
+dependencies), etc. In this case, you can use alkymi's :ref:`lab` functionality:
 
 .. code-block:: python
 

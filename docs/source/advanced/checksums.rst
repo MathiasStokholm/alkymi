@@ -4,7 +4,8 @@ Checksums
 =========
 
 alkymi uses checksums to determine whether nodes in the pipeline are up-to-date. Checksumming is implemented for
-arbitrary types by using a recursive MD5 checksum that takes nested types into account.
+arbitrary types by using a recursive MD5 checksum that takes nested types into account (see
+:ref:`Checksums API reference <checksums_api>`).
 
 
 .. rubric:: Functions
