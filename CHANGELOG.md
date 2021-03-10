@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added a new `zip_results()` built-in recipe generator to zip together outputs from multiple recipes
+- Documentation in the `docs/` directory. The documentation is built using Sphinx and hosted on
+https://alkymi.readthedocs.io/en/latest/. The documentation can be built by running `python labfile.py brew docs`.
 
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
@@ -20,6 +22,9 @@ classes
 - Provide names explicitly to built-in recipe generators to avoid name clashes when a built-in recipe generator is used
 multiple times in a single module
 - Greatly simplified the serialization and deserialization logic and got rid of generators
+- Converted the built-in recipe types `Args` and `NamedArgs` to be subclasses of `Recipe` to avoid the clunky `.recipe`
+property.
+- Updated `README.md` to reflect the new documentation page at https://alkymi.readthedocs.io/en/latest/.
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

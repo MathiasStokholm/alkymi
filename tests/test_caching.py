@@ -71,7 +71,7 @@ def test_foreach_caching(caplog, tmpdir):
         execution_counts[idx] += 1
         return execution_counts[idx]
 
-    record_execution_recipe = alk.foreach(args.recipe)(record_execution)
+    record_execution_recipe = alk.foreach(args)(record_execution)
     assert record_execution_recipe.status() == Status.NotEvaluatedYet
 
     # Initial brew should cause executions up until stopping point
@@ -94,7 +94,7 @@ def test_foreach_caching(caplog, tmpdir):
     assert record_execution_recipe.status() == Status.MappedInputsDirty
 
     # Reloading the recipe from cache should result in the same partially evaluated state
-    record_execution_recipe_copy = alk.foreach(args.recipe)(record_execution)
+    record_execution_recipe_copy = alk.foreach(args)(record_execution)
     assert record_execution_recipe_copy.status() == Status.MappedInputsDirty
 
     # Move interruption by another index - only the single element should be evaluated now
@@ -107,7 +107,7 @@ def test_foreach_caching(caplog, tmpdir):
     assert record_execution_recipe_copy.status() == Status.MappedInputsDirty
 
     # Reload from cache and finish
-    record_execution_recipe_copy_2 = alk.foreach(args.recipe)(record_execution)
+    record_execution_recipe_copy_2 = alk.foreach(args)(record_execution)
     assert record_execution_recipe_copy_2.status() == Status.MappedInputsDirty
     stopping_point = -1
     record_execution_recipe_copy_2.brew()

@@ -12,7 +12,7 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
 
     :param name: The name to give the created Recipe
     :param directory: The directory in which to perform the glob
-    :param pattern: The pattern to use for the glob, e.g. '*.py'
+    :param pattern: The pattern to use for the glob, e.g. `*.py`
     :param recursive: Whether to glob recursively into subdirectories
     :param cache: The type of caching to use for this Recipe
     :return: The created Recipe
@@ -63,7 +63,8 @@ def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) -> R
     """
     Create a Recipe that zips the outputs from a number of recipes into elements, similar to Python's built-in zip().
     Notably, dictionaries are handled a bit differently, in that a dictionary is returned with keys mapping to tuples
-    from the different inputs, i.e.:
+    from the different inputs, i.e.::
+
         {"1": 1} zip {"1", "one"} -> {"1", (1, "one")}
 
     :param name: The name to give the created Recipe
@@ -103,13 +104,13 @@ def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) -> R
     return Recipe(recipes, _zip_results, name, transient=False, cache=cache)
 
 
-class NamedArgs:
+class NamedArgs(Recipe):
     """
     Class providing stateful keyword argument(s)
 
-    To use, create a NamedArgsArgs instance with the initial value for your arguments, e.g. Args(val0=0, val1=1,
-    val2=2), then provide the 'recipe' property to downstream recipes. To change the input arguments, call 'set_args()'
-    again - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
+    To use, create a NamedArgs instance with the initial value for your arguments, e.g. ``NamedArgs(val0=0, val1=1,
+    val2=2)``, then provide as a recipe to downstream recipes. To change the input arguments, call ``set_args()`` again
+    - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
     """
 
     def __init__(self, name: str, cache=CacheType.Auto, **_kwargs: Any):
@@ -121,8 +122,7 @@ class NamedArgs:
         :param _kwargs: The initial keyword argument value(s)
         """
         self._kwargs = _kwargs  # type: Dict[Any, Any]
-        self._recipe = Recipe([], self._produce_kwargs, name, transient=False, cache=cache,
-                              cleanliness_func=self._clean)
+        super().__init__([], self._produce_kwargs, name, transient=False, cache=cache, cleanliness_func=self._clean)
 
     def _produce_kwargs(self) -> Dict[Any, Any]:
         """
@@ -141,13 +141,6 @@ class NamedArgs:
             return self._kwargs is None
         return bool(self._kwargs == last_outputs[0])
 
-    @property
-    def recipe(self) -> Recipe:
-        """
-        :return: The recipe that produces the keyword arguments
-        """
-        return self._recipe
-
     def set_args(self, **_kwargs) -> None:
         """
         Change the arguments, causing the recipe to need reevaluation
@@ -158,13 +151,13 @@ class NamedArgs:
         self._kwargs = _kwargs
 
 
-class Args:
+class Args(Recipe):
     """
     Class providing stateful non-keyword argument(s)
 
-    To use, create an Args instance with the initial value for your arguments, e.g. Args(0, 1, 2), then provide the
-    'recipe' property to downstream recipes. To change the input arguments, call 'set_args()' again - this will mark the
-    contained recipe as dirty and cause reevaluation of downstream recipes
+    To use, create an Args instance with the initial value for your arguments, e.g. ``Args(0, 1, 2)``, then provide as a
+    recipe to downstream recipes. To change the input arguments, call ``set_args()`` again - this will mark
+    the recipe as dirty and cause reevaluation of downstream recipe(s)
     """
 
     def __init__(self, *_args: Any, name: str, cache=CacheType.Auto):
@@ -176,8 +169,7 @@ class Args:
         :param cache: The type of caching to use for this Recipe
         """
         self._args = _args  # type: Tuple[Any, ...]
-        self._recipe = Recipe([], self._produce_args, name, transient=False, cache=cache,
-                              cleanliness_func=self._clean)
+        super().__init__([], self._produce_args, name, transient=False, cache=cache, cleanliness_func=self._clean)
 
     def _produce_args(self) -> Tuple[Any, ...]:
         """
@@ -194,13 +186,6 @@ class Args:
         """
         return self._args == last_outputs
 
-    @property
-    def recipe(self) -> Recipe:
-        """
-        :return: The recipe that produces the arguments
-        """
-        return self._recipe
-
     def set_args(self, *_args) -> None:
         """
         Change the arguments, causing the recipe to need reevaluation
@@ -213,23 +198,23 @@ class Args:
 
 def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
     """
-    Shorthand for creating an 'NamedArgs' instance
+    Shorthand for creating a ``NamedArgs`` instance
 
     :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
     :param _kwargs: The initial keyword arguments to use
-    :return: The created 'NamedArgs' instance
+    :return: The created ``NamedArgs`` instance
     """
     return NamedArgs(name, cache, **_kwargs)
 
 
 def args(*_args: Any, name: str, cache=CacheType.Auto) -> Args:
     """
-    Shorthand for creating an 'Args' instance
+    Shorthand for creating an ``Args`` instance
 
     :param _args: The initial arguments to use
     :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
-    :return: The created 'Args' instance
+    :return: The created ``Args`` instance
     """
     return Args(*_args, name=name, cache=cache)
