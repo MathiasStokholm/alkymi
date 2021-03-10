@@ -24,6 +24,7 @@ multiple times in a single module
 - Greatly simplified the serialization and deserialization logic and got rid of generators
 - Converted the built-in recipe types `Args` and `NamedArgs` to be subclasses of `Recipe` to avoid the clunky `.recipe`
 property.
+- Updated `README.md` to reflect the new documentation page at https://alkymi.readthedocs.io/en/latest/.
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound
