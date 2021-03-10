@@ -22,6 +22,10 @@ By combining the file and JSON representations, alkymi is able to support nested
 dictionaries with numpy arrays as keys. It should be noted that alkymi's cache is meant to be a private implementation,
 and might change at some point in the future (e.g. to a database).
 
+.. warning::
+   Alkymi does not yet support cleaning up the cache (e.g. removing dangling data files), but support is planned for a
+   future release.
+
 .. rubric:: Lazy Deserialization
 
 When loading data from the cache, alkymi will initially only read the data stored in the JSON document. If a complex

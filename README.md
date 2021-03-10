@@ -2,103 +2,50 @@
 Pythonic task automation
 
 [![build](https://github.com/MathiasStokholm/alkymi/workflows/build/badge.svg?branch=master)](https://github.com/MathiasStokholm/alkymi/actions?query=workflow%3Abuild)
+[![docs](https://readthedocs.org/projects/alkymi/badge/?version=latest)](https://alkymi.readthedocs.io/en/latest/?badge=latest)
 [![pypi](https://img.shields.io/pypi/v/alkymi.svg)](https://pypi.org/project/alkymi)
 [![versions](https://img.shields.io/pypi/pyversions/alkymi.svg)](https://pypi.org/project/alkymi)
 
-alkymi uses Python's basic building blocks to describe a directed-acyclic-graph (DAG) of computation, and adds a layer
-of caching to only evaluate functions when inputs have changed.
+Alkymi is a pure Python (3.5+) library for describing and executing tasks and pipelines with built-in caching and
+conditional evaluation based on checksums.
 
-The key idea behind alkymi is to have your data or validation pipeline defined in the same language as the actual
-pipeline steps, allowing you to use standard Python tools (unit testing, linting, type checkers) to check the
-correctness of your full pipeline. No more `make dataset`!
+Alkymi is easy to install, simple to use, and has no dependencies outside of Python's standard library. The code is
+cross-platform, and allows you to write your pipelines once and deploy to multiple operating systems (tested on Linux,
+Windows and Mac).
 
-All alkymi tasks (recipes) are created using references to other alkymi recipes. There's no magic tying together inputs
-and outputs based on file names, regexes, etc. - only function calls where alkymi provides the input arguments based on
-outputs further up the DAG.
+Documentation, including a quickstart guide, is provided [here](https://alkymi.readthedocs.io/en/latest/).
 
-*NOTE: alkymi is still in the experimental alpha stage, and probably shouldn't be used for anything critical. You should
-count on most APIs changing with future development*
+## Features
+* Easily define complex data pipelines as decorated Python functions
+  * This allows you to run linting, type checking, etc. on your data pipelines
+* Return values are automatically cached to disk, regardless of type
+* Efficiently checks if pipeline is up-to-date
+  * Checks if external files have changed, bound functions have changed or if pipeline dependencies have changed
+* No domain specific language (DSL) or CLI tool, just regular Python
+  * Supports caching and conditional evaluation in Jupyter Notebooks
+* Cross-platform - works on Linux, Windows and Mac
+* Expose recipes as a command-line interface (CLI) using alkymi's
+[Lab](https://alkymi.readthedocs.io/en/latest/examples/command_line.html) type
 
-## Sample Code
-Downloading and parsing the MNIST handwritten character dataset w/ caching (see `examples/mnist` for full code)
+## Sample Usage
+For examples of how to use alkymi, see the
+[quickstart guide](https://alkymi.readthedocs.io/en/latest/getting_started/quick_start.html).
+
+Example code:
 ```python
+import numpy as np
 import alkymi as alk
 
 @alk.recipe()
-def urls() -> List[str]:
-    # Return URLs of various parts of the dataset - alkymi will cache these as a list of strings
-    train_images_url = "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz"
-    train_labels_url = "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz"
-    test_images_url = "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz"
-    test_labels_url = "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
-    return [train_images_url, train_labels_url, test_images_url, test_labels_url]
+def long_running_task() -> np.ndarray:
+    # Perform expensive computation here ...
+    hard_to_compute_result = np.array([42])
+    return hard_to_compute_result
 
-
-@alk.foreach(urls)
-def download_gzips(url: str) -> bytes:
-    # Download each gzip file as raw bytes - alkymi will cache these to binary files
-    # This will run once per URL, and only if the URL has changed since the last evaluation
-    return urllib.request.urlopen(url).read()
-
-
-@alk.foreach(download_gzips)
-def parse_gzip_to_arrays(data: bytes) -> np.ndarray:
-    # Unzip binary data and parse into numpy arrays - alkymi will cache the numpy arrays
-    # This will run once per blob of input data, and only if the binary data has changed since the last evaluation
-    with io.BytesIO(data) as f:
-        with gzip.open(f) as gzip_file:
-            return parse_idx(gzip_file)  # parse_idx definition left out for brevity (see examples/mnist)
-
-
-# Evaluate 'parse_gzip_to_arrays' and all dependencies
-# On subsequent evaluations, the final numpy arrays will be read from the cache and returned immediately - unless one of
-# the recipes is marked dirty (if inputs have changed, or the recipe function itself has changed) - in that case, alkymi
-# will do the minimum amount of work to bring the pipeline up-to-date, and then return the final numpy arrays 
-train_images, train_labels, test_images, test_labels = parse_gzip_to_arrays.brew()
-```
-Or, if you need to wrap existing functions, you can simply do:
-```python
-import alkymi as alk
-
-download_archives = alk.foreach(urls)(download_gzips)
-parse_arrays = alk.foreach(download_archives)(parse_gzip_to_arrays)
-train_images, train_labels, test_images, test_labels = parse_arrays.brew()
+result = long_running_task.brew()  # == np.ndarray([42])
 ```
 
-## Command Line Usage
-In some scenarios, you may need to automate multiple tasks, and writing a Python script script for each might be a bit
-tedious - a common example of this is a Makefile that has rules for "style" (style checking), "install" (fetch
-dependencies), etc. In this case, you can use alkymi's `Lab` functionality:
-```python
-from pathlib import Path
-import alkymi as alk
-import pytest
-
-# 'glob_files()' is a built-in recipe generator that globs and returns a list of files
-glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=True)
-
-@alk.recipe(ingredients=[glob_test_files])
-def test(test_files: List[Path]) -> None:
-    # Convert Path objects to str
-    result = pytest.main(args=[str(file) for file in test_files])
-    if result != pytest.ExitCode.OK:
-        raise Exception("Unit tests failed: {}".format(result))
-
-lab = alk.Lab("my_lab")
-lab.add_recipes(test)
-lab.open()
-```
-The above code will cause the script to present the user with a command-line interface (CLI) with the following options:
-* `status`: Prints detailed status of all recipes contained in the lab (cached, needs reevaluation etc.)
-* `brew`: Runs one or more recipes with the provided names (in the above, running `python labfile.py brew test` would 
-          run the unit tests)
-
-alkymi uses a labfile (`labfile.py` in the root of the repo) to automate tasks such as linting using flake8, static type
-checking using mypy, running unit tests using pytest, as well as creating and uploading distributions to PyPI. Note that
-`labfile.py` is also subject to static type checking and linting, just like every other Python file.
-
-## Documentation
-Upcoming: readthedocs.org page
+Or one of the examples, e.g. [MNIST](https://alkymi.readthedocs.io/en/latest/examples/mnist.html).
 
 ## Upcoming Features
 The following features are being considered for future implementation:
@@ -106,6 +53,7 @@ The following features are being considered for future implementation:
 * Type annotations propagated from bound functions to recipes
 * Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
 * Code coverage for tests
+* Cache maintenance functionality
 
 ## Known Issues
 * alkymi currently doesn't check custom objects for altered external files when computing cleanliness (e.g. `MyClass`
@@ -121,17 +69,7 @@ Install via pip:
 pip install --user alkymi
 ```
 
-Or clone and install directly from source
-```shell script
-git clone https://github.com/MathiasStokholm/alkymi.git
-cd alkymi
-pip install --user .
-```
-
-Or install using pip and github
-```shell script
-pip install --user git+https://github.com/MathiasStokholm/alkymi.git
-```
+Or see https://alkymi.readthedocs.io/en/latest/getting_started/installation.html
 
 ### Testing
 After installing, you can run the test suite (use the `lint` and `type_check` recipes to perform those actions):
