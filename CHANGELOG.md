@@ -22,6 +22,8 @@ classes
 - Provide names explicitly to built-in recipe generators to avoid name clashes when a built-in recipe generator is used
 multiple times in a single module
 - Greatly simplified the serialization and deserialization logic and got rid of generators
+- Converted the built-in recipe types `Args` and `NamedArgs` to be subclasses of `Recipe` to avoid the clunky `.recipe`
+property.
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

@@ -33,7 +33,8 @@ As an example, let's say you wrap a function that resizes images to a certain si
 recipe, all images in the input list will be resized (the bound function will be called exactly once per item). If you
 later add a new image to the list, calling ``.brew()`` again will only call the bound function for that new item.
 
-Currently, :ref:`foreach_recipe` supports mapping over the following types of inputs:
+Currently, :ref:`foreach_recipe` supports mapping over the following types of inputs (this will likely be expanded upon
+in future releases):
 
 * `list <https://docs.python.org/3/library/stdtypes.html#list>`_
 * `dict <https://docs.python.org/3/library/stdtypes.html#dict>`_

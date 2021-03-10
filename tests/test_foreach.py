@@ -41,7 +41,7 @@ def test_execution(caplog, tmpdir):
 
     args = alkymi.recipes.args([f1], name="args")
 
-    @alk.foreach(args.recipe)
+    @alk.foreach(args)
     def read_file(path: Path) -> str:
         execution_counts[path] += 1
         with path.open('r') as f:
@@ -54,7 +54,7 @@ def test_execution(caplog, tmpdir):
     # This is used to check later whether changing an ingredient will correctly change everything
     extra_count_arg = alkymi.recipes.args(0, name="extra_count_arg")
 
-    @alk.foreach(to_dict, ingredients=[extra_count_arg.recipe])
+    @alk.foreach(to_dict, ingredients=[extra_count_arg])
     def change_count(file_content: str, extra_count: int) -> str:
         execution_counts[file_content] += 1 + extra_count
         return file_content
@@ -120,7 +120,7 @@ def test_lists(caplog):
         assert execution_counts_list[3] == counts[3]
         assert execution_counts_list[4] == counts[4]
 
-    @alk.foreach(args.recipe)
+    @alk.foreach(args)
     def record_execution(idx: int) -> int:
         execution_counts_list[idx] += 1
         return execution_counts_list[idx]
