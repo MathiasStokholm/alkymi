@@ -1,5 +1,4 @@
 # alkymi ⚗️
-Pythonic task automation
 
 [![build](https://github.com/MathiasStokholm/alkymi/workflows/build/badge.svg?branch=master)](https://github.com/MathiasStokholm/alkymi/actions?query=workflow%3Abuild)
 [![docs](https://readthedocs.org/projects/alkymi/badge/?version=latest)](https://alkymi.readthedocs.io/en/latest/?badge=latest)
@@ -40,6 +39,7 @@ import alkymi as alk
 def long_running_task() -> np.ndarray:
     # Perform expensive computation here ...
     hard_to_compute_result = np.array([42])
+    # Return value will be automatically cached to disk
     return hard_to_compute_result
 
 result = long_running_task.brew()  # == np.ndarray([42])
@@ -69,7 +69,7 @@ Install via pip:
 pip install --user alkymi
 ```
 
-Or see https://alkymi.readthedocs.io/en/latest/getting_started/installation.html
+Or see the [Installation page](https://alkymi.readthedocs.io/en/latest/getting_started/installation.html).
 
 ### Testing
 After installing, you can run the test suite (use the `lint` and `type_check` recipes to perform those actions):
