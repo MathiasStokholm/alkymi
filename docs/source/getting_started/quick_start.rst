@@ -47,3 +47,9 @@ Whenever ``upload_to_cloud.brew()`` is called, alkymi will automatically travers
 case just ``long_running_task``) to see if everything is up-to-date. If not, the needed steps will be evaluated to bring
 the graph up-to-data. Note that the ``result`` argument to ``upload_to_cloud`` is provided by the output of
 ``long_running_task``.
+
+
+.. note::
+    Bound functions can return zero (None) or more values. When passing the output(s) of one recipe to another
+    downstream recipe, the spread operator ``*`` will be used. If a recipe depends on multiple recipes, the outputs of
+    those recipes will be spread and concatenated before being passed to the bound function
