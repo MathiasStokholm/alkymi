@@ -105,8 +105,8 @@ def test_execution(caplog, tmpdir):
     @alk.recipe(ingredients=[produces_build_dir])
     def produces_a_single_file(_: Path) -> Path:
         execution_counts['produces_a_single_file'] += 1
-        with file.open('w') as f:
-            f.write('testing')
+        with file.open('w') as f_out:
+            f_out.write('testing')
         return file
 
     @alk.recipe(ingredients=[produces_a_single_file])
@@ -119,8 +119,8 @@ def test_execution(caplog, tmpdir):
     @alk.foreach(copies_a_file, transient=True)
     def reads_a_file(test_file: Path) -> None:
         execution_counts['reads_a_file'] += 1
-        with test_file.open('r') as f:
-            f.read()
+        with test_file.open('r') as f_out:
+            f_out.read()
 
     # Upon definition, no functions should have been executed
     assert execution_counts['produces_build_dir'] == 0

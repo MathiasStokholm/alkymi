@@ -128,13 +128,15 @@ class Checksummer(object):
 
         :param path: The Path to update the checksum with
         """
-        # Ignore non-existent path
+        # For non-existent paths, we just care about the path itself
         if not path.exists():
+            self.update(str(path))
             return
 
-        # For directories, we just care about the path itself
+        # For directories, we care about the path and whether it exists
         if path.is_dir():
             self.update(str(path))
+            self.update(path.exists())
             return
 
         # For files, we care about the file contents too

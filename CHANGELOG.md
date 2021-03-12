@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a new `zip_results()` built-in recipe generator to zip together outputs from multiple recipes
 - Documentation in the `docs/` directory. The documentation is built using Sphinx and hosted on
 https://alkymi.readthedocs.io/en/latest/. The documentation can be built by running `python labfile.py brew docs`.
+- Added checksum unit tests for the `Path` type
 
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
@@ -35,6 +36,7 @@ functions
 - Fixed caching of dictionaries output by ForeachRecipe
 - Dictionaries are now serialized using a dict with key and value entries supporting arbitrary nesting, instead of being
 pickled
+- Fixed a bug where non-existent `Path` objects would result in the same checksum
 
 ## [0.0.4] - 2021-02-05
 ### Added
