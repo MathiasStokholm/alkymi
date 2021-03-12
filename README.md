@@ -54,6 +54,7 @@ The following features are being considered for future implementation:
 * Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
 * Code coverage for tests
 * Cache maintenance functionality
+* Parallel execution of pipeline
 
 ## Known Issues
 * alkymi currently doesn't check custom objects for altered external files when computing cleanliness (e.g. `MyClass`
