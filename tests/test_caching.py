@@ -41,6 +41,25 @@ def test_caching(caplog, tmpdir):
     assert should_cache_recipe_copy_2.status() == Status.BoundFunctionChanged
 
 
+def test_caching_no_return_value(caplog, tmpdir):
+    """
+    Test that caching works even when the bound function doesn't return anything (None)
+    """
+    tmpdir = Path(str(tmpdir))
+    AlkymiConfig.get().cache = True
+    AlkymiConfig.get().cache_path = tmpdir
+
+    @alk.recipe()
+    def no_return_value() -> None:
+        some_state = "This is a debug statement from test_caching_no_return_value()"
+        alk.log.debug(some_state)  # Simulate non-pure function
+
+    assert no_return_value.status() == Status.NotEvaluatedYet
+    no_return_value.brew()
+    assert no_return_value.status() == Status.Ok
+    assert (tmpdir / Recipe.CACHE_DIRECTORY_NAME / "tests" / "no_return_value").is_dir()
+
+
 # We use these globals to avoid altering the hashes of bound functions when these change
 execution_counts = []  # type: List[int]
 stopping_point = 0  # type: int

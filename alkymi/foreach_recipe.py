@@ -5,6 +5,7 @@ from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
 from .serialization import Output, OutputWithValue, CachedOutput
+from .types import Outputs
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Output], Dict[Any, Output]]
@@ -102,7 +103,7 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs_checksum
 
     @Recipe.outputs.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
-    def outputs(self) -> Optional[Tuple[Any, ...]]:
+    def outputs(self) -> Optional[Outputs]:
         """
         :return: The outputs of this ForeachRecipe in canonical form (None or a tuple with zero or more entries)
         """

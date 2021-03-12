@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation in the `docs/` directory. The documentation is built using Sphinx and hosted on
 https://alkymi.readthedocs.io/en/latest/. The documentation can be built by running `python labfile.py brew docs`.
 - Added checksum unit tests for the `Path` type
+- Added unit test for caching of recipes that do not return anything (None)
 
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
@@ -26,6 +27,8 @@ multiple times in a single module
 - Converted the built-in recipe types `Args` and `NamedArgs` to be subclasses of `Recipe` to avoid the clunky `.recipe`
 property.
 - Updated `README.md` to reflect the new documentation page at https://alkymi.readthedocs.io/en/latest/.
+- Replaced the usage of `tuple` with a new `Outputs` type that keeps most of the behavior, but ensures that all return
+types are valid
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound
@@ -37,6 +40,8 @@ functions
 - Dictionaries are now serialized using a dict with key and value entries supporting arbitrary nesting, instead of being
 pickled
 - Fixed a bug where non-existent `Path` objects would result in the same checksum
+- Fixed a bug where recipes without return values would remain `NotEvaluated` even though they had been evaluated and
+cached
 
 ## [0.0.4] - 2021-02-05
 ### Added

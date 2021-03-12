@@ -1,13 +1,12 @@
 from typing import Dict, List, Any, Tuple, Optional
 
-from .types import Status
+from .types import Status, Outputs
 from .recipe import Recipe
 from .logging import log
 from .foreach_recipe import ForeachRecipe
 
 # TODO(mathias): Rename this file to something more fitting
-
-OutputsAndChecksums = Tuple[Optional[Tuple[Any, ...]], Optional[Tuple[Optional[str], ...]]]
+OutputsAndChecksums = Tuple[Outputs, Tuple[Optional[str], ...]]
 
 
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
@@ -84,13 +83,18 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
 
     :param recipe: The recipe to evaluate
     :param status: The dictionary of statuses computed using 'compute_recipe_status()' to use for targeted evaluation
-    :return: The outputs and checksums of the provided recipe (wrapped in tuples if necessary)
+    :return: The outputs and checksums of the provided recipe
     """
     log.debug('Evaluating recipe: {}'.format(recipe.name))
 
     def _print_and_return() -> OutputsAndChecksums:
         log.debug('Finished evaluating {}'.format(recipe.name))
-        return recipe.outputs, recipe.output_checksums
+        outputs, checksums = recipe.outputs, recipe.output_checksums
+        if outputs is None:
+            raise RuntimeError("Output of recipe is None - this should never happen")
+        if checksums is None:
+            raise RuntimeError("Output checksum(s) of recipe is None - this should never happen")
+        return outputs, checksums
 
     if status[recipe] == Status.Ok:
         return _print_and_return()
@@ -104,10 +108,8 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
     ingredient_input_checksums = []  # type: List[Optional[str]]
     for ingredient in recipe.ingredients:
         result, checksum = evaluate_recipe(ingredient, status)
-        if result is not None:
-            ingredient_inputs.extend(result)
-        if checksum is not None:
-            ingredient_input_checksums.extend(checksum)
+        ingredient_inputs.extend(result)
+        ingredient_input_checksums.extend(checksum)
     ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
     ingredient_input_checksums_tuple = tuple(ingredient_input_checksums)  # type: Tuple[Optional[str], ...]
 
@@ -115,14 +117,9 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
     if isinstance(recipe, ForeachRecipe):
         # Process mapped inputs
         mapped_inputs_tuple, mapped_inputs_checksum_tuple = evaluate_recipe(recipe.mapped_recipe, status)
-        if mapped_inputs_tuple is None:
-            raise Exception("Input to mapped recipe {} is None".format(recipe.name))
         if len(mapped_inputs_tuple) != 1:
             raise Exception("Input to mapped recipe {} must be a single list or dict".format(recipe.name))
         mapped_inputs = mapped_inputs_tuple[0]
-
-        if mapped_inputs_checksum_tuple is None:
-            raise Exception("Input checksums to mapped recipe {} is None".format(recipe.name))
         if len(mapped_inputs_checksum_tuple) != 1:
             raise Exception("Input checksums to mapped recipe {} must be a single list or dict".format(recipe.name))
         mapped_inputs_checksum = mapped_inputs_checksum_tuple[0]
@@ -195,11 +192,11 @@ def brew(recipe: Recipe) -> Any:
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     result, _ = evaluate_recipe(recipe, compute_recipe_status(recipe))
-    if result is None:
+    if not result.exists:
+        # Return empty output as standard None type
         return None
-
-    # Unwrap single item tuples
-    # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
-    if isinstance(result, tuple) and len(result) == 1:
+    elif len(result) == 1:
+        # Unwrap single item tuple
         return result[0]
-    return result
+    # Return as regular tuple
+    return tuple(result)
