@@ -29,6 +29,8 @@ property.
 - Updated `README.md` to reflect the new documentation page at https://alkymi.readthedocs.io/en/latest/.
 - Replaced the usage of `tuple` with a new `Outputs` type that keeps most of the behavior, but ensures that all return
 types are valid
+- Made `Recipe` generic in the return type and forwarded return type information from decorators to allow `brew` to
+return valid type information
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

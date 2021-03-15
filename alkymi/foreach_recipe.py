@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, cast
+from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, cast, TypeVar
 
 from . import checksums, serialization
 from .logging import log
@@ -12,8 +12,10 @@ MappedOutputs = Union[List[Output], Dict[Any, Output]]
 MappedOutputsCached = Union[List[CachedOutput], Dict[Any, CachedOutput]]
 MappedInputsChecksums = Union[List[Optional[str]], Dict[Any, Optional[str]]]
 
+R = TypeVar("R")  # The return type of the bound function
 
-class ForeachRecipe(Recipe):
+
+class ForeachRecipe(Recipe[R]):
     """
     Special type of Recipe that applies its bound function to each input from a list or dictionary (similar to Python's
     built-in map() function). Evaluations of the bound function are cached and used to avoid reevaluation previously
@@ -21,7 +23,7 @@ class ForeachRecipe(Recipe):
     function for some inputs, avoiding the overhead of recomputing things
     """
 
-    def __init__(self, mapped_recipe: Recipe, ingredients: Iterable['Recipe'], func: Callable, name: str,
+    def __init__(self, mapped_recipe: Recipe, ingredients: Iterable[Recipe], func: Callable[..., R], name: str,
                  transient: bool, cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
         """
         Create a new ForeachRecipe
@@ -43,7 +45,7 @@ class ForeachRecipe(Recipe):
         self._mapped_inputs_checksum = None  # type: Optional[str]
         self._mapped_outputs = None  # type: Optional[MappedOutputs]
         self._mapped_outputs_checksum = None  # type: Optional[str]
-        super().__init__(ingredients, func, name, transient, cache, cleanliness_func)
+        super().__init__(func, ingredients, name, transient, cache, cleanliness_func)
 
     @property
     def mapped_recipe(self) -> Recipe:
@@ -140,7 +142,7 @@ class ForeachRecipe(Recipe):
         raise RuntimeError("Invalid type for mapped outputs")
 
     def invoke_mapped(self, mapped_inputs: MappedInputs, mapped_inputs_checksum: Optional[str],
-                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]):
+                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> Optional[MappedOutputs]:
         """
         Evaluate this ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum

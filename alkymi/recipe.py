@@ -1,18 +1,20 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
+from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, TypeVar, Generic, cast
 
 from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .serialization import OutputWithValue, CachedOutput
-from .types import Outputs
+from .types import Outputs, Status
 
-CleanlinessFunc = Callable[[Optional[Tuple[Any, ...]]], bool]
+R = TypeVar("R")  # The return type of the bound function
+
+CleanlinessFunc = Callable[[Optional[Outputs]], bool]
 
 
-class Recipe:
+class Recipe(Generic[R]):
     """
     Recipe is the basic building block of alkymi's evaluation approach. It binds a function (provided by the user) that
     it then calls when asked to by alkymi's execution engine. The result of the bound function evaluation can be
@@ -22,8 +24,8 @@ class Recipe:
 
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
-    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool, cache: CacheType,
-                 cleanliness_func: Optional[CleanlinessFunc] = None):
+    def __init__(self, func: Callable[..., R], ingredients: Iterable['Recipe'], name: str, transient: bool,
+                 cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
         """
         Create a new Recipe
 
@@ -35,8 +37,8 @@ class Recipe:
         :param cache: The type of caching to use for this Recipe
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
-        self._ingredients = list(ingredients)
         self._func = func
+        self._ingredients = list(ingredients)
         self._name = name
         self._transient = transient
         self._cleanliness_func = cleanliness_func
@@ -68,7 +70,7 @@ class Recipe:
                 with self.cache_file.open('r') as f:
                     self.restore_from_dict(json.loads(f.read()))
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args) -> R:
         """
         Calls the bound function directly
 
@@ -76,7 +78,7 @@ class Recipe:
         :param kwargs: The keyword arguments to provide to the bound function
         :return: The value returned by the bound function
         """
-        return self._func(*args, **kwargs)
+        return self._func(*args)
 
     def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> Outputs:
         """
@@ -96,7 +98,7 @@ class Recipe:
         self._save_state()
         return outputs
 
-    def brew(self) -> Any:
+    def brew(self) -> R:
         """
         Evaluate this Recipe and all dependent inputs - this will build the computational graph and execute any needed
         dependencies to produce the outputs of this Recipe
@@ -105,9 +107,9 @@ class Recipe:
         """
         # Lazy import to avoid circular imports
         from .alkymi import brew
-        return brew(self)
+        return cast(R, brew(self))
 
-    def status(self):
+    def status(self) -> Status:
         """
         :return: The status of this recipe (will evaluate all upstream dependencies)
         """
