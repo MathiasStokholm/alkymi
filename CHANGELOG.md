@@ -31,6 +31,7 @@ property.
 types are valid
 - Made `Recipe` generic in the return type and forwarded return type information from decorators to allow `brew` to
 return valid type information
+- Updated built-in recipes to supply return type information to their `Recipe` objects
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

@@ -3,9 +3,10 @@ from typing import List, Tuple, Optional, Any, Dict, Iterable, Union
 
 from .config import CacheType
 from .recipe import Recipe
+from .types import Outputs
 
 
-def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=CacheType.Auto) -> Recipe:
+def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=CacheType.Auto) -> Recipe[List[Path]]:
     """
     Create a Recipe that will glob files in a directory and return them as a list. The created recipe will only be
     considered dirty if the file paths contained in the glob changes (not if the contents of any one file changes)
@@ -18,30 +19,32 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
     :return: The created Recipe
     """
 
-    def _glob_recipe() -> Tuple[List[Path]]:
+    def _glob_recipe() -> List[Path]:
         """
         The bound function that performs the glob
 
         :return: The glob of files
         """
         if recursive:
-            return list(directory.rglob(pattern)),
+            return list(directory.rglob(pattern))
         else:
-            return list(directory.glob(pattern)),
+            return list(directory.glob(pattern))
 
-    def _check_clean(last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+    def _check_clean(last_outputs: Optional[Outputs]) -> bool:
         """
         If rerunning glob produces the same list of files, then the recipe is clean
 
         :param last_outputs: The last set of outputs created by this Recipe
         :return: True if clean
         """
-        return _glob_recipe() == last_outputs
+        if last_outputs is None:
+            return False
+        return _glob_recipe() == last_outputs[0]
 
-    return Recipe([], _glob_recipe, name, transient=False, cache=cache, cleanliness_func=_check_clean)
+    return Recipe(_glob_recipe, [], name, transient=False, cache=cache, cleanliness_func=_check_clean)
 
 
-def file(name: str, path: Path, cache=CacheType.Auto) -> Recipe:
+def file(name: str, path: Path, cache=CacheType.Auto) -> Recipe[Path]:
     """
     Create a Recipe that outputs a single file
 
@@ -56,10 +59,11 @@ def file(name: str, path: Path, cache=CacheType.Auto) -> Recipe:
     def _file_recipe() -> Path:
         return Path(path_as_str)
 
-    return Recipe([], _file_recipe, name, transient=False, cache=cache)
+    return Recipe(_file_recipe, [], name, transient=False, cache=cache)
 
 
-def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) -> Recipe:
+def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) \
+        -> Recipe[Union[List[Tuple[Any, ...]], Dict[Any, Tuple[Any, ...]]]]:
     """
     Create a Recipe that zips the outputs from a number of recipes into elements, similar to Python's built-in zip().
     Notably, dictionaries are handled a bit differently, in that a dictionary is returned with keys mapping to tuples
@@ -101,10 +105,10 @@ def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) -> R
         else:
             raise ValueError("Type: {} not supported in _zip_results()".format(type(first_iterable)))
 
-    return Recipe(recipes, _zip_results, name, transient=False, cache=cache)
+    return Recipe(_zip_results, recipes, name, transient=False, cache=cache)
 
 
-class NamedArgs(Recipe):
+class NamedArgs(Recipe[Dict[Any, Any]]):
     """
     Class providing stateful keyword argument(s)
 
@@ -122,7 +126,7 @@ class NamedArgs(Recipe):
         :param _kwargs: The initial keyword argument value(s)
         """
         self._kwargs = _kwargs  # type: Dict[Any, Any]
-        super().__init__([], self._produce_kwargs, name, transient=False, cache=cache, cleanliness_func=self._clean)
+        super().__init__(self._produce_kwargs, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
 
     def _produce_kwargs(self) -> Dict[Any, Any]:
         """
@@ -130,7 +134,7 @@ class NamedArgs(Recipe):
         """
         return self._kwargs
 
-    def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+    def _clean(self, last_outputs: Optional[Outputs]) -> bool:
         """
         Checks whether the arguments have changed since the last evaluation
 
@@ -139,7 +143,7 @@ class NamedArgs(Recipe):
         """
         if last_outputs is None:
             return self._kwargs is None
-        return bool(self._kwargs == last_outputs[0])
+        return self._kwargs == last_outputs[0]
 
     def set_args(self, **_kwargs) -> None:
         """
@@ -151,7 +155,7 @@ class NamedArgs(Recipe):
         self._kwargs = _kwargs
 
 
-class Args(Recipe):
+class Args(Recipe[Tuple[Any, ...]]):
     """
     Class providing stateful non-keyword argument(s)
 
@@ -169,7 +173,7 @@ class Args(Recipe):
         :param cache: The type of caching to use for this Recipe
         """
         self._args = _args  # type: Tuple[Any, ...]
-        super().__init__([], self._produce_args, name, transient=False, cache=cache, cleanliness_func=self._clean)
+        super().__init__(self._produce_args, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
 
     def _produce_args(self) -> Tuple[Any, ...]:
         """
@@ -177,13 +181,15 @@ class Args(Recipe):
         """
         return self._args
 
-    def _clean(self, last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+    def _clean(self, last_outputs: Optional[Outputs]) -> bool:
         """
         Checks whether the arguments have changed since the last evaluation
 
         :param last_outputs: The last set of outputs (arguments)
         :return: True if the arguments remain the same
         """
+        if last_outputs is None:
+            return self._args is None
         return self._args == last_outputs
 
     def set_args(self, *_args) -> None:
