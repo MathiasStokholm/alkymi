@@ -7,6 +7,7 @@ import mypy.api
 import pytest
 from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
+import pytest_cov.plugin
 
 import alkymi as alk
 
@@ -26,7 +27,17 @@ def test(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute
     """
-    result = pytest.main(args=[str(file) for file in test_files])
+    class ns:
+        cov_source = [True]
+        cov_report = ""
+        cov_config = ""
+        no_cov = False
+        cov_append = False
+        cov_branch = True
+        cov_fail_under = None
+        cov_context = "test"
+        no_cov_on_fail = True
+    result = pytest.main(args=[str(file) for file in test_files], plugins=[pytest_cov.plugin.CovPlugin(ns, None, start=False)])
     if result != pytest.ExitCode.OK:
         exit(1)
 
