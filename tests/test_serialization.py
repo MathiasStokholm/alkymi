@@ -188,3 +188,6 @@ def test_enable_disable_pickling(tmpdir):
         serialization.deserialize_item(result)
     with pytest.raises(RuntimeError):
         checksums.checksum(value)
+
+    # Return to default state
+    AlkymiConfig.get().allow_pickling = True
