@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Optional, Any, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
 
-from . import checksums
+from . import checksums, AlkymiConfig
 
 # TODO(mathias): This file needs to be reworked to be less complex/crazy. Some sort of class w/ recursive serialization
 #                might help make this a lot more readable
@@ -128,10 +128,13 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Seria
         return dict(keys=keys, values=values)
     else:
         # As a last resort, try to dump as pickle
+        if not AlkymiConfig.get().allow_pickling:
+            raise RuntimeError("Pickling disabled - cannot serialize type: {}".format(type(item)))
+
         try:
             output_file = next(cache_path_generator)
             with output_file.open("wb") as f:
-                pickle.dump(item, f)
+                pickle.dump(item, f, protocol=pickle.HIGHEST_PROTOCOL)
             return "{}{}".format(PICKLE_TOKEN, output_file)
         except pickle.PicklingError:
             raise Exception("Cannot serialize item of type: {}".format(type(item)))
@@ -164,6 +167,8 @@ def deserialize_item(item: SerializableRepresentation) -> Any:
                     return f.read()
             elif item.startswith(PICKLE_TOKEN):
                 # Arbitrary object encoded as pickle
+                if not AlkymiConfig.get().allow_pickling:
+                    raise RuntimeError("Pickling disabled - cannot deserialize item: {}".format(item))
                 with open(item[len(PICKLE_TOKEN):], "rb") as f:
                     return pickle.loads(f.read())
             else:

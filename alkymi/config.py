@@ -38,8 +38,9 @@ class AlkymiConfig:
 
         # Set default values in config
         AlkymiConfig.__instance = self
-        self._cache = True  # type: bool
-        self._cache_path = None  # type: Optional[Path]
+        self._cache = True
+        self._cache_path = None
+        self._allow_pickling = True
 
     @property
     def cache(self) -> bool:
@@ -76,6 +77,22 @@ class AlkymiConfig:
         if not os.access(str(cache_path), os.W_OK):
             raise ValueError("Cache path '{}' must be writeable".format(cache_path))
         self._cache_path = cache_path
+
+    @property
+    def allow_pickling(self) -> bool:
+        """
+        :return: Whether to allow pickling for serialization, deserialization and checksumming
+        """
+        return self._allow_pickling
+
+    @allow_pickling.setter
+    def allow_pickling(self, allow_pickling: bool) -> None:
+        """
+        Set whether to allow pickling for serialization, deserialization and checksumming
+
+        :param allow_pickling: Whether to allow pickling for serialization, deserialization and checksumming
+        """
+        self._allow_pickling = allow_pickling
 
 
 # Force creation of singleton

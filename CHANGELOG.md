@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 https://alkymi.readthedocs.io/en/latest/. The documentation can be built by running `python labfile.py brew docs`.
 - Added checksum unit tests for the `Path` type
 - Added unit test for caching of recipes that do not return anything (None)
+- Added `allow_pickling` configuration option to let the user turn off pickling for serialization, deserialization and
+checksumming and a unit test for it
 
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
@@ -32,6 +34,7 @@ types are valid
 - Made `Recipe` generic in the return type and forwarded return type information from decorators to allow `brew` to
 return valid type information
 - Updated built-in recipes to supply return type information to their `Recipe` objects
+- Use the highest available protocol when pickling for serialization and checksumming
 
 ### Fixed
 - Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound

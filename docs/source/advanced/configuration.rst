@@ -15,5 +15,6 @@ singleton instance and set the appropriate configuration field:
 The following settings are currently configurable:
 
 * **cache**: Whether to enable alkymi caching globally. Setting this to false will disable caching to disk for all
-  recipes.
-* **cache_path**: A user-provided location to place the cache.
+  recipes (default True).
+* **cache_path**: A user-provided location to place the cache (defaults to current working dir).
+* **allow_pickling**: Whether to allow pickling for serialization, deserialization and checksumming (default True).

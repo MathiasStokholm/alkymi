@@ -3,6 +3,8 @@ import copy
 from pathlib import Path
 from typing import List
 
+import pytest
+
 import alkymi as alk
 from alkymi import serialization, AlkymiConfig, checksums
 from alkymi.serialization import OutputWithValue
@@ -149,3 +151,33 @@ def test_complex_serialization(tmpdir):
     with file_a.open("w") as f:
         f.write(f.name)
     assert obj_cached.valid
+
+
+class MyClass:
+    def __init__(self, value):
+        self.value = value
+
+
+def test_enable_disable_pickling(tmpdir):
+    """
+    Test turning pickling on/off for serialization and checksumming
+    """
+    tmpdir = Path(str(tmpdir))
+    value = MyClass(5)
+
+    # Test pickling enabled
+    AlkymiConfig.get().allow_pickling = True
+    cache_path_generator = (tmpdir / str(i) for i in range(5))
+    result = serialization.serialize_item(value, cache_path_generator)
+    assert result.startswith(serialization.PICKLE_TOKEN)
+    assert serialization.deserialize_item(result).value == 5
+    assert checksums.checksum(result) is not None
+
+    # Test pickling disabled
+    AlkymiConfig.get().allow_pickling = False
+    with pytest.raises(RuntimeError):
+        serialization.serialize_item(value, cache_path_generator)
+    with pytest.raises(RuntimeError):
+        serialization.deserialize_item(result)
+    with pytest.raises(RuntimeError):
+        checksums.checksum(value)
