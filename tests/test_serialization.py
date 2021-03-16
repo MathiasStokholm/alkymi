@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import copy
+import json
 from pathlib import Path
 from typing import List
 
@@ -37,7 +38,8 @@ def test_serialize_item(tmpdir):
 def test_serialize_deserialize_items(tmpdir):
     tmpdir = Path(str(tmpdir))
 
-    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5})
+    json_str = "{'test': 13 []''{}!!"
+    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5}, json_str)
     cache_path_generator = (tmpdir / str(i) for i in range(5))
     serialized_items = serialization.serialize_item(items, cache_path_generator)
     assert serialized_items is not None
@@ -48,6 +50,11 @@ def test_serialize_deserialize_items(tmpdir):
     assert isinstance(serialized_items[3], float)
     assert isinstance(serialized_items[4], list)
     assert len(serialized_items[4]) == len(items[4])
+    assert isinstance(serialized_items[5], dict)
+    assert isinstance(serialized_items[6], str)
+
+    # Pass through JSON serialization to ensure we can save/load correctly
+    serialized_items = json.loads(json.dumps(serialized_items, indent=4))
 
     deserialized_items = serialization.deserialize_item(serialized_items)
     assert deserialized_items is not None
