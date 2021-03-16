@@ -35,18 +35,20 @@ PATH_TOKEN = create_token("path")
 PICKLE_TOKEN = create_token("pickle")
 BYTES_TOKEN = create_token("bytes")
 
+S = TypeVar("S")  # The type that a Serializer subclass acts on
 
-class Serializer:
+
+class Serializer(Generic[S]):
     """
     Abstract base class for classes that enable serialization/deserialization of classes not in the standard library
     """
 
     @staticmethod
-    def serialize(value: Any, cache_path: Path) -> str:
+    def serialize(value: S, cache_path: Path) -> str:
         raise NotImplementedError()
 
     @staticmethod
-    def deserialize(path: Path) -> Any:
+    def deserialize(path: Path) -> S:
         raise NotImplementedError()
 
 
@@ -57,7 +59,7 @@ try:
     import numpy as np  # NOQA
 
 
-    class NdArraySerializer(Serializer):
+    class NdArraySerializer(Serializer[np.ndarray]):
         """
         Numpy array serializer/deserializer
         """
