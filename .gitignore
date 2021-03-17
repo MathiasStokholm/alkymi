@@ -5,3 +5,5 @@ build
 .pytest_cache
 alkymi.egg-info
 dist
+.coverage
+
