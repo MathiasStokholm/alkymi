@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2021-03-17
 ### Added
 - Added a new `zip_results()` built-in recipe generator to zip together outputs from multiple recipes
 - Documentation in the `docs/` directory. The documentation is built using Sphinx and hosted on
@@ -86,6 +87,7 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.3
