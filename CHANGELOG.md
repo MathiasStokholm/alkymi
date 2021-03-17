@@ -14,6 +14,7 @@ https://alkymi.readthedocs.io/en/latest/. The documentation can be built by runn
 - Added unit test for caching of recipes that do not return anything (None)
 - Added `allow_pickling` configuration option to let the user turn off pickling for serialization, deserialization and
 checksumming and a unit test for it
+- Added test coverage using `coverage` and https://codecov.io (see the `coverage` recipe in `labfile.py`)
 
 ### Changed
 - Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`

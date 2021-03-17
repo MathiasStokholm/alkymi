@@ -4,6 +4,7 @@
 [![docs](https://readthedocs.org/projects/alkymi/badge/?version=latest)](https://alkymi.readthedocs.io/en/latest/?badge=latest)
 [![pypi](https://img.shields.io/pypi/v/alkymi.svg)](https://pypi.org/project/alkymi)
 [![versions](https://img.shields.io/pypi/pyversions/alkymi.svg)](https://pypi.org/project/alkymi)
+[![coverage](https://codecov.io/gh/MathiasStokholm/alkymi/branch/develop/graph/badge.svg?token=L0DTW805NL)](https://codecov.io/gh/MathiasStokholm/alkymi)
 
 Alkymi is a pure Python (3.5+) library for describing and executing tasks and pipelines with built-in caching and
 conditional evaluation based on checksums.
