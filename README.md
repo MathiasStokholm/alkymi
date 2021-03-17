@@ -2,9 +2,9 @@
 
 [![build](https://github.com/MathiasStokholm/alkymi/workflows/build/badge.svg?branch=master)](https://github.com/MathiasStokholm/alkymi/actions?query=workflow%3Abuild)
 [![docs](https://readthedocs.org/projects/alkymi/badge/?version=latest)](https://alkymi.readthedocs.io/en/latest/?badge=latest)
+[![coverage](https://codecov.io/gh/MathiasStokholm/alkymi/branch/develop/graph/badge.svg?token=L0DTW805NL)](https://codecov.io/gh/MathiasStokholm/alkymi)
 [![pypi](https://img.shields.io/pypi/v/alkymi.svg)](https://pypi.org/project/alkymi)
 [![versions](https://img.shields.io/pypi/pyversions/alkymi.svg)](https://pypi.org/project/alkymi)
-[![coverage](https://codecov.io/gh/MathiasStokholm/alkymi/branch/develop/graph/badge.svg?token=L0DTW805NL)](https://codecov.io/gh/MathiasStokholm/alkymi)
 
 Alkymi is a pure Python (3.5+) library for describing and executing tasks and pipelines with built-in caching and
 conditional evaluation based on checksums.
@@ -53,7 +53,6 @@ The following features are being considered for future implementation:
 * Arguments to recipes when calling `brew` in `Lab` CLI
 * Type annotations propagated from bound functions to recipes
 * Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
-* Code coverage for tests
 * Cache maintenance functionality
 * Parallel execution of pipeline
 
@@ -74,7 +73,8 @@ pip install --user alkymi
 Or see the [Installation page](https://alkymi.readthedocs.io/en/latest/getting_started/installation.html).
 
 ### Testing
-After installing, you can run the test suite (use the `lint` and `type_check` recipes to perform those actions):
+After installing, you can run the test suite (use the `lint`, `coverage` and `type_check` recipes to perform those
+actions):
 ```shell script
 python3 labfile.py brew test
 ```
