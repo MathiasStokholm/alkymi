@@ -33,9 +33,9 @@ jobs:
     - name: Lint with flake8
       run: |
         python labfile.py brew lint
-    - name: Test with pytest
+    - name: Test with pytest and generate coverage
       run: |
-        python labfile.py brew test
+        python labfile.py brew coverage
     - name: Type check with mypy
       run: |
         python labfile.py brew type_check
