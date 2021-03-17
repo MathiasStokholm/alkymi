@@ -7,6 +7,7 @@ import mypy.api
 import pytest
 from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
+import coverage as Coverage
 
 import alkymi as alk
 
@@ -29,6 +30,22 @@ def test(test_files: List[Path]) -> None:
     result = pytest.main(args=[str(file) for file in test_files])
     if result != pytest.ExitCode.OK:
         exit(1)
+
+
+@alk.recipe(ingredients=[glob_test_files], transient=True)
+def coverage(test_files: List[Path]) -> None:
+    """
+    Run all alkymi unit tests while capturing test coverage data
+
+    :param test_files: The pytest files to execute to generate test coverage data
+    """
+    cov = Coverage.coverage(source=["alkymi"])
+    cov.erase()
+    cov.start()
+    test(test_files)
+    cov.stop()
+    cov.xml_report()
+    cov.report()
 
 
 @alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
@@ -127,7 +144,7 @@ def release(build_dir: Path) -> None:
 
 def main():
     lab = alk.Lab("alkymi")
-    lab.add_recipes(test, lint, type_check, docs, build, release_test, release)
+    lab.add_recipes(test, coverage, lint, type_check, docs, build, release_test, release)
     lab.open()
 
 
