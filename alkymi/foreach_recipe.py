@@ -1,18 +1,21 @@
 from collections import OrderedDict
-from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, cast
+from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, cast, TypeVar
 
 from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
 from .serialization import Output, OutputWithValue, CachedOutput
+from .types import Outputs
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Output], Dict[Any, Output]]
 MappedOutputsCached = Union[List[CachedOutput], Dict[Any, CachedOutput]]
 MappedInputsChecksums = Union[List[Optional[str]], Dict[Any, Optional[str]]]
 
+R = TypeVar("R")  # The return type of the bound function
 
-class ForeachRecipe(Recipe):
+
+class ForeachRecipe(Recipe[R]):
     """
     Special type of Recipe that applies its bound function to each input from a list or dictionary (similar to Python's
     built-in map() function). Evaluations of the bound function are cached and used to avoid reevaluation previously
@@ -20,7 +23,7 @@ class ForeachRecipe(Recipe):
     function for some inputs, avoiding the overhead of recomputing things
     """
 
-    def __init__(self, mapped_recipe: Recipe, ingredients: Iterable['Recipe'], func: Callable, name: str,
+    def __init__(self, mapped_recipe: Recipe, ingredients: Iterable[Recipe], func: Callable[..., R], name: str,
                  transient: bool, cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
         """
         Create a new ForeachRecipe
@@ -42,7 +45,7 @@ class ForeachRecipe(Recipe):
         self._mapped_inputs_checksum = None  # type: Optional[str]
         self._mapped_outputs = None  # type: Optional[MappedOutputs]
         self._mapped_outputs_checksum = None  # type: Optional[str]
-        super().__init__(ingredients, func, name, transient, cache, cleanliness_func)
+        super().__init__(func, ingredients, name, transient, cache, cleanliness_func)
 
     @property
     def mapped_recipe(self) -> Recipe:
@@ -102,7 +105,7 @@ class ForeachRecipe(Recipe):
         return self._mapped_inputs_checksum
 
     @Recipe.outputs.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
-    def outputs(self) -> Optional[Tuple[Any, ...]]:
+    def outputs(self) -> Optional[Outputs]:
         """
         :return: The outputs of this ForeachRecipe in canonical form (None or a tuple with zero or more entries)
         """
@@ -139,7 +142,7 @@ class ForeachRecipe(Recipe):
         raise RuntimeError("Invalid type for mapped outputs")
 
     def invoke_mapped(self, mapped_inputs: MappedInputs, mapped_inputs_checksum: Optional[str],
-                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]):
+                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> Optional[MappedOutputs]:
         """
         Evaluate this ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
@@ -147,7 +150,7 @@ class ForeachRecipe(Recipe):
 
         :param mapped_inputs: The (possibly new) sequence of inputs to apply the bound function to
         :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-        whether anything has changed
+            whether anything has changed
         :param inputs: The inputs provided by the ingredients (dependencies) of this ForeachRecipe
         :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
         :return: The outputs of this ForeachRecipe
@@ -246,17 +249,6 @@ class ForeachRecipe(Recipe):
         _checkpoint(True)
         return self._mapped_outputs
 
-    def is_foreach_clean(self, mapped_inputs_checksum: Optional[str]) -> bool:
-        """
-        Check whether this ForeachRecipe is clean (in addition to the regular recipe cleanliness checks). This is done
-        by comparing the overall checksum for the current mapped inputs to that from the last invoke evaluation
-
-        :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-        whether anything has changed
-        :return: Whether this recipe needs to be reevaluated
-        """
-        return mapped_inputs_checksum == self.mapped_inputs_checksum
-
     @property
     def outputs_valid(self) -> bool:
         """
@@ -294,7 +286,7 @@ class ForeachRecipe(Recipe):
                 self._mapped_outputs = cast(List[Output], outputs_list)
             elif isinstance(self._mapped_outputs, dict):
                 outputs_dict = {}  # type: Dict[Any, CachedOutput]
-                for key, output in self._mapped_outputs:
+                for key, output in self._mapped_outputs.items():
                     if isinstance(output, CachedOutput):
                         outputs_dict[key] = output
                     elif isinstance(output, OutputWithValue):

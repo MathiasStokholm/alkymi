@@ -43,6 +43,7 @@ setuptools.setup(
     project_urls={
         "Source": "https://github.com/MathiasStokholm/alkymi/",
         "Tracker": "https://github.com/MathiasStokholm/alkymi/issues",
+        "Documentation": "https://alkymi.readthedocs.io/en/latest/",
     },
     python_requires=">=3.5",
 )

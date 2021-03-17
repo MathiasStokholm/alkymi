@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from pathlib import Path
+import shutil
+
 from alkymi import checksums
 
 
@@ -49,3 +52,47 @@ def test_custom_class_checksum():
     class_4_hash = checksums.checksum(MyClass(5, "10"))
     assert class_1_hash != class_2_hash != class_3_hash
     assert class_1_hash == class_4_hash
+
+
+def test_path_checksum(tmpdir):
+    """
+    Test that checksumming of Path objects work as expected
+    """
+    tmpdir = Path(str(tmpdir))
+
+    # Checksum the directory before adding any data to it
+    tmpdir_checksum_empty = checksums.checksum(tmpdir)
+    assert tmpdir_checksum_empty is not None
+
+    # Name test file and ensure it doesn't already exist
+    test_file = tmpdir / "test_file.txt"
+    assert not test_file.exists()
+
+    # Checksum non-existent file
+    test_file_checksum_non_existent = checksums.checksum(test_file)
+    assert test_file_checksum_non_existent is not None
+
+    # Check that non-existent files with different names have different checksums
+    other_file = tmpdir / "other_file.txt"
+    assert checksums.checksum(other_file) != test_file_checksum_non_existent
+
+    # Write data to file and check again
+    with test_file.open("w") as f:
+        f.write("Testing 0")
+    test_file_checksum_1 = checksums.checksum(test_file)
+    assert test_file_checksum_1 != test_file_checksum_non_existent
+
+    # Change the data a bit and check again
+    with test_file.open("w") as f:
+        f.write("Testing 1")
+    test_file_checksum_2 = checksums.checksum(test_file)
+    assert test_file_checksum_2 != test_file_checksum_1
+
+    # And check that directory checksum remains the same
+    tmpdir_checksum = checksums.checksum(tmpdir)
+    assert tmpdir_checksum == tmpdir_checksum_empty
+
+    # Finally, ensure that removing the directory causes the directory checksum to change
+    shutil.rmtree(str(tmpdir))
+    tmpdir_checksum_non_existent = checksums.checksum(tmpdir)
+    assert tmpdir_checksum != tmpdir_checksum_non_existent

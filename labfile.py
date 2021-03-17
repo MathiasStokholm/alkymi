@@ -5,17 +5,19 @@ from typing import List
 
 import mypy.api
 import pytest
+from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
+import coverage as Coverage
 
 import alkymi as alk
 
 # Glob all source and test files and make them available as recipe outputs
-glob_source_files = alk.recipes.glob_files(Path("alkymi"), "*.py", recursive=True)
-glob_example_files = alk.recipes.glob_files(Path("examples"), "*.py", recursive=True)
-glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=True)
+glob_source_files = alk.recipes.glob_files("glob_source_files", Path("alkymi"), "*.py", recursive=True)
+glob_example_files = alk.recipes.glob_files("glob_example_files", Path("examples"), "*.py", recursive=True)
+glob_test_files = alk.recipes.glob_files("glob_test_files", Path("tests"), "test_*.py", recursive=True)
 
 # Also run linting and type checking on this file itself
-labfile_file = alk.recipes.file(Path("labfile.py"))
+labfile_file = alk.recipes.file("get_labfile", Path("labfile.py"))
 
 
 @alk.recipe(ingredients=[glob_test_files], transient=True)
@@ -28,6 +30,22 @@ def test(test_files: List[Path]) -> None:
     result = pytest.main(args=[str(file) for file in test_files])
     if result != pytest.ExitCode.OK:
         exit(1)
+
+
+@alk.recipe(ingredients=[glob_test_files], transient=True)
+def coverage(test_files: List[Path]) -> None:
+    """
+    Run all alkymi unit tests while capturing test coverage data
+
+    :param test_files: The pytest files to execute to generate test coverage data
+    """
+    cov = Coverage.coverage(source=["alkymi"])
+    cov.erase()
+    cov.start()
+    test(test_files)
+    cov.stop()
+    cov.xml_report()
+    cov.report()
 
 
 @alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
@@ -72,6 +90,19 @@ def type_check(source_files: List[Path], example_files: List[Path], test_files: 
         exit(return_code)
 
 
+@alk.recipe()
+def docs() -> None:
+    """
+    Build the documentation in docs/source using Sphinx and stores it in docs/build/index.html
+    """
+    doc_dir = Path("docs")
+    source_dir = doc_dir / "source"
+    build_dir = doc_dir / "build"
+    sphinx = Sphinx(str(source_dir), confdir=str(source_dir), outdir=str(build_dir),
+                    doctreedir=str(build_dir / "doctrees"), buildername="html")
+    sphinx.build()
+
+
 @alk.recipe(transient=True)
 def build() -> Path:
     """
@@ -85,7 +116,7 @@ def build() -> Path:
         shutil.rmtree(str(dist_dir))  # This must be a str on Python 3.5
     dist_dir.mkdir(exist_ok=False)
 
-    alk.utils.call("python3 setup.py sdist bdist_wheel")
+    alk.utils.call(["python3", "setup.py", "sdist", "bdist_wheel"])
     return dist_dir
 
 
@@ -96,8 +127,8 @@ def release_test(build_dir: Path) -> None:
 
     :param build_dir: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call("pip3 install --user twine==3.2.0")
-    alk.utils.call("python3 -m twine upload --repository testpypi {}/*".format(build_dir))
+    alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
+    alk.utils.call(["python3", "-m", "twine", "upload", "--repository", "testpypi", "{}/*".format(build_dir)])
 
 
 @alk.recipe(ingredients=[build], transient=True)
@@ -107,13 +138,13 @@ def release(build_dir: Path) -> None:
 
     :param build_dir: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call("pip3 install --user twine==3.2.0")
-    alk.utils.call("python3 -m twine upload {}/*".format(build_dir))
+    alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
+    alk.utils.call(["python3", "-m", "twine", "upload", "{}/*".format(build_dir)])
 
 
 def main():
     lab = alk.Lab("alkymi")
-    lab.add_recipes(test, lint, type_check, build, release_test, release)
+    lab.add_recipes(test, coverage, lint, type_check, docs, build, release_test, release)
     lab.open()
 
 

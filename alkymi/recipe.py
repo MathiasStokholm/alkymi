@@ -1,17 +1,20 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Union, Tuple, Any
+from typing import Iterable, Callable, List, Optional, Union, Tuple, Any, TypeVar, Generic, cast
 
 from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
-from .serialization import Output, OutputWithValue, CachedOutput
+from .serialization import OutputWithValue, CachedOutput
+from .types import Outputs, Status
 
-CleanlinessFunc = Callable[[Optional[Tuple[Any, ...]]], bool]
+R = TypeVar("R")  # The return type of the bound function
+
+CleanlinessFunc = Callable[[Optional[Outputs]], bool]
 
 
-class Recipe:
+class Recipe(Generic[R]):
     """
     Recipe is the basic building block of alkymi's evaluation approach. It binds a function (provided by the user) that
     it then calls when asked to by alkymi's execution engine. The result of the bound function evaluation can be
@@ -21,8 +24,8 @@ class Recipe:
 
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
-    def __init__(self, ingredients: Iterable['Recipe'], func: Callable, name: str, transient: bool, cache: CacheType,
-                 cleanliness_func: Optional[CleanlinessFunc] = None):
+    def __init__(self, func: Callable[..., R], ingredients: Iterable['Recipe'], name: str, transient: bool,
+                 cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
         """
         Create a new Recipe
 
@@ -34,8 +37,8 @@ class Recipe:
         :param cache: The type of caching to use for this Recipe
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
-        self._ingredients = list(ingredients)
         self._func = func
+        self._ingredients = list(ingredients)
         self._name = name
         self._transient = transient
         self._cleanliness_func = cleanliness_func
@@ -47,7 +50,7 @@ class Recipe:
         else:
             self._cache = cache
 
-        self._outputs = None  # type: Optional[Tuple[Output, ...]]
+        self._outputs = None  # type: Optional[Outputs]
         self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
         self._last_function_hash = None  # type: Optional[str]
 
@@ -62,12 +65,12 @@ class Recipe:
                 cache_root = Path(".")
             self.cache_path = cache_root / Recipe.CACHE_DIRECTORY_NAME / module_name / name
 
-            self.cache_file = self.cache_path / '{}.json'.format(self.function_hash)
+            self.cache_file = self.cache_path / 'cache.json'
             if self.cache_file.exists():
                 with self.cache_file.open('r') as f:
                     self.restore_from_dict(json.loads(f.read()))
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args) -> R:
         """
         Calls the bound function directly
 
@@ -75,10 +78,9 @@ class Recipe:
         :param kwargs: The keyword arguments to provide to the bound function
         :return: The value returned by the bound function
         """
-        return self._func(*args, **kwargs)
+        return self._func(*args)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) \
-            -> Optional[Tuple[Output, ...]]:
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> Outputs:
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
@@ -89,13 +91,14 @@ class Recipe:
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         log.debug('Invoking recipe: {}'.format(self.name))
-        self.outputs = self._canonical(self(*inputs))
+        outputs = self._canonical(self(*inputs))
+        self.outputs = outputs
         self._input_checksums = input_checksums
         self._last_function_hash = self.function_hash
         self._save_state()
-        return self.outputs
+        return outputs
 
-    def brew(self) -> Any:
+    def brew(self) -> R:
         """
         Evaluate this Recipe and all dependent inputs - this will build the computational graph and execute any needed
         dependencies to produce the outputs of this Recipe
@@ -103,18 +106,10 @@ class Recipe:
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import evaluate_recipe, compute_recipe_status
-        result, _ = evaluate_recipe(self, compute_recipe_status(self))
-        if result is None:
-            return None
+        from .alkymi import brew
+        return cast(R, brew(self))
 
-        # Unwrap single item tuples
-        # TODO(mathias): Replace tuples with a custom type to avoid issues if someone returns a tuple with one element
-        if isinstance(result, tuple) and len(result) == 1:
-            return result[0]
-        return result
-
-    def status(self):
+    def status(self) -> Status:
         """
         :return: The status of this recipe (will evaluate all upstream dependencies)
         """
@@ -132,19 +127,17 @@ class Recipe:
                 f.write(json.dumps(self.to_dict(), indent=4))
 
     @staticmethod
-    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Optional[Tuple[Any, ...]]:
+    def _canonical(outputs: Optional[Union[Tuple, Any]]) -> Outputs:
         """
-        Convert a set of outputs to a canonical form (a tuple with 0 ore more entries). This is used to ensure a
+        Convert a set of outputs to a canonical form (an Outputs instance). This is used to ensure a
         consistent form of recipe inputs and outputs
 
         :param outputs: The outputs to wrap
         :return: None if no output exist, otherwise a tuple containing the outputs
         """
-        if outputs is None:
-            return None
-        if isinstance(outputs, tuple):
-            return outputs
-        return outputs,
+        if outputs is not None and not isinstance(outputs, tuple):
+            return Outputs([outputs])
+        return Outputs(outputs)
 
     @property
     def outputs_valid(self) -> bool:
@@ -158,39 +151,13 @@ class Recipe:
             return True
         return all(output.valid for output in self._outputs)
 
-    def is_clean(self, new_input_checksums: Tuple[Optional[str], ...]) -> bool:
-        """
-        Check whether this Recipe is clean (result is cached) based on a set of (potentially new) input checksums
+    @property
+    def custom_cleanliness_func(self) -> Optional[CleanlinessFunc]:
+        return self._cleanliness_func
 
-        :param new_input_checksums: The (potentially new) input checksums to use for checking cleanliness
-        :return: Whether this recipe is clean (or needs to be reevaluated)
-        """
-        if self._cleanliness_func is not None:
-            # Non-pure function may have been changed by external circumstances, use custom check
-            # TODO(mathias): Should we return here, or do we need to still perform the additional checks below?
-            return self._cleanliness_func(self.outputs)
-
-        # Handle default pure function
-        # Not clean if outputs were never generated
-        if self.outputs is None or self.output_checksums is None:
-            return False
-
-        # Compute input checksums and perform equality check
-        if self.input_checksums != new_input_checksums:
-            log.debug('{} -> dirty: input checksums changed'.format(self._name))
-            return False
-
-        # Check if bound function has changed
-        if self._last_function_hash is not None:
-            if self._last_function_hash != self.function_hash:
-                return False
-
-        # Not clean if any output is no longer valid
-        if not self.outputs_valid:
-            return False
-
-        # All checks passed
-        return True
+    @property
+    def last_function_hash(self) -> Optional[str]:
+        return self._last_function_hash
 
     @property
     def name(self) -> str:
@@ -236,23 +203,27 @@ class Recipe:
         return self._input_checksums
 
     @property
-    def outputs(self) -> Optional[Tuple[Any, ...]]:
+    def outputs(self) -> Optional[Outputs]:
         """
-        :return: The outputs of this Recipe in canonical form (None or a tuple with zero or more entries)
+        :return: The outputs of this Recipe in canonical form
         """
         if self._outputs is None:
             return None
-        return tuple(output.value() for output in self._outputs)
+        if self._outputs.exists:
+            return Outputs(output.value() for output in self._outputs)
+        return self._outputs
 
     @outputs.setter
-    def outputs(self, outputs: Optional[Tuple[Any, ...]]) -> None:
+    def outputs(self, outputs: Outputs) -> None:
         """
         Sets the outputs of this Recipe and computes the necessary checksums needed for checking dirtiness
 
-        :param outputs: outputs of this Recipe in canonical form (None or a tuple with zero or more entries)
+        :param outputs: outputs of this Recipe in canonical form
         """
-        if outputs is not None:
-            self._outputs = tuple(OutputWithValue(output, checksums.checksum(output)) for output in outputs)
+        if outputs.exists:
+            self._outputs = Outputs(OutputWithValue(output, checksums.checksum(output)) for output in outputs)
+        else:
+            self._outputs = outputs
 
     @property
     def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
@@ -278,7 +249,7 @@ class Recipe:
                     outputs.append(serialization.cache(output, self.cache_path))
                 else:
                     raise RuntimeError("Output is of wrong type")
-            self._outputs = tuple(outputs)
+            self._outputs = Outputs(outputs)
             serialized_outputs = tuple(output.serialized for output in outputs)
 
         return OrderedDict(
@@ -299,7 +270,7 @@ class Recipe:
         if old_state["input_checksums"] is not None:
             self._input_checksums = tuple(old_state["input_checksums"])
         if old_state["outputs"] is not None and old_state["output_checksums"] is not None:
-            self._outputs = tuple(CachedOutput(None, checksum, serialized)
-                                  for serialized, checksum in
-                                  zip(old_state["outputs"], old_state["output_checksums"]))
+            self._outputs = Outputs(CachedOutput(None, checksum, serialized)
+                                    for serialized, checksum in
+                                    zip(old_state["outputs"], old_state["output_checksums"]))
         self._last_function_hash = old_state["last_function_hash"]

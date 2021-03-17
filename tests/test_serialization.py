@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 import copy
+import json
 from pathlib import Path
 from typing import List
+
+import pytest
 
 import alkymi as alk
 from alkymi import serialization, AlkymiConfig, checksums
@@ -12,24 +15,33 @@ def test_serialize_item(tmpdir):
     tmpdir = Path(str(tmpdir))
 
     cache_path_generator = (tmpdir / str(i) for i in range(5))
-    generator = serialization.serialize_item(Path("/test_path/test.txt"), cache_path_generator)
-    assert next(generator).startswith(serialization.PATH_TOKEN)
+    result = serialization.serialize_item(Path("/test_path/test.txt"), cache_path_generator)
+    assert result.startswith(serialization.PATH_TOKEN)
 
     test_string = "test_string"
-    generator = serialization.serialize_item(test_string, cache_path_generator)
-    assert next(generator) == test_string
+    result = serialization.serialize_item(test_string, cache_path_generator)
+    assert result == test_string
 
     # Test serialization of dicts
-    generator = serialization.serialize_item(dict(key="value"), cache_path_generator)
-    assert next(generator) is not None
+    result = serialization.serialize_item(dict(key="value"), cache_path_generator)
+    assert isinstance(result, dict)
+    assert result["keys"] == ["key"]
+    assert result["values"] == ["value"]
+
+    # test serialization of standard types
+    items = [0, "1", 2.5, True, None]
+    result = serialization.serialize_item(items, cache_path_generator)
+    print(items)
+    assert result == items
 
 
 def test_serialize_deserialize_items(tmpdir):
     tmpdir = Path(str(tmpdir))
 
-    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5})
+    json_str = "{'test': 13 []''{}!!"
+    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5}, json_str)
     cache_path_generator = (tmpdir / str(i) for i in range(5))
-    serialized_items = serialization.serialize_items(items, cache_path_generator)
+    serialized_items = serialization.serialize_item(items, cache_path_generator)
     assert serialized_items is not None
     assert len(serialized_items) == len(items)
     assert isinstance(serialized_items[0], str)
@@ -38,8 +50,13 @@ def test_serialize_deserialize_items(tmpdir):
     assert isinstance(serialized_items[3], float)
     assert isinstance(serialized_items[4], list)
     assert len(serialized_items[4]) == len(items[4])
+    assert isinstance(serialized_items[5], dict)
+    assert isinstance(serialized_items[6], str)
 
-    deserialized_items = serialization.deserialize_items(serialized_items)
+    # Pass through JSON serialization to ensure we can save/load correctly
+    serialized_items = json.loads(json.dumps(serialized_items, indent=4))
+
+    deserialized_items = serialization.deserialize_item(serialized_items)
     assert deserialized_items is not None
     assert len(deserialized_items) == len(items)
     for deserialized_item, item in zip(deserialized_items, items):
@@ -141,3 +158,36 @@ def test_complex_serialization(tmpdir):
     with file_a.open("w") as f:
         f.write(f.name)
     assert obj_cached.valid
+
+
+class MyClass:
+    def __init__(self, value):
+        self.value = value
+
+
+def test_enable_disable_pickling(tmpdir):
+    """
+    Test turning pickling on/off for serialization and checksumming
+    """
+    tmpdir = Path(str(tmpdir))
+    value = MyClass(5)
+
+    # Test pickling enabled
+    AlkymiConfig.get().allow_pickling = True
+    cache_path_generator = (tmpdir / str(i) for i in range(5))
+    result = serialization.serialize_item(value, cache_path_generator)
+    assert result.startswith(serialization.PICKLE_TOKEN)
+    assert serialization.deserialize_item(result).value == 5
+    assert checksums.checksum(result) is not None
+
+    # Test pickling disabled
+    AlkymiConfig.get().allow_pickling = False
+    with pytest.raises(RuntimeError):
+        serialization.serialize_item(value, cache_path_generator)
+    with pytest.raises(RuntimeError):
+        serialization.deserialize_item(result)
+    with pytest.raises(RuntimeError):
+        checksums.checksum(value)
+
+    # Return to default state
+    AlkymiConfig.get().allow_pickling = True

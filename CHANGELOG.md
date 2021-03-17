@@ -6,6 +6,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2021-03-17
+### Added
+- Added a new `zip_results()` built-in recipe generator to zip together outputs from multiple recipes
+- Documentation in the `docs/` directory. The documentation is built using Sphinx and hosted on
+https://alkymi.readthedocs.io/en/latest/. The documentation can be built by running `python labfile.py brew docs`.
+- Added checksum unit tests for the `Path` type
+- Added unit test for caching of recipes that do not return anything (None)
+- Added `allow_pickling` configuration option to let the user turn off pickling for serialization, deserialization and
+checksumming and a unit test for it
+- Added test coverage using `coverage` and https://codecov.io (see the `coverage` recipe in `labfile.py`)
+
+### Changed
+- Regular checks for cleanliness are now run even if a custom cleanliness check passes (e.g. for the `glob_files()`
+built-in recipe generator). This ensures that changes to external files and others are correctly caught and handled.
+- Broke `Status.Dirty` into several more explicit causes of dirtiness (e.g. `OutputsInvalid`) to make it more clear to
+the user why a given recipe has been marked dirty
+- Moved functions for checking Recipe and ForeachRecipe dirtiness to alkymi.alkymi to reduce the complexity of the
+classes
+- Moved the core logic of the `Recipe.brew()` function to alkymi.alkymi
+- Provide names explicitly to built-in recipe generators to avoid name clashes when a built-in recipe generator is used
+multiple times in a single module
+- Greatly simplified the serialization and deserialization logic and got rid of generators
+- Converted the built-in recipe types `Args` and `NamedArgs` to be subclasses of `Recipe` to avoid the clunky `.recipe`
+property.
+- Updated `README.md` to reflect the new documentation page at https://alkymi.readthedocs.io/en/latest/.
+- Replaced the usage of `tuple` with a new `Outputs` type that keeps most of the behavior, but ensures that all return
+types are valid
+- Made `Recipe` generic in the return type and forwarded return type information from decorators to allow `brew` to
+return valid type information
+- Updated built-in recipes to supply return type information to their `Recipe` objects
+- Use the highest available protocol when pickling for serialization and checksumming
+
+### Fixed
+- Converted several captured variables inside tests to globals to avoid them interfering with hashing of the bound
+functions
+- Fixed an issue where a bound function changing between evaluations could cause the status to be reported as
+"NotEvaluated" instead of "BoundFunctionChanged". Added a test step to check this.
+- Fixed `utils.call()` to work regardless of operating system and added a small unit test
+- Fixed caching of dictionaries output by ForeachRecipe
+- Dictionaries are now serialized using a dict with key and value entries supporting arbitrary nesting, instead of being
+pickled
+- Fixed a bug where non-existent `Path` objects would result in the same checksum
+- Fixed a bug where recipes without return values would remain `NotEvaluated` even though they had been evaluated and
+cached
+
 ## [0.0.4] - 2021-02-05
 ### Added
 - Updated README.md with "Command Line Usage", "Upcoming Features" and "Known Issues" sections
@@ -42,6 +87,7 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.3

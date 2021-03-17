@@ -5,6 +5,8 @@ import hashlib
 import inspect
 
 # Load additional checksum generators based on available libs
+from alkymi import AlkymiConfig
+
 additional_checksum_generators = {}  # type: Dict[Any, Callable]
 try:
     import numpy as np  # NOQA
@@ -92,8 +94,11 @@ class Checksummer(object):
                 self.update(generator(obj))
             else:
                 # As a last resort, try to pickle the object to get bytes for hashing
+                if not AlkymiConfig.get().allow_pickling:
+                    raise RuntimeError("Pickling disabled - cannot checksum item: {}".format(type(obj)))
+
                 try:
-                    pickled_bytes = pickle.dumps(obj)
+                    pickled_bytes = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
                     self.update(pickled_bytes)
                 except pickle.PicklingError:
                     raise ValueError("Checksum not supported for type: {}".format(type(obj)))
@@ -128,13 +133,15 @@ class Checksummer(object):
 
         :param path: The Path to update the checksum with
         """
-        # Ignore non-existent path
+        # For non-existent paths, we just care about the path itself
         if not path.exists():
+            self.update(str(path))
             return
 
-        # For directories, we just care about the path itself
+        # For directories, we care about the path and whether it exists
         if path.is_dir():
             self.update(str(path))
+            self.update(path.exists())
             return
 
         # For files, we care about the file contents too

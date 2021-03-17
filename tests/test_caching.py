@@ -18,8 +18,10 @@ def test_caching(caplog, tmpdir):
     AlkymiConfig.get().cache_path = tmpdir
 
     # Manually wrap the function
+    a_value = 42
+
     def should_cache() -> int:
-        return 42
+        return a_value
 
     should_cache_recipe = alk.recipe()(should_cache)
 
@@ -30,6 +32,32 @@ def test_caching(caplog, tmpdir):
     # Create a "copy" to force reloading from cache
     should_cache_recipe_copy = alk.recipe()(should_cache)
     assert should_cache_recipe_copy.status() == Status.Ok
+
+    # Try changing the bound function and seeing that we catch it
+    a_value = 1337
+    assert should_cache_recipe.status() == Status.BoundFunctionChanged
+    assert should_cache_recipe_copy.status() == Status.BoundFunctionChanged
+    should_cache_recipe_copy_2 = alk.recipe()(should_cache)
+    assert should_cache_recipe_copy_2.status() == Status.BoundFunctionChanged
+
+
+def test_caching_no_return_value(caplog, tmpdir):
+    """
+    Test that caching works even when the bound function doesn't return anything (None)
+    """
+    tmpdir = Path(str(tmpdir))
+    AlkymiConfig.get().cache = True
+    AlkymiConfig.get().cache_path = tmpdir
+
+    @alk.recipe()
+    def no_return_value() -> None:
+        some_state = "This is a debug statement from test_caching_no_return_value()"
+        alk.log.debug(some_state)  # Simulate non-pure function
+
+    assert no_return_value.status() == Status.NotEvaluatedYet
+    no_return_value.brew()
+    assert no_return_value.status() == Status.Ok
+    assert (tmpdir / Recipe.CACHE_DIRECTORY_NAME / "tests" / "no_return_value").is_dir()
 
 
 # We use these globals to avoid altering the hashes of bound functions when these change
@@ -50,7 +78,7 @@ def test_foreach_caching(caplog, tmpdir):
     execution_counts = [0] * 5
     stopping_point = 2
 
-    args = alk.recipes.args(list(range(len(execution_counts))))
+    args = alk.recipes.args(list(range(len(execution_counts))), name="args")
 
     def _check_counts(expected_counts: Tuple[int, int, int, int, int]):
         for actual_count, expected_count in zip(execution_counts, expected_counts):
@@ -62,7 +90,7 @@ def test_foreach_caching(caplog, tmpdir):
         execution_counts[idx] += 1
         return execution_counts[idx]
 
-    record_execution_recipe = alk.foreach(args.recipe)(record_execution)
+    record_execution_recipe = alk.foreach(args)(record_execution)
     assert record_execution_recipe.status() == Status.NotEvaluatedYet
 
     # Initial brew should cause executions up until stopping point
@@ -85,7 +113,7 @@ def test_foreach_caching(caplog, tmpdir):
     assert record_execution_recipe.status() == Status.MappedInputsDirty
 
     # Reloading the recipe from cache should result in the same partially evaluated state
-    record_execution_recipe_copy = alk.foreach(args.recipe)(record_execution)
+    record_execution_recipe_copy = alk.foreach(args)(record_execution)
     assert record_execution_recipe_copy.status() == Status.MappedInputsDirty
 
     # Move interruption by another index - only the single element should be evaluated now
@@ -98,7 +126,7 @@ def test_foreach_caching(caplog, tmpdir):
     assert record_execution_recipe_copy.status() == Status.MappedInputsDirty
 
     # Reload from cache and finish
-    record_execution_recipe_copy_2 = alk.foreach(args.recipe)(record_execution)
+    record_execution_recipe_copy_2 = alk.foreach(args)(record_execution)
     assert record_execution_recipe_copy_2.status() == Status.MappedInputsDirty
     stopping_point = -1
     record_execution_recipe_copy_2.brew()

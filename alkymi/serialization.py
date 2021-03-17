@@ -1,19 +1,19 @@
-import itertools
 import pickle
 import re
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Optional, Any, Tuple, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
+from typing import Optional, Any, Iterable, Union, Generator, Sequence, Dict, Type, TypeVar, Generic, cast
 
-# Shorthands for generator types used below
-from . import checksums
+from . import checksums, AlkymiConfig
 
 # TODO(mathias): This file needs to be reworked to be less complex/crazy. Some sort of class w/ recursive serialization
 #                might help make this a lot more readable
 
+# Shorthands for generator types used below
+# Note that this doesn't fully represent the JSON hierarchy due to https://github.com/python/mypy/issues/731
 CachePathGenerator = Generator[Path, None, None]
-SerializationGenerator = Generator[Union[str, int, float], None, None]
-SerializableRepresentation = Union[str, int, float, Iterable[Union[str, int, float]]]
+BaseSerializable = Union[str, int, float, None]
+SerializableRepresentation = Union[BaseSerializable, Iterable[BaseSerializable], Dict[str, BaseSerializable]]
 
 # Tokens used to signify to the deserializer func how to deserializer a given value
 TOKEN_TEMPLATE = "!#{}#!"
@@ -35,18 +35,20 @@ PATH_TOKEN = create_token("path")
 PICKLE_TOKEN = create_token("pickle")
 BYTES_TOKEN = create_token("bytes")
 
+S = TypeVar("S")  # The type that a Serializer subclass acts on
 
-class Serializer:
+
+class Serializer(Generic[S]):
     """
     Abstract base class for classes that enable serialization/deserialization of classes not in the standard library
     """
 
     @staticmethod
-    def serialize(value: Any, cache_path: Path) -> str:
+    def serialize(value: S, cache_path: Path) -> str:
         raise NotImplementedError()
 
     @staticmethod
-    def deserialize(path: Path) -> Any:
+    def deserialize(path: Path) -> S:
         raise NotImplementedError()
 
 
@@ -57,7 +59,7 @@ try:
     import numpy as np  # NOQA
 
 
-    class NdArraySerializer(Serializer):
+    class NdArraySerializer(Serializer[np.ndarray]):
         """
         Numpy array serializer/deserializer
         """
@@ -93,121 +95,107 @@ except ImportError:
     pass
 
 
-def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Optional[SerializationGenerator]:
+def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> SerializableRepresentation:
     """
-    Serializes an item (potentially recursively) and returns the result(s) as a generator
+    Serializes an item (potentially recursively)
 
     :param item: The item to serialize (may be nested)
     :param cache_path_generator: The generator to use for generating cache paths
-    :return: A generator that will yield one or more serialized entries
+    :return: The serialized item
     """
-    serializer = additional_serializers.get(type(item), None)
     if item is None:
-        yield None
-    elif serializer is not None:
-        yield serializer.serialize(item, next(cache_path_generator))
+        return None
+
+    itype = type(item)
+    serializer = additional_serializers.get(itype, None)
+    if serializer is not None:
+        return serializer.serialize(item, next(cache_path_generator))
     elif isinstance(item, Path):
         # External path - store the checksum of the file at the current point in time
         file_checksum = checksums.checksum(item)
-        yield "{}{}:{}".format(PATH_TOKEN, file_checksum, item)
-    elif isinstance(item, str) or isinstance(item, float) or isinstance(item, int):
-        yield item
+        return "{}{}:{}".format(PATH_TOKEN, file_checksum, item)
+    elif itype in (str, float, int, bool):
+        return item
     elif isinstance(item, bytes):
         output_file = next(cache_path_generator)
         with output_file.open("wb") as f:
             f.write(item)
-        yield "{}{}".format(BYTES_TOKEN, output_file)
+        return "{}{}".format(BYTES_TOKEN, output_file)
     elif isinstance(item, Sequence):
-        items = []
-        for subitem in item:
-            generator = serialize_item(subitem, cache_path_generator)
-            if generator is not None:
-                for item in generator:
-                    items.append(item)
-        yield items
+        # recursive types are not supported by mypy yet
+        return [serialize_item(subitem, cache_path_generator) for subitem in item]  # type: ignore
+    elif isinstance(item, dict):
+        keys = serialize_item(list(item.keys()), cache_path_generator)
+        values = serialize_item(list(item.values()), cache_path_generator)
+        return dict(keys=keys, values=values)
     else:
         # As a last resort, try to dump as pickle
+        if not AlkymiConfig.get().allow_pickling:
+            raise RuntimeError("Pickling disabled - cannot serialize type: {}".format(type(item)))
+
         try:
             output_file = next(cache_path_generator)
             with output_file.open("wb") as f:
-                pickle.dump(item, f)
-            yield "{}{}".format(PICKLE_TOKEN, output_file)
+                pickle.dump(item, f, protocol=pickle.HIGHEST_PROTOCOL)
+            return "{}{}".format(PICKLE_TOKEN, output_file)
         except pickle.PicklingError:
             raise Exception("Cannot serialize item of type: {}".format(type(item)))
 
 
-def serialize_items(items: Optional[Tuple[Any, ...]], cache_path_generator: CachePathGenerator) -> \
-        Optional[Tuple[Any, ...]]:
+def deserialize_item(item: SerializableRepresentation) -> Any:
     """
-    Serialize items (potentially recursively) and returns the results as a tuple
-
-    :param items: The items to serialize
-    :param cache_path_generator: The generator to use for generating cache paths
-    :return: The results of serialization as a tuple
-    """
-    if items is None:
-        return None
-
-    serialized_items = []
-    for item in items:
-        generator = serialize_item(item, cache_path_generator)
-        if generator is not None:
-            for serialized_item in generator:
-                serialized_items.append(serialized_item)
-    return tuple(serialized_items)
-
-
-def deserialize_item(item: SerializableRepresentation) -> Generator[Any, None, None]:
-    """
-    Deserializes an item (potentially recursively) and returns the result(s) as a generator
+    Deserializes an item (potentially recursively)
 
     :param item: The item to deserialize (may be nested)
-    :return: A generator that will yield one or more deserialized entries
+    :return: The deserialized item
     """
+    if item is None:
+        return None
+
     if isinstance(item, str):
         m = re.match(TOKEN_REGEX, item)
         if m is None:
             # Regular string
-            yield item
+            return item
         else:
             if item.startswith(PATH_TOKEN):
                 # Path encoded as string with checksum, e.g. "!#path#!CHECKSUM_HERE:/what/a/path"
                 non_token_part = item[len(PATH_TOKEN):]
                 _, path_str = non_token_part.split(":", maxsplit=1)
-                yield Path(path_str)
+                return Path(path_str)
             elif item.startswith(BYTES_TOKEN):
                 # Bytes dumped to file
                 with open(item[len(BYTES_TOKEN):], "rb") as f:
-                    yield f.read()
+                    return f.read()
             elif item.startswith(PICKLE_TOKEN):
                 # Arbitrary object encoded as pickle
+                if not AlkymiConfig.get().allow_pickling:
+                    raise RuntimeError("Pickling disabled - cannot deserialize item: {}".format(item))
                 with open(item[len(PICKLE_TOKEN):], "rb") as f:
-                    yield pickle.loads(f.read())
+                    return pickle.loads(f.read())
             else:
                 found_token = m.group(1)
                 deserializer = additional_deserializers.get(found_token, None)
                 if deserializer is not None:
-                    yield deserializer.deserialize(Path(item[len(found_token):]))
+                    return deserializer.deserialize(Path(item[len(found_token):]))
                 else:
                     raise RuntimeError("No deserializer found for token: {}".format(found_token))
     elif isinstance(item, float) or isinstance(item, int):
-        yield item
+        return item
     elif isinstance(item, Sequence):
-        yield list(itertools.chain.from_iterable(deserialize_item(subitem) for subitem in item))
+        return list(deserialize_item(subitem) for subitem in item)
+    elif isinstance(item, dict):
+        # These should never be triggered, because we always store keys and values as lists in serialize_item(), but
+        # this makes the type-checker happy
+        if not isinstance(item["keys"], Iterable):
+            raise ValueError("'keys' entry must be a list")
+        if not isinstance(item["values"], Iterable):
+            raise ValueError("'values' entry must be a list")
+        keys = list(deserialize_item(key) for key in item["keys"])
+        values = list(deserialize_item(val) for val in item["values"])
+        return {key: value for key, value in zip(keys, values)}
     else:
         raise Exception("Cannot deserialize item of type: {}".format(type(item)))
-
-
-def deserialize_items(items: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, ...]]:
-    """
-    Deserialize items (potentially recursively) and returns the results as a tuple
-
-    :param items: The items to deserialize
-    :return: The results of deserialization as a tuple
-    """
-    if items is None:
-        return None
-    return tuple(itertools.chain.from_iterable(deserialize_item(item) for item in items))
 
 
 def is_valid_serialized(item: SerializableRepresentation) -> bool:
@@ -259,8 +247,7 @@ class Output(Generic[T], metaclass=ABCMeta):
     @property
     def valid(self) -> bool:
         """
-        :return: Whether this Output is still valid (e.g. an external file pointed to by a Path instance can have been
-        altered)
+        :return: Whether this Output is still valid (e.g. an external file pointed to by a Path can have been altered)
         """
         return NotImplemented
 
@@ -341,7 +328,7 @@ def cache(output: OutputWithValue, base_path: Path) -> CachedOutput:
 
     :param output: The Output to cache
     :param base_path: The directory to use for this serialization. A subdirectory will be created to store complex
-    serialized objects
+        serialized objects
     :return: The cached output
     """
     value = output.value()  # type: ignore  # Make all Output types fully generic for this to work
@@ -356,15 +343,7 @@ def cache(output: OutputWithValue, base_path: Path) -> CachedOutput:
             yield cache_path / str(i)
             i += 1
 
-    serialized_items = []
-    generator = serialize_item(value, cache_path_generator())
-    if generator is not None:
-        for serialized_item in generator:
-            serialized_items.append(serialized_item)
-    if len(serialized_items) == 1:
-        return CachedOutput(value, checksum, serialized_items[0])
-    else:
-        return CachedOutput(value, checksum, serialized_items)
+    return CachedOutput(value, checksum, serialize_item(value, cache_path_generator()))
 
 
 def from_cache(serializable_representation: SerializableRepresentation) -> Any:
@@ -374,6 +353,4 @@ def from_cache(serializable_representation: SerializableRepresentation) -> Any:
     :param serializable_representation: The serialized representation to deserialize
     :return: The deserialized object
     """
-    if serializable_representation is None:
-        return None
-    return next(deserialize_item(serializable_representation))
+    return deserialize_item(serializable_representation)

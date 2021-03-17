@@ -1,12 +1,14 @@
-from typing import Iterable, Callable
+from typing import Iterable, Callable, TypeVar
 
 from .config import CacheType
 from .foreach_recipe import ForeachRecipe
 from .recipe import Recipe
 
+R = TypeVar("R")  # The return type of the bound function
+
 
 def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False, cache: CacheType = CacheType.Auto) -> \
-        Callable[[Callable], Recipe]:
+        Callable[[Callable[..., R]], Recipe[R]]:
     """
     Convert a function into an alkymi Recipe to enable caching and conditional evaluation
 
@@ -17,21 +19,21 @@ def recipe(ingredients: Iterable[Recipe] = (), transient: bool = False, cache: C
     :return: A callable that will yield the Recipe created from the bound function
     """
 
-    def _decorator(func: Callable) -> Recipe:
+    def _decorator(func: Callable[..., R]) -> Recipe[R]:
         """
         Closure to capture arguments from decorator
 
         :param func: The bound function to wrap in a Recipe
         :return: The created Recipe
         """
-        return Recipe(ingredients, func, func.__name__, transient, cache)
+        return Recipe(func, ingredients, func.__name__, transient, cache)
 
     return _decorator
 
 
 def foreach(mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient: bool = False,
             cache: CacheType = CacheType.Auto) -> \
-        Callable[[Callable], ForeachRecipe]:
+        Callable[[Callable[..., R]], ForeachRecipe[R]]:
     """
     Convert a function into an alkymi Recipe to enable caching and conditional evaluation
 
@@ -44,7 +46,7 @@ def foreach(mapped_inputs: Recipe, ingredients: Iterable[Recipe] = (), transient
     :return: A callable that will yield the Recipe created from the bound function
     """
 
-    def _decorator(func: Callable) -> ForeachRecipe:
+    def _decorator(func: Callable[..., R]) -> ForeachRecipe[R]:
         """
         Closure to capture arguments from decorator
 

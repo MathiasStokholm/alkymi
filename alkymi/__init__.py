@@ -4,6 +4,7 @@ from .logging import log  # NOQA
 from .decorators import recipe, foreach  # NOQA
 from .recipes import glob_files, file, args, kwargs  # NOQA
 from .utils import call  # NOQA
+from .types import Status  # NOQA
 
 # Define version
 from .version import VERSION, __version__  # NOQA

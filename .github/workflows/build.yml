@@ -33,10 +33,15 @@ jobs:
     - name: Lint with flake8
       run: |
         python labfile.py brew lint
-    - name: Test with pytest
+    - name: Test with pytest and generate coverage
       run: |
-        python labfile.py brew test
+        python labfile.py brew coverage
     - name: Type check with mypy
-      if: true
       run: |
         python labfile.py brew type_check
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        flags: unittests
+        env_vars: OS,PYTHON
+        verbose: true

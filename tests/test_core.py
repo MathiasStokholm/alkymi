@@ -73,8 +73,11 @@ def test_brew():
     assert len(returns_empty_tuple.brew()) == 0
 
 
-# We use this global to avoid altering the hashes of bound functions when the execution count changes
+# We use these globals to avoid altering the hashes of bound functions when any of these change
 execution_counts = {}  # type: Dict[str, int]
+build_dir = Path()
+file = Path()
+copied_file = Path()
 
 
 def test_execution(caplog, tmpdir):
@@ -82,15 +85,13 @@ def test_execution(caplog, tmpdir):
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
 
-    global execution_counts
+    global execution_counts, build_dir, file, copied_file
     execution_counts = dict(
         produces_build_dir=0,
         produces_a_single_file=0,
         copies_a_file=0,
         reads_a_file=0
     )
-
-    # FIXME(mathias): These should somehow be converted to global variables to avoid them influencing function hashes
     build_dir = Path(tmpdir) / 'build'  # type: Path
     file = build_dir / 'file.txt'  # type: Path
     copied_file = build_dir / 'file_copy.txt'  # type: Path
@@ -104,8 +105,8 @@ def test_execution(caplog, tmpdir):
     @alk.recipe(ingredients=[produces_build_dir])
     def produces_a_single_file(_: Path) -> Path:
         execution_counts['produces_a_single_file'] += 1
-        with file.open('w') as f:
-            f.write('testing')
+        with file.open('w') as f_out:
+            f_out.write('testing')
         return file
 
     @alk.recipe(ingredients=[produces_a_single_file])
@@ -118,8 +119,8 @@ def test_execution(caplog, tmpdir):
     @alk.foreach(copies_a_file, transient=True)
     def reads_a_file(test_file: Path) -> None:
         execution_counts['reads_a_file'] += 1
-        with test_file.open('r') as f:
-            f.read()
+        with test_file.open('r') as f_out:
+            f_out.read()
 
     # Upon definition, no functions should have been executed
     assert execution_counts['produces_build_dir'] == 0
