@@ -6,4 +6,5 @@ build
 alkymi.egg-info
 dist
 .coverage
+coverage.xml
 

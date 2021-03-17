@@ -39,12 +39,12 @@ def coverage(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute to generate test coverage data
     """
-    cov = Coverage.coverage(source=["alkymi"])
+    cov = Coverage.coverage(source=[Path("alkymi")])
     cov.erase()
     cov.start()
     test(test_files)
     cov.stop()
-    cov.save()
+    cov.xml_report()
     cov.report()
 
 

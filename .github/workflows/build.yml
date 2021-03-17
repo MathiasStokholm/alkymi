@@ -37,6 +37,11 @@ jobs:
       run: |
         python labfile.py brew test
     - name: Type check with mypy
-      if: true
       run: |
         python labfile.py brew type_check
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        flags: unittests
+        env_vars: OS,PYTHON
+        verbose: true
