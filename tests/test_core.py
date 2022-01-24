@@ -75,9 +75,9 @@ def test_brew():
 
 # We use these globals to avoid altering the hashes of bound functions when any of these change
 execution_counts = {}  # type: Dict[str, int]
-build_dir = Path()
-file = Path()
-copied_file = Path()
+build_dir_global = Path()
+file_global = Path()
+copied_file_global = Path()
 
 
 def test_execution(caplog, tmpdir):
@@ -85,89 +85,89 @@ def test_execution(caplog, tmpdir):
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
 
-    global execution_counts, build_dir, file, copied_file
+    global execution_counts, build_dir_global, file_global, copied_file_global
     execution_counts = dict(
-        produces_build_dir=0,
-        produces_a_single_file=0,
-        copies_a_file=0,
-        reads_a_file=0
+        build_dir=0,
+        a_single_file=0,
+        file_and_copy=0,
+        content_of_files=0
     )
-    build_dir = Path(tmpdir) / 'build'  # type: Path
-    file = build_dir / 'file.txt'  # type: Path
-    copied_file = build_dir / 'file_copy.txt'  # type: Path
+    build_dir_global = Path(tmpdir) / 'build'  # type: Path
+    file_global = build_dir_global / 'file.txt'  # type: Path
+    copied_file_global = build_dir_global / 'file_copy.txt'  # type: Path
 
     @alk.recipe()
-    def produces_build_dir() -> Path:
-        execution_counts['produces_build_dir'] += 1
-        build_dir.mkdir(parents=False, exist_ok=True)
-        return build_dir
+    def build_dir() -> Path:
+        execution_counts['build_dir'] += 1
+        build_dir_global.mkdir(parents=False, exist_ok=True)
+        return build_dir_global
 
-    @alk.recipe(ingredients=[produces_build_dir])
-    def produces_a_single_file(_: Path) -> Path:
-        execution_counts['produces_a_single_file'] += 1
-        with file.open('w') as f_out:
+    @alk.recipe()
+    def a_single_file(build_dir: Path) -> Path:
+        execution_counts['a_single_file'] += 1
+        with file_global.open('w') as f_out:
             f_out.write('testing')
-        return file
+        return file_global
 
-    @alk.recipe(ingredients=[produces_a_single_file])
-    def copies_a_file(_: Path) -> List[Path]:
-        execution_counts['copies_a_file'] += 1
-        with file.open('r') as infile, copied_file.open('w') as outfile:
+    @alk.recipe()
+    def file_and_copy(a_single_file: Path) -> List[Path]:
+        execution_counts['file_and_copy'] += 1
+        with file_global.open('r') as infile, copied_file_global.open('w') as outfile:
             outfile.write(infile.read())
-        return [file, copied_file]
+        return [file_global, copied_file_global]
 
-    @alk.foreach(copies_a_file, transient=True)
-    def reads_a_file(test_file: Path) -> None:
-        execution_counts['reads_a_file'] += 1
+    @alk.foreach(file_and_copy, transient=True)
+    def content_of_files(test_file: Path) -> None:
+        execution_counts['content_of_files'] += 1
         with test_file.open('r') as f_out:
             f_out.read()
 
     # Upon definition, no functions should have been executed
-    assert execution_counts['produces_build_dir'] == 0
-    assert execution_counts['produces_a_single_file'] == 0
-    assert execution_counts['copies_a_file'] == 0
-    assert execution_counts['reads_a_file'] == 0
+    assert execution_counts['build_dir'] == 0
+    assert execution_counts['a_single_file'] == 0
+    assert execution_counts['file_and_copy'] == 0
+    assert execution_counts['content_of_files'] == 0
 
     # On first brew, all functions should have been executed once
-    # 'reads_a_file' should be executed twice for every triggering - once per file
-    reads_a_file.brew()
-    assert execution_counts['produces_build_dir'] == 1
-    assert execution_counts['produces_a_single_file'] == 1
-    assert execution_counts['copies_a_file'] == 1
-    assert execution_counts['reads_a_file'] == 1 * 2
+    # 'content_of_files' should be executed twice for every triggering - once per file
+    content_of_files.brew()
+    assert execution_counts['build_dir'] == 1
+    assert execution_counts['a_single_file'] == 1
+    assert execution_counts['file_and_copy'] == 1
+    assert execution_counts['content_of_files'] == 1 * 2
 
-    # On subsequent brews, only the transient "reads_a_file" function should be executed again
+    # On subsequent brews, only the transient "content_of_files" function should be executed again
     for i in range(1, 4):
-        reads_a_file.brew()
-        assert execution_counts['produces_build_dir'] == 1
-        assert execution_counts['produces_a_single_file'] == 1
-        assert execution_counts['copies_a_file'] == 1
-        assert execution_counts['reads_a_file'] == (1 + i) * 2
+        content_of_files.brew()
+        assert execution_counts['build_dir'] == 1
+        assert execution_counts['a_single_file'] == 1
+        assert execution_counts['file_and_copy'] == 1
+        assert execution_counts['content_of_files'] == (1 + i) * 2
 
     # Touching an output (but leaving the contents the exact same) should not cause reevaluation of the function that
     # created that output
     time.sleep(0.01)
-    file.touch(exist_ok=True)
-    reads_a_file.brew()
-    assert execution_counts['produces_build_dir'] == 1
-    assert execution_counts['produces_a_single_file'] == 1
-    assert execution_counts['copies_a_file'] == 1
-    assert execution_counts['reads_a_file'] == 5 * 2
+    file_global.touch(exist_ok=True)
+    content_of_files.brew()
+    assert execution_counts['build_dir'] == 1
+    assert execution_counts['a_single_file'] == 1
+    assert execution_counts['file_and_copy'] == 1
+    assert execution_counts['content_of_files'] == 5 * 2
 
     # Changing an output should cause reevaluation of the function that created that output
     time.sleep(0.01)
-    with file.open("w") as f:
+    with file_global.open("w") as f:
         f.write("something new!")
-    reads_a_file.brew()
-    assert execution_counts['produces_build_dir'] == 1
-    assert execution_counts['produces_a_single_file'] == 2
-    assert execution_counts['copies_a_file'] == 2
-    assert execution_counts['reads_a_file'] == 6 * 2
+    content_of_files.brew()
+    assert execution_counts['build_dir'] == 1
+    assert execution_counts['a_single_file'] == 2
+    assert execution_counts['file_and_copy'] == 2
+    assert execution_counts['content_of_files'] == 6 * 2
 
     # Deleting the build dir should cause full reevaluation
-    shutil.rmtree(str(build_dir))
-    reads_a_file.brew()
-    assert execution_counts['produces_build_dir'] == 2
-    assert execution_counts['produces_a_single_file'] == 3
-    assert execution_counts['copies_a_file'] == 3
-    assert execution_counts['reads_a_file'] == 7 * 2
+    shutil.rmtree(str(build_dir_global))
+    content_of_files.brew()
+    assert execution_counts['build_dir'] == 2
+    assert execution_counts['a_single_file'] == 3
+    assert execution_counts['file_and_copy'] == 3
+    assert execution_counts['content_of_files'] == 7 * 2

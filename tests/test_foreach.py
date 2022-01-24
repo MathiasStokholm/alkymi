@@ -42,34 +42,34 @@ def test_execution(caplog, tmpdir):
     args = alkymi.recipes.args([f1], name="args")
 
     @alk.foreach(args)
-    def read_file(path: Path) -> str:
+    def file_contents(path: Path) -> str:
         execution_counts[path] += 1
         with path.open('r') as f:
             return f.read()
 
-    @alk.recipe(ingredients=[read_file])
+    @alk.recipe()
     def to_dict(file_contents: List[str]) -> Dict[str, str]:
         return {f: f for f in file_contents}
 
     # This is used to check later whether changing an ingredient will correctly change everything
-    extra_count_arg = alkymi.recipes.args(0, name="extra_count_arg")
+    extra_count = alkymi.recipes.args(0, name="extra_count_arg")
 
-    @alk.foreach(to_dict, ingredients=[extra_count_arg])
+    @alk.foreach(to_dict)
     def change_count(file_content: str, extra_count: int) -> str:
         execution_counts[file_content] += 1 + extra_count
         return file_content
 
-    assert read_file.status() == Status.NotEvaluatedYet
+    assert file_contents.status() == Status.NotEvaluatedYet
     assert change_count.status() == Status.NotEvaluatedYet
     change_count.brew()
-    assert read_file.status() == Status.Ok
+    assert file_contents.status() == Status.Ok
     assert change_count.status() == Status.Ok
     _check_counts((1, 0, 0, 1, 0, 0))
 
     args.set_args([f1, f2, f3])
-    assert read_file.status() == Status.MappedInputsDirty
+    assert file_contents.status() == Status.MappedInputsDirty
     change_count.brew()
-    assert read_file.status() == Status.Ok
+    assert file_contents.status() == Status.Ok
     _check_counts((1, 1, 1, 1, 1, 1))
 
     args.set_args([f3, f2])
@@ -92,7 +92,7 @@ def test_execution(caplog, tmpdir):
     _check_counts((3, 2, 2, 3, 2, 2))
 
     # This should cause a reevaluation of everything (+1 to all counts) and then add 10 from this arg
-    extra_count_arg.set_args(10)
+    extra_count.set_args(10)
     assert change_count.status() == Status.IngredientDirty
     change_count.brew()
     assert change_count.status() == Status.Ok
