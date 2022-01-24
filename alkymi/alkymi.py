@@ -56,7 +56,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
             status[recipe] = Status.IngredientDirty
             return status[recipe]
         if ingredient.output_checksums is not None:  # This will never happen, but this satisfies the type checker
-            ingredient_output_checksums.extend(ingredient.output_checksums)
+            ingredient_output_checksums.append(ingredient.output_checksums)
     ingredient_output_checksums_tuple = tuple(ingredient_output_checksums)  # type: Tuple[Optional[str], ...]
 
     if isinstance(recipe, ForeachRecipe):
@@ -105,13 +105,13 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
 
     # Load ingredient inputs
     ingredient_inputs = []  # type: List[Any]
-    ingredient_input_checksums = []  # type: List[Optional[str]]
+    ingredient_input_checksums = []  # type: List[Tuple[Optional[str], ...]]
     for ingredient in recipe.ingredients:
         result, checksum = evaluate_recipe(ingredient, status)
-        ingredient_inputs.extend(result)
-        ingredient_input_checksums.extend(checksum)
+        ingredient_inputs.append(result.unwrap())
+        ingredient_input_checksums.append(checksum)
     ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
-    ingredient_input_checksums_tuple = tuple(ingredient_input_checksums)  # type: Tuple[Optional[str], ...]
+    ingredient_input_checksums_tuple = tuple(ingredient_input_checksums)  # type: Tuple[Tuple[Optional[str], ...], ...]
 
     # Process inputs
     if isinstance(recipe, ForeachRecipe):
@@ -192,11 +192,4 @@ def brew(recipe: Recipe) -> Any:
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     result, _ = evaluate_recipe(recipe, compute_recipe_status(recipe))
-    if not result.exists:
-        # Return empty output as standard None type
-        return None
-    elif len(result) == 1:
-        # Unwrap single item tuple
-        return result[0]
-    # Return as regular tuple
-    return tuple(result)
+    return result.unwrap()

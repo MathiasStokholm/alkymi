@@ -51,7 +51,7 @@ class Recipe(Generic[R]):
             self._cache = cache
 
         self._outputs = None  # type: Optional[Outputs]
-        self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
+        self._input_checksums = None  # type: Optional[Tuple[Tuple[Optional[str], ...], ...]]
         self._last_function_hash = None  # type: Optional[str]
 
         if self.cache == CacheType.Cache:
@@ -80,7 +80,7 @@ class Recipe(Generic[R]):
         """
         return self._func(*args)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> Outputs:
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Tuple[Optional[str], ...], ...]) -> Outputs:
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the checksum is used to check this). Only the immediately

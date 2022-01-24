@@ -3,7 +3,7 @@ import logging
 import shutil
 import time
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 
 import alkymi as alk
 from alkymi import AlkymiConfig
@@ -71,6 +71,23 @@ def test_brew():
 
     assert type(returns_empty_tuple.brew()) == tuple
     assert len(returns_empty_tuple.brew()) == 0
+
+
+def test_recipe_result_forwarding():
+    AlkymiConfig.get().cache = False
+
+    @alk.recipe()
+    def a_tuple() -> Tuple[str, int]:
+        return "a string", 42
+
+    @alk.recipe()
+    def as_list(a_tuple: Tuple[str, int]) -> List[Any]:
+        return list(a_tuple)
+
+    result = as_list.brew()
+    assert isinstance(result, list)
+    assert result[0] == "a string"
+    assert result[1] == 42
 
 
 # We use these globals to avoid altering the hashes of bound functions when any of these change

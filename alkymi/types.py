@@ -1,5 +1,5 @@
 import enum
-from typing import Any, Optional, Iterable
+from typing import Any, Optional, Iterable, Tuple, Union
 
 
 @enum.unique
@@ -51,3 +51,13 @@ class Outputs(tuple):
         :return: Whether the stored output(s) exist (if not, the output is None)
         """
         return self._exists
+
+    def unwrap(self) -> Union[Any, Tuple[Any]]:
+        if not self.exists:
+            # Return empty output as standard None type
+            return None
+        elif len(self) == 1:
+            # Unwrap single item tuple
+            return self[0]
+        # Return as regular tuple
+        return tuple(self)
