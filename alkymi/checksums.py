@@ -175,6 +175,10 @@ def checksum(obj: Any) -> str:
     :param obj: The object to compute a hash/checksum for
     :return: The checksum as a string
     """
+    # Fake the hash of None as just "None"
+    if obj is None:
+        return "None"
+
     hasher = Checksummer()
     hasher.update(obj)
     return hasher.digest()

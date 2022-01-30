@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import List, Tuple, Optional, Any, Dict, Iterable, Union
+from typing import List, Tuple, Any, Dict, Iterable, Union
 
 from .config import CacheType
 from .recipe import Recipe
-from .types import Outputs
 
 
 def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=CacheType.Auto) -> Recipe[List[Path]]:
@@ -30,7 +29,7 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
         else:
             return list(directory.glob(pattern))
 
-    def _check_clean(last_outputs: Optional[Outputs]) -> bool:
+    def _check_clean(last_outputs: Any) -> bool:
         """
         If rerunning glob produces the same list of files, then the recipe is clean
 
@@ -39,7 +38,7 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
         """
         if last_outputs is None:
             return False
-        return _glob_recipe() == last_outputs[0]
+        return _glob_recipe() == last_outputs
 
     return Recipe(_glob_recipe, [], name, transient=False, cache=cache, cleanliness_func=_check_clean)
 
@@ -134,7 +133,7 @@ class NamedArgs(Recipe[Dict[Any, Any]]):
         """
         return self._kwargs
 
-    def _clean(self, last_outputs: Optional[Outputs]) -> bool:
+    def _clean(self, last_outputs: Any) -> bool:
         """
         Checks whether the arguments have changed since the last evaluation
 
@@ -143,7 +142,7 @@ class NamedArgs(Recipe[Dict[Any, Any]]):
         """
         if last_outputs is None:
             return self._kwargs is None
-        return self._kwargs == last_outputs[0]
+        return self._kwargs == last_outputs
 
     def set_args(self, **_kwargs) -> None:
         """
@@ -155,7 +154,7 @@ class NamedArgs(Recipe[Dict[Any, Any]]):
         self._kwargs = _kwargs
 
 
-class Args(Recipe[Tuple[Any, ...]]):
+class Args(Recipe[Any]):
     """
     Class providing stateful non-keyword argument(s)
 
@@ -164,24 +163,25 @@ class Args(Recipe[Tuple[Any, ...]]):
     the recipe as dirty and cause reevaluation of downstream recipe(s)
     """
 
-    def __init__(self, *_args: Any, name: str, cache=CacheType.Auto):
+    def __init__(self, arg, *_args: Any, name: str, cache=CacheType.Auto):
         """
         Create a new Args instance with initial argument value(s)
 
-        :param _args: The initial argument value(s)
+        :param arg: The initial single argument value
+        :param _args: The remaining initial argument values
         :param name: The name to give the created Recipe
         :param cache: The type of caching to use for this Recipe
         """
-        self._args = _args  # type: Tuple[Any, ...]
+        self._args = arg if len(_args) == 0 else (arg, ) + _args
         super().__init__(self._produce_args, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
 
-    def _produce_args(self) -> Tuple[Any, ...]:
+    def _produce_args(self) -> Any:
         """
         :return: The current set of arguments
         """
         return self._args
 
-    def _clean(self, last_outputs: Optional[Outputs]) -> bool:
+    def _clean(self, last_outputs: Any) -> bool:
         """
         Checks whether the arguments have changed since the last evaluation
 
@@ -192,14 +192,15 @@ class Args(Recipe[Tuple[Any, ...]]):
             return self._args is None
         return self._args == last_outputs
 
-    def set_args(self, *_args) -> None:
+    def set_args(self, arg: Any, *_args: Any) -> None:
         """
         Change the arguments, causing the recipe to need reevaluation
 
-        :param _args: The new set of arguments
+        :param arg: The first new argument
+        :param _args: The remaining new arguments
         """
         # TODO(mathias): Consider enforcing argument count and types here
-        self._args = _args
+        self._args = arg if len(_args) == 0 else (arg,) + _args
 
 
 def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:

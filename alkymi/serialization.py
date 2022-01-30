@@ -276,6 +276,8 @@ class OutputWithValue(Output):
 
     @Output.valid.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def valid(self) -> bool:
+        if self._value is None:
+            return True
         # TODO(mathias): Find out if this is too expensive in general
         return checksums.checksum(self._value) == self.checksum
 
@@ -307,8 +309,6 @@ class CachedOutput(Output):
     def value(self) -> T:
         # Deserialize the value if it isn't already in memory
         if self._value is None:
-            if self._serializable_representation is None:
-                raise RuntimeError("Serializable representation is None, this should never happen")
             value = from_cache(self._serializable_representation)
             self._value = cast(T, value)
         return self._value
@@ -333,6 +333,8 @@ def cache(output: OutputWithValue, base_path: Path) -> CachedOutput:
     """
     value = output.value()  # type: ignore  # Make all Output types fully generic for this to work
     checksum = output.checksum
+    if value is None:
+        return CachedOutput(value, checksum, None)
 
     cache_path = base_path / checksum
     cache_path.mkdir(exist_ok=True)

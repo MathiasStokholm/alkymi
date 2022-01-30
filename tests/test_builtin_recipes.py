@@ -69,7 +69,7 @@ def test_builtin_args(tmpdir):
     assert results is not None
     assert results[0] == "3"
 
-    args.set_args()
+    args.set_args(tuple())
     assert args.status() == Status.CustomDirty
     results = args.brew()
     assert args.status() == Status.Ok

@@ -97,7 +97,7 @@ def test_recipe_serialization(tmpdir):
     for recipe in [produces_build_dir_copy, files_in_dir_copy, read_file_copy]:
         assert recipe.input_checksums is None
         assert recipe.outputs is None
-        assert recipe.output_checksums is None
+        assert recipe.output_checksum is None
     assert read_file_copy.mapped_inputs is None
     assert read_file_copy.mapped_inputs_checksums is None
     assert read_file_copy.mapped_inputs_checksum is None
@@ -106,17 +106,17 @@ def test_recipe_serialization(tmpdir):
     produces_build_dir_copy.restore_from_dict(build_dir.to_dict())
     assert produces_build_dir_copy.input_checksums == build_dir.input_checksums
     assert produces_build_dir_copy.outputs == build_dir.outputs
-    assert produces_build_dir_copy.output_checksums == build_dir.output_checksums
+    assert produces_build_dir_copy.output_checksum == build_dir.output_checksum
 
     files_in_dir_copy.restore_from_dict(files_in_dir.to_dict())
     assert files_in_dir_copy.input_checksums == files_in_dir.input_checksums
     assert files_in_dir_copy.outputs == files_in_dir.outputs
-    assert files_in_dir_copy.output_checksums == files_in_dir.output_checksums
+    assert files_in_dir_copy.output_checksum == files_in_dir.output_checksum
 
     read_file_copy.restore_from_dict(read_file.to_dict())
     assert read_file_copy.input_checksums == read_file.input_checksums
     assert read_file_copy.outputs == read_file.outputs
-    assert read_file_copy.output_checksums == read_file.output_checksums
+    assert read_file_copy.output_checksum == read_file.output_checksum
     assert read_file_copy.mapped_inputs_checksums == read_file.mapped_inputs_checksums
 
 

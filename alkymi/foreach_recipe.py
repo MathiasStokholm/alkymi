@@ -5,7 +5,6 @@ from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
 from .serialization import Output, OutputWithValue, CachedOutput
-from .types import Outputs
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Output], Dict[Any, Output]]
@@ -105,28 +104,26 @@ class ForeachRecipe(Recipe[R]):
         return self._mapped_inputs_checksum
 
     @Recipe.outputs.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
-    def outputs(self) -> Optional[Outputs]:
+    def outputs(self) -> Optional[Union[Dict, List]]:
         """
         :return: The outputs of this ForeachRecipe in canonical form (None or a tuple with zero or more entries)
         """
         if self._mapped_outputs is None:
             return None
         if isinstance(self._mapped_outputs, list):
-            return self._canonical([output.value() for output in self._mapped_outputs])
+            return [output.value() for output in self._mapped_outputs]
         elif isinstance(self._mapped_outputs, dict):
-            return self._canonical({key: output.value() for key, output in self._mapped_outputs.items()})
+            return {key: output.value() for key, output in self._mapped_outputs.items()}
         raise RuntimeError("Invalid type for mapped outputs")
 
     @property
-    def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
+    def output_checksum(self) -> Optional[str]:
         """
-        :return: The computed checksums for the outputs (this is set when outputs is set)
+        :return: The computed checksums for the outputs (this is set when outputs are set)
         """
         if self._mapped_outputs_checksum is None:
             return None
-        # A ForeachRecipe has just 1 "output", which is a list or dict. So we return a tuple with the checksum for that
-        # single entry
-        return self._mapped_outputs_checksum,
+        return self._mapped_outputs_checksum
 
     @property
     def mapped_outputs_checksums(self) -> Optional[MappedInputsChecksums]:
@@ -302,7 +299,7 @@ class ForeachRecipe(Recipe[R]):
             mapped_outputs=serialized_mapped_outputs,
             mapped_outputs_checksums=self.mapped_outputs_checksums,
             mapped_outputs_checksum=self._mapped_outputs_checksum,
-            output_checksums=self.output_checksums,
+            output_checksum=self.output_checksum,
             last_function_hash=self._last_function_hash,
             mapped_inputs_checksums=self.mapped_inputs_checksums,
             mapped_inputs_checksum=self.mapped_inputs_checksum,
