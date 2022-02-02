@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple, Any, Dict, Iterable, Union
+from typing import List, Tuple, Any, Dict, Iterable, Union, TypeVar, Type
 
 from .config import CacheType
 from .recipe import Recipe
@@ -154,53 +154,61 @@ class NamedArgs(Recipe[Dict[Any, Any]]):
         self._kwargs = _kwargs
 
 
-class Args(Recipe[Any]):
-    """
-    Class providing stateful non-keyword argument(s)
+T = TypeVar('T')
 
-    To use, create an Args instance with the initial value for your arguments, e.g. ``Args(0, 1, 2)``, then provide as a
-    recipe to downstream recipes. To change the input arguments, call ``set_args()`` again - this will mark
-    the recipe as dirty and cause reevaluation of downstream recipe(s)
+
+class Arg(Recipe[T]):
+    """
+    Class providing a stateful argument
+
+    To use, create an Arg instance with the initial value for your argument, e.g. ``Arg(0)``, then provide as a
+    recipe to downstream recipes. To change the input arguments, call ``set()`` again - this will mark the recipe as
+    dirty and cause reevaluation of downstream recipe(s)
     """
 
-    def __init__(self, arg, *_args: Any, name: str, cache=CacheType.Auto):
+    def __init__(self, arg: T, name: str, cache=CacheType.Auto):
         """
-        Create a new Args instance with initial argument value(s)
+        Create a new Arg instance with initial argument value
 
-        :param arg: The initial single argument value
-        :param _args: The remaining initial argument values
+        :param arg: The initial argument value
         :param name: The name to give the created Recipe
         :param cache: The type of caching to use for this Recipe
         """
-        self._args = arg if len(_args) == 0 else (arg, ) + _args
-        super().__init__(self._produce_args, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
+        self._arg = arg
+        self._type = type(arg)
+        super().__init__(self._produce_arg, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
 
-    def _produce_args(self) -> Any:
+    @property
+    def type(self) -> Type[T]:
         """
-        :return: The current set of arguments
+        :return: The type of the argument
         """
-        return self._args
+        return self._type
+
+    def _produce_arg(self) -> T:
+        """
+        :return: The current argument
+        """
+        return self._arg
 
     def _clean(self, last_outputs: Any) -> bool:
         """
-        Checks whether the arguments have changed since the last evaluation
+        Checks whether the argument has changed since the last evaluation
 
-        :param last_outputs: The last set of outputs (arguments)
-        :return: True if the arguments remain the same
+        :param last_outputs: The last set of outputs (argument)
+        :return: True if the argument remain the same
         """
-        if last_outputs is None:
-            return self._args is None
-        return self._args == last_outputs
+        return self._arg == last_outputs
 
-    def set_args(self, arg: Any, *_args: Any) -> None:
+    def set(self, _arg: T) -> None:
         """
-        Change the arguments, causing the recipe to need reevaluation
+        Change the argument, causing the recipe to need reevaluation
 
-        :param arg: The first new argument
-        :param _args: The remaining new arguments
+        :param _arg: The new argument
         """
-        # TODO(mathias): Consider enforcing argument count and types here
-        self._args = arg if len(_args) == 0 else (arg,) + _args
+        if not isinstance(_arg, self._type):
+            raise TypeError("Type of argument ({}) not {}".format(type(_arg), self._type))
+        self._arg = _arg
 
 
 def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
@@ -215,13 +223,13 @@ def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
     return NamedArgs(name, cache, **_kwargs)
 
 
-def args(*_args: Any, name: str, cache=CacheType.Auto) -> Args:
+def arg(_arg: T, name: str, cache=CacheType.Auto) -> Arg[T]:
     """
-    Shorthand for creating an ``Args`` instance
+    Shorthand for creating an ``Arg`` instance
 
-    :param _args: The initial arguments to use
+    :param _arg: The initial argument to use
     :param name: The name to give the created Recipe
     :param cache: The type of caching to use for this Recipe
-    :return: The created ``Args`` instance
+    :return: The created ``Arg`` instance
     """
-    return Args(*_args, name=name, cache=cache)
+    return Arg(_arg, name=name, cache=cache)

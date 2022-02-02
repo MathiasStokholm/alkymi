@@ -39,9 +39,9 @@ def test_execution(caplog, tmpdir):
         assert execution_counts[f2.stem] == counts[4]
         assert execution_counts[f3.stem] == counts[5]
 
-    args = alkymi.recipes.args([f1], name="args")
+    arg = alkymi.recipes.arg([f1], name="arg")
 
-    @alk.foreach(args)
+    @alk.foreach(arg)
     def file_contents(path: Path) -> str:
         execution_counts[path] += 1
         with path.open('r') as f:
@@ -52,7 +52,7 @@ def test_execution(caplog, tmpdir):
         return {f: f for f in file_contents}
 
     # This is used to check later whether changing an ingredient will correctly change everything
-    extra_count = alkymi.recipes.args(0, name="extra_count_arg")
+    extra_count = alkymi.recipes.arg(0, name="extra_count_arg")
 
     @alk.foreach(to_dict)
     def change_count(file_content: str, extra_count: int) -> str:
@@ -66,33 +66,33 @@ def test_execution(caplog, tmpdir):
     assert change_count.status() == Status.Ok
     _check_counts((1, 0, 0, 1, 0, 0))
 
-    args.set_args([f1, f2, f3])
+    arg.set([f1, f2, f3])
     assert file_contents.status() == Status.MappedInputsDirty
     change_count.brew()
     assert file_contents.status() == Status.Ok
     _check_counts((1, 1, 1, 1, 1, 1))
 
-    args.set_args([f3, f2])
+    arg.set([f3, f2])
     change_count.brew()
     _check_counts((1, 1, 1, 1, 1, 1))
 
-    args.set_args([f1])
+    arg.set([f1])
     change_count.brew()
     _check_counts((2, 1, 1, 2, 1, 1))
 
-    args.set_args([])
+    arg.set([])
     change_count.brew()
     _check_counts((2, 1, 1, 2, 1, 1))
 
     # Test that changing an ingredient forces reevaluation of all foreach inputs
-    args.set_args([f1, f2, f3])
+    arg.set([f1, f2, f3])
     assert change_count.status() == Status.MappedInputsDirty
     change_count.brew()
     assert change_count.status() == Status.Ok
     _check_counts((3, 2, 2, 3, 2, 2))
 
     # This should cause a reevaluation of everything (+1 to all counts) and then add 10 from this arg
-    extra_count.set_args(10)
+    extra_count.set(10)
     assert change_count.status() == Status.IngredientDirty
     change_count.brew()
     assert change_count.status() == Status.Ok
@@ -111,7 +111,7 @@ def test_lists(caplog):
 
     global execution_counts_list
     execution_counts_list = [0] * 5
-    args = alkymi.recipes.args([0], name="args")
+    arg = alkymi.recipes.arg([0], name="args")
 
     def _check_counts(counts: Tuple[int, int, int, int, int]):
         assert execution_counts_list[0] == counts[0]
@@ -120,7 +120,7 @@ def test_lists(caplog):
         assert execution_counts_list[3] == counts[3]
         assert execution_counts_list[4] == counts[4]
 
-    @alk.foreach(args)
+    @alk.foreach(arg)
     def record_execution(idx: int) -> int:
         execution_counts_list[idx] += 1
         return execution_counts_list[idx]
@@ -134,21 +134,21 @@ def test_lists(caplog):
     _check_counts((1, 0, 0, 0, 0))
 
     # Also brew ids 1 and 2
-    args.set_args([0, 1, 2])
+    arg.set([0, 1, 2])
     record_execution.brew()
     _check_counts((1, 1, 1, 0, 0))
 
     # Now only 3 and 4 - all items should now have been run once
-    args.set_args([3, 4])
+    arg.set([3, 4])
     record_execution.brew()
     _check_counts((1, 1, 1, 1, 1))
 
     # Because last execution was 3 and 4, asking for 0 and 1 should cause reevaluation
-    args.set_args([0, 1])
+    arg.set([0, 1])
     record_execution.brew()
     _check_counts((2, 2, 1, 1, 1))
 
     # Switching the order should not change anything
-    args.set_args([1, 0])
+    arg.set([1, 0])
     record_execution.brew()
     _check_counts((2, 2, 1, 1, 1))
