@@ -93,51 +93,6 @@ def test_builtin_args(tmpdir):
         file_arg.set(2)
 
 
-def test_builtin_kwargs(tmpdir):
-    tmpdir = Path(str(tmpdir))
-    AlkymiConfig.get().cache = False
-    args = alkymi.recipes.kwargs("kwargs_test", argument1="value1", argument2=2)
-
-    assert len(args.ingredients) == 0
-    assert args.status() == Status.NotEvaluatedYet
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert results["argument1"] == "value1"
-    assert results["argument2"] == 2
-
-    args.set_args(argument3="3")
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert results["argument3"] == "3"
-
-    args.set_args()
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert len(results) == 0
-
-    # Check that altering an external file triggers dirtyness
-    file_a = tmpdir / "file_a.txt"
-    file_a.write_text(file_a.name)
-    args.set_args(path=file_a)
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results["path"] == file_a
-
-    # Now change the file and check that recipe is dirty
-    file_a.write_text("something_else")
-    assert args.status() == Status.OutputsInvalid
-
-    # Changing the file contents back should fix things
-    file_a.write_text(file_a.name)
-    assert args.status() == Status.Ok
-
-
 def test_zip_results():
     """
     Test that the zip_results() built-in recipe generator works as expected (like zip(), but for recipes)

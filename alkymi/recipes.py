@@ -107,53 +107,6 @@ def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) \
     return Recipe(_zip_results, recipes, name, transient=False, cache=cache)
 
 
-class NamedArgs(Recipe[Dict[Any, Any]]):
-    """
-    Class providing stateful keyword argument(s)
-
-    To use, create a NamedArgs instance with the initial value for your arguments, e.g. ``NamedArgs(val0=0, val1=1,
-    val2=2)``, then provide as a recipe to downstream recipes. To change the input arguments, call ``set_args()`` again
-    - this will mark the contained recipe as dirty and cause reevaluation of downstream recipes
-    """
-
-    def __init__(self, name: str, cache=CacheType.Auto, **_kwargs: Any):
-        """
-        Create a new NamedArgs instance with initial argument value(s)
-
-        :param name: The name to give the created Recipe
-        :param cache: The type of caching to use for this Recipe
-        :param _kwargs: The initial keyword argument value(s)
-        """
-        self._kwargs = _kwargs  # type: Dict[Any, Any]
-        super().__init__(self._produce_kwargs, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
-
-    def _produce_kwargs(self) -> Dict[Any, Any]:
-        """
-        :return: The current set of keyword arguments
-        """
-        return self._kwargs
-
-    def _clean(self, last_outputs: Any) -> bool:
-        """
-        Checks whether the arguments have changed since the last evaluation
-
-        :param last_outputs: The last set of outputs (arguments)
-        :return: True if the arguments remain the same
-        """
-        if last_outputs is None:
-            return self._kwargs is None
-        return self._kwargs == last_outputs
-
-    def set_args(self, **_kwargs) -> None:
-        """
-        Change the arguments, causing the recipe to need reevaluation
-
-        :param _kwargs: The new set of keyword arguments
-        """
-        # TODO(mathias): Consider enforcing argument count and types here
-        self._kwargs = _kwargs
-
-
 T = TypeVar('T')
 
 
@@ -209,18 +162,6 @@ class Arg(Recipe[T]):
         if not isinstance(_arg, self._type):
             raise TypeError("Type of argument ({}) not {}".format(type(_arg), self._type))
         self._arg = _arg
-
-
-def kwargs(name: str, cache=CacheType.Auto, **_kwargs: Any) -> NamedArgs:
-    """
-    Shorthand for creating a ``NamedArgs`` instance
-
-    :param name: The name to give the created Recipe
-    :param cache: The type of caching to use for this Recipe
-    :param _kwargs: The initial keyword arguments to use
-    :return: The created ``NamedArgs`` instance
-    """
-    return NamedArgs(name, cache, **_kwargs)
 
 
 def arg(_arg: T, name: str, cache=CacheType.Auto) -> Arg[T]:
