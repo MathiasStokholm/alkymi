@@ -177,8 +177,10 @@ class ForeachRecipe(Recipe[R]):
         # Check if we actually need to do any work (in case everything remains the same as last invocation)
         if not needs_full_eval:
             if mapped_inputs_checksum == self.mapped_inputs_checksum:
-                log.debug("Returning early since mapped inputs did not change since last evaluation")
-                return self._mapped_outputs
+                # Outputs have to be valid for us to return them
+                if all(output.valid for output in self._mapped_outputs):
+                    log.debug("Returning early since mapped inputs did not change since last evaluation")
+                    return self._mapped_outputs
 
         # Catch up on already done work
         # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
@@ -197,9 +199,11 @@ class ForeachRecipe(Recipe[R]):
                         idx = self.mapped_inputs_checksums.index(new_checksum)  # type: ignore
                         found_checksum = self.mapped_inputs_checksums[idx]  # type: ignore
                         if new_checksum == found_checksum:
-                            outputs.append(self._mapped_outputs[idx])
-                            evaluated.append(item)
-                            continue
+                            found_output = self._mapped_outputs[idx]
+                            if found_output.valid:
+                                outputs.append(found_output)
+                                evaluated.append(item)
+                                continue
                     except ValueError:
                         pass
                     not_evaluated.append(item)
@@ -210,9 +214,11 @@ class ForeachRecipe(Recipe[R]):
                     if found_checksum is not None:
                         new_checksum = checksums.checksum(key)
                         if new_checksum == found_checksum:
-                            outputs[key] = self._mapped_outputs[key]
-                            evaluated[key] = item
-                            continue
+                            found_output = self._mapped_outputs[key]
+                            if found_output.valid:
+                                outputs[key] = found_output
+                                evaluated[key] = item
+                                continue
                     not_evaluated[key] = item
 
         def _checkpoint(all_done: bool, save_state: bool = True) -> None:
