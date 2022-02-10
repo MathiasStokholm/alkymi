@@ -169,6 +169,11 @@ class ForeachRecipe(Recipe[R]):
                 if input_checksums:
                     needs_full_eval = True
 
+        # Check if bound function has changed - this should cause a full reevaluation
+        if not needs_full_eval:
+            if self.function_hash != self._last_function_hash:
+                needs_full_eval = True
+
         # Check if we actually need to do any work (in case everything remains the same as last invocation)
         if not needs_full_eval:
             if mapped_inputs_checksum == self.mapped_inputs_checksum:
