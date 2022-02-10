@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple, Any, Dict, Iterable, Union, TypeVar, Type
+from typing import List, Tuple, Any, Dict, Iterable, Union, TypeVar, Type, Optional
 
 from .config import CacheType
 from .recipe import Recipe
@@ -129,6 +129,7 @@ class Arg(Recipe[T]):
         """
         self._arg = arg
         self._type = type(arg)
+        self._subtype = next((type(val) for val in arg), None) if isinstance(arg, Iterable) else None
         super().__init__(self._produce_arg, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
 
     @property
@@ -137,6 +138,14 @@ class Arg(Recipe[T]):
         :return: The type of the argument
         """
         return self._type
+
+    @property
+    def subtype(self) -> Optional[Any]:
+        """
+        :return: The subtype of the argument (e.g. the type of items contained in a list). Will be None for non-iterable
+        types
+        """
+        return self._subtype
 
     def _produce_arg(self) -> T:
         """

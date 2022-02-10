@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import Dict, Union, Any, List
+from typing import Dict, Union, Any, List, Iterable
 
 from .alkymi import compute_status_with_cache, Status
 from .logging import log
@@ -111,7 +111,12 @@ class Lab:
         :param parser: The parser to add the user-provided arguments to
         """
         for arg_name, arg in self._args.items():
-            parser.add_argument("--{}".format(arg_name), type=arg.type)
+            # For iterables (e.g. lists), the "type" keyword is actually the type of elements in the iterable
+            if issubclass(arg.type, Iterable):
+                subtype = arg.subtype if arg.subtype is None else str
+                parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*")
+            else:
+                parser.add_argument("--{}".format(arg_name), type=arg.type)
 
     def __repr__(self) -> str:
         """
@@ -153,7 +158,7 @@ class Lab:
 
         # Set arguments if supplied
         for arg_name, arg in self._args.items():
-            provided_val = getattr(args, arg_name)
+            provided_val = getattr(args, arg_name, None)
             if provided_val is not None:
                 arg.set(provided_val)
 
