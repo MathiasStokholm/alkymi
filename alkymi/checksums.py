@@ -144,7 +144,8 @@ class Checksummer(object):
             self.update(path.exists())
             return
 
-        # For files, we care about the file contents too
+        # For files, we care about file name and contents too
+        self.update(str(path))
         with path.open('rb') as f:
             for chunk in iter(lambda: f.read(128 * self._md5.block_size), b''):
                 self.update(chunk)
