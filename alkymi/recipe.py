@@ -57,18 +57,18 @@ class Recipe(Generic[R]):
         if self.cache == CacheType.Cache:
             # Try to reload last state
             func_file = Path(self._func.__code__.co_filename)
-            module_name = func_file.parent.stem
+            module_name = func_file.absolute().parent.stem
 
             # Use the cache path set in the alkymi config, or fall back to current working dir
             cache_root = AlkymiConfig.get().cache_path
             if cache_root is None:
                 cache_root = Path(".")
-            self.cache_path = cache_root / Recipe.CACHE_DIRECTORY_NAME / module_name / name
+            self.cache_path = (cache_root / Recipe.CACHE_DIRECTORY_NAME / module_name / name).absolute()
 
             self.cache_file = self.cache_path / 'cache.json'
             if self.cache_file.exists():
                 with self.cache_file.open('r') as f:
-                    self.restore_from_dict(json.loads(f.read()))
+                    self.restore_from_dict(json.load(f))
 
     def __call__(self, *args) -> R:
         """
