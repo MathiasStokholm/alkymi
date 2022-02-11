@@ -1,7 +1,17 @@
 from pathlib import Path
 from typing import Any, Sequence, Dict, Callable
 import pickle
-import hashlib
+
+# Try to use xxh3 from xxhash to speed up hashing significantly, otherwise fallback to built-in MD5
+try:
+    import xxhash
+
+    HASHER = xxhash.xxh3_64
+except ImportError:
+    import hashlib
+
+    HASHER = hashlib.md5
+
 import inspect
 
 # Load additional checksum generators based on available libs
@@ -19,7 +29,7 @@ try:
         :param array: The numpy array to compute a checksum for
         :return: The computed checksum as a string
         """
-        return hashlib.md5(array.data).hexdigest()
+        return HASHER(array.data).hexdigest()
 
 
     additional_checksum_generators[np.ndarray] = _handle_ndarray
@@ -37,7 +47,7 @@ try:
         :param df: The pandas DataFrame to compute a checksum for
         :return: The computed checksum as a string
         """
-        return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
+        return HASHER(pd.util.hash_pandas_object(df).values).hexdigest()
 
 
     additional_checksum_generators[pd.DataFrame] = _handle_dataframe
@@ -51,7 +61,7 @@ class Checksummer(object):
     """
 
     def __init__(self):
-        self._md5 = hashlib.md5()
+        self._hasher = HASHER()
 
     def update(self, obj: Any) -> None:
         """
@@ -65,12 +75,12 @@ class Checksummer(object):
 
         # The type of the input object needs to be taken into consideration to avoid different types with the same value
         # resulting in the same checksum
-        self._md5.update(str(type(obj)).encode("utf-8"))
+        self._hasher.update(str(type(obj)).encode("utf-8"))
 
         if isinstance(obj, str):
-            self._md5.update(obj.encode("utf-8"))
+            self._hasher.update(obj.encode("utf-8"))
         elif isinstance(obj, bytes):
-            self._md5.update(obj)
+            self._hasher.update(obj)
         elif isinstance(obj, (int, float)):
             self.update(str(obj))
         elif isinstance(obj, Sequence):
@@ -147,14 +157,17 @@ class Checksummer(object):
         # For files, we care about file name and contents too
         self.update(str(path))
         with path.open('rb') as f:
-            for chunk in iter(lambda: f.read(128 * self._md5.block_size), b''):
-                self.update(chunk)
+            size = 1024 * self._hasher.block_size
+            b = f.read(size)
+            while len(b) > 0:
+                self._hasher.update(b)
+                b = f.read(size)
 
     def digest(self) -> str:
         """
         :return: The checksum as a string
         """
-        return self._md5.hexdigest()
+        return self._hasher.hexdigest()
 
 
 def function_hash(fn: Callable) -> str:
