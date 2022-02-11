@@ -49,4 +49,7 @@ setuptools.setup(
     extras_require={
         "xxhash": ["xxhash>=2.0.0"]
     },
+    package_data = {
+        "alkymi": ["py.typed"],
+    },
 )
