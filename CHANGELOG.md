@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for explicit naming of recipes (if not provided, the bound function name will be used)
 - Added support for providing CLI arguments to recipes through a `Lab` using the new `register_arg()` function
 
+### Changed
+- Updated Sphinx and associated packages to fix documentation build errors
+
 ### Fixed
 - Fixed a bug where file names were not taken into account during checksumming (only file content was taken into
 account)

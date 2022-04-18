@@ -143,7 +143,7 @@ class Arg(Recipe[T]):
     def subtype(self) -> Optional[Any]:
         """
         :return: The subtype of the argument (e.g. the type of items contained in a list). Will be None for non-iterable
-        types
+                 types
         """
         return self._subtype
 
