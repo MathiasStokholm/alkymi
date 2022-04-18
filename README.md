@@ -50,7 +50,6 @@ Or one of the examples, e.g. [MNIST](https://alkymi.readthedocs.io/en/latest/exa
 
 ## Upcoming Features
 The following features are being considered for future implementation:
-* Arguments to recipes when calling `brew` in `Lab` CLI
 * Type annotations propagated from bound functions to recipes
 * Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
 * Cache maintenance functionality
