@@ -29,7 +29,7 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
         else:
             return list(directory.glob(pattern))
 
-    def _check_clean(last_outputs: Any) -> bool:
+    def _check_clean(last_outputs: List[Path]) -> bool:
         """
         If rerunning glob produces the same list of files, then the recipe is clean
 

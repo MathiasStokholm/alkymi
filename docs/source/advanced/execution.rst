@@ -38,14 +38,13 @@ To facilitate computing the status for a recipe, each recipe stores the followin
 Once these are known, checking cleanliness can be done very efficiently by simply comparing output checksums to input
 checksums (string comparisons) recursively throughout the graph.
 
-If alkymi determines that a recipe's inputs remain the
-same as for the last evaluation, the next step is to check whether the bound function has changed since the last
-evaluation. This is slightly more expensive, since a checksum for the current bound function needs to be computed for
-the comparison.
+If alkymi determines that a recipe's inputs remain the same as for the last evaluation, the next step is to check
+whether the bound function has changed since the last evaluation. This is slightly more expensive, since a checksum for
+the current bound function needs to be computed for the comparison.
 
 Finally, if the bound function is unchanged, alkymi will check if any "external" files outside alkymi's
-cache have been changed. This is expensive, since alkymi needs to read and compute an MD5 checksum for each external
-file that is referenced (see :ref:`checksums_external_files`). This step is needed to support traditional "Make"-like
+cache have been changed. This is expensive, since alkymi needs to read and compute a checksum for each external file
+that is referenced (see :ref:`checksums_external_files`). This step is needed to support traditional "Make"-like
 behavior.
 
 .. rubric:: Evaluation
@@ -81,14 +80,14 @@ a bound function in a recipe [#cleanliness_arg]_, e.g.:
         # Find all files in 'my_directory'
         return list(Path("my_directory").rglob())
 
-    def check_clean(last_outputs: Optional[Tuple[Any, ...]]) -> bool:
+    def check_clean(last_output: List[Path]) -> bool:
         # Rerun glob and see if list of files has changed
-        return _glob_recipe() == last_outputs
+        return _glob_recipe() == last_output
 
     return Recipe([], impure_func, "read_my_directory", transient=False, cache=CacheType.Auto,
             cleanliness_func=check_clean)
 
 .. [#variable_references] Note that variables referenced in a bound function will influence the checksum of the bound
-   function, potentially resulting in the associated recipe being marked "dirty" due to the checksum of the function
-   changing.
+    function, potentially resulting in the associated recipe being marked "dirty" due to the checksum of the function
+    changing.
 .. [#cleanliness_arg] Note that the ``recipe`` decorator currently doesn't expose the ``cleanliness_func`` argument.

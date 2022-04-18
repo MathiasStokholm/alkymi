@@ -11,7 +11,7 @@ from .types import Status
 
 R = TypeVar("R")  # The return type of the bound function
 
-CleanlinessFunc = Callable[[Optional[Output]], bool]
+CleanlinessFunc = Callable[[R], bool]
 
 
 class Recipe(Generic[R]):
@@ -25,7 +25,7 @@ class Recipe(Generic[R]):
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
     def __init__(self, func: Callable[..., R], ingredients: Iterable['Recipe'], name: str, transient: bool,
-                 cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
+                 cache: CacheType, cleanliness_func: Optional[CleanlinessFunc[R]] = None):
         """
         Create a new Recipe
 

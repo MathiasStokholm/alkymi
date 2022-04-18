@@ -14,9 +14,9 @@ dependencies), etc. In this case, you can use alkymi's :ref:`lab` functionality:
     import pytest
 
     # 'glob_files()' is a built-in recipe generator that globs and returns a list of files
-    glob_test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=True)
+    test_files = alk.recipes.glob_files(Path("tests"), "test_*.py", recursive=True)
 
-    @alk.recipe(ingredients=[glob_test_files])
+    @alk.recipe()
     def test(test_files: List[Path]) -> None:
         # Convert Path objects to str
         result = pytest.main(args=[str(file) for file in test_files])

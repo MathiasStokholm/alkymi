@@ -24,3 +24,9 @@ Or install using pip and github:
 
     pip install --user git+https://github.com/MathiasStokholm/alkymi.git
 
+If you intend to work with large files outside of alkymi's cache, consider also depending on xxhash to speed up
+checksumming of large files:
+
+.. code-block:: bash
+
+    pip install --user alkymi[xxhash]
