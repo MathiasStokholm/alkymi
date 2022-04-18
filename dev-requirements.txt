@@ -1,5 +1,5 @@
 -r requirements.txt
-pytest==7.1.1
+pytest==7.0.0
 mypy==0.942
 flake8==4.0.1
 sphinx==4.5.0
