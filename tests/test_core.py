@@ -109,9 +109,9 @@ def test_execution(caplog, tmpdir):
         file_and_copy=0,
         content_of_files=0
     )
-    build_dir_global: Path = Path(tmpdir) / 'build'
-    file_global: Path = build_dir_global / 'file.txt'
-    copied_file_global: Path = build_dir_global / 'file_copy.txt'
+    build_dir_global = Path(tmpdir) / 'build'
+    file_global = build_dir_global / 'file.txt'
+    copied_file_global = build_dir_global / 'file_copy.txt'
 
     @alk.recipe()
     def build_dir() -> Path:
