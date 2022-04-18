@@ -250,4 +250,4 @@ class Recipe(Generic[R]):
             self._input_checksums = tuple(old_state["input_checksums"])
         if old_state["outputs"] is not None and old_state["output_checksum"] is not None:
             self._outputs = CachedOutput(None, old_state["output_checksum"], old_state["outputs"])
-        self._last_function_hash = old_state["last_function_hash"]
+        self._last_function_hash = cast(str, old_state["last_function_hash"])

@@ -171,7 +171,7 @@ class ForeachRecipe(Recipe[R]):
 
         # Check if bound function has changed - this should cause a full reevaluation
         if not needs_full_eval:
-            if self.function_hash != self._last_function_hash:
+            if self.function_hash != self.last_function_hash:
                 needs_full_eval = True
 
         # Check if we actually need to do any work (in case everything remains the same as last invocation)
@@ -339,7 +339,7 @@ class ForeachRecipe(Recipe[R]):
                                     zip(old_state["mapped_outputs"].items(), old_state["mapped_outputs_checksums"])}
         else:
             raise ValueError("Unknown mapped type: {}".format(mapped_type))
-        self._last_function_hash = old_state["last_function_hash"]
-        self._mapped_inputs_checksums = old_state["mapped_inputs_checksums"]
-        self._mapped_inputs_checksum = old_state["mapped_inputs_checksum"]
-        self._mapped_outputs_checksum = old_state["mapped_outputs_checksum"]
+        self._last_function_hash = cast(str, old_state["last_function_hash"])
+        self._mapped_inputs_checksums = cast(MappedInputsChecksums, old_state["mapped_inputs_checksums"])
+        self._mapped_inputs_checksum = cast(str, old_state["mapped_inputs_checksum"])
+        self._mapped_outputs_checksum = cast(str, old_state["mapped_outputs_checksum"])
