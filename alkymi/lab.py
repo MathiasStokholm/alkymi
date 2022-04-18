@@ -22,8 +22,8 @@ class Lab:
         :param name: The name of the Lab
         """
         self._name = name
-        self._recipes = []  # type: List[Recipe]
-        self._args = {}  # type: Dict[str, Arg]
+        self._recipes: List[Recipe] = []
+        self._args: Dict[str, Arg] = {}
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         """
@@ -99,7 +99,7 @@ class Lab:
 
         :return: The statuses as a dictionary
         """
-        status = {}  # type: Dict[Recipe, Status]
+        status: Dict[Recipe, Status] = {}
         for recipe in self._recipes:
             compute_status_with_cache(recipe, status)
         return status

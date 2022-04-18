@@ -9,7 +9,7 @@ from alkymi.alkymi import Status
 import alkymi as alk
 
 # We use these globals to avoid altering the hashes of bound functions when any of these change
-execution_counts = {}  # type: Dict[Union[Path, str], int]
+execution_counts: Dict[Union[Path, str], int] = {}
 f1 = Path()
 f2 = Path()
 f3 = Path()
@@ -99,7 +99,7 @@ def test_execution(caplog, tmpdir):
     _check_counts((3, 2, 2, 14, 13, 13))
 
 
-execution_counts_list = []  # type: List[int]
+execution_counts_list: List[int] = []
 
 
 def test_lists(caplog):

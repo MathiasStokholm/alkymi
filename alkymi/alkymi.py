@@ -16,7 +16,7 @@ def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
     :param recipe: The recipe for which status should be computed
     :return: The status of the provided recipe and all dependencies as a dictionary
     """
-    status = {}  # type: Dict[Recipe, Status]
+    status: Dict[Recipe, Status] = {}
     compute_status_with_cache(recipe, status)
     return status
 
@@ -50,14 +50,14 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
         return status[recipe]
 
     # Check if one or more children are dirty
-    ingredient_output_checksums = []  # type: List[Optional[str]]
+    ingredient_output_checksums: List[Optional[str]] = []
     for ingredient in recipe.ingredients:
         if compute_status_with_cache(ingredient, status) != Status.Ok:
             status[recipe] = Status.IngredientDirty
             return status[recipe]
         if ingredient.output_checksum is not None:
             ingredient_output_checksums.append(ingredient.output_checksum)
-    ingredient_output_checksums_tuple = tuple(ingredient_output_checksums)  # type: Tuple[Optional[str], ...]
+    ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
 
     if isinstance(recipe, ForeachRecipe):
         # Check cleanliness of mapped inputs, inputs and outputs
@@ -98,14 +98,14 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
         return _print_and_return()
 
     # Load ingredient inputs
-    ingredient_inputs = []  # type: List[Any]
-    ingredient_input_checksums = []  # type: List[Optional[str]]
+    ingredient_inputs: List[Any] = []
+    ingredient_input_checksums: List[Optional[str]] = []
     for ingredient in recipe.ingredients:
         result, checksum = evaluate_recipe(ingredient, status)
         ingredient_inputs.append(result)
         ingredient_input_checksums.append(checksum)
-    ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
-    ingredient_input_checksums_tuple = tuple(ingredient_input_checksums)  # type: Tuple[Optional[str], ...]
+    ingredient_inputs_tuple: Tuple[Any, ...] = tuple(ingredient_inputs)
+    ingredient_input_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_input_checksums)
 
     # Process inputs
     if isinstance(recipe, ForeachRecipe):

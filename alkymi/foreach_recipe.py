@@ -38,12 +38,12 @@ class ForeachRecipe(Recipe[R]):
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
         self._mapped_recipe = mapped_recipe
-        self._mapped_inputs = None  # type: Optional[MappedInputs]
-        self._mapped_inputs_type = None  # type: Optional[type]
-        self._mapped_inputs_checksums = None  # type: Optional[MappedInputsChecksums]
-        self._mapped_inputs_checksum = None  # type: Optional[str]
-        self._mapped_outputs = None  # type: Optional[MappedOutputs]
-        self._mapped_outputs_checksum = None  # type: Optional[str]
+        self._mapped_inputs: Optional[MappedInputs] = None
+        self._mapped_inputs_type: Optional[type] = None
+        self._mapped_inputs_checksums: Optional[MappedInputsChecksums] = None
+        self._mapped_inputs_checksum: Optional[str] = None
+        self._mapped_outputs: Optional[MappedOutputs] = None
+        self._mapped_outputs_checksum: Optional[str] = None
         super().__init__(func, ingredients, name, transient, cache, cleanliness_func)
 
     @property
@@ -184,9 +184,9 @@ class ForeachRecipe(Recipe[R]):
 
         # Catch up on already done work
         # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
-        outputs = [] if isinstance(mapped_inputs, list) else {}  # type: MappedOutputs
-        evaluated = [] if isinstance(mapped_inputs, list) else {}  # type: MappedInputs
-        not_evaluated = [] if isinstance(mapped_inputs, list) else {}  # type: MappedInputs
+        outputs: MappedOutputs = [] if isinstance(mapped_inputs, list) else {}
+        evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
+        not_evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
         if needs_full_eval or self._mapped_outputs is None:
             not_evaluated = mapped_inputs
         else:
@@ -279,10 +279,10 @@ class ForeachRecipe(Recipe[R]):
         :return: The ForeachRecipe as a dict for serialization purposes
         """
         # Force caching of all outputs (if they aren't already)
-        serialized_mapped_outputs = None  # type: Optional[Union[Dict, List]]
+        serialized_mapped_outputs: Optional[Union[Dict, List]] = None
         if self._mapped_outputs is not None:
             if isinstance(self._mapped_outputs, list):
-                outputs_list = []  # type: List[CachedOutput]
+                outputs_list: List[CachedOutput] = []
                 for output in self._mapped_outputs:
                     if isinstance(output, CachedOutput):
                         outputs_list.append(output)
@@ -293,7 +293,7 @@ class ForeachRecipe(Recipe[R]):
                 serialized_mapped_outputs = [output.serialized for output in outputs_list]
                 self._mapped_outputs = cast(List[Output], outputs_list)
             elif isinstance(self._mapped_outputs, dict):
-                outputs_dict = {}  # type: Dict[Any, CachedOutput]
+                outputs_dict: Dict[Any, CachedOutput] = {}
                 for key, output in self._mapped_outputs.items():
                     if isinstance(output, CachedOutput):
                         outputs_dict[key] = output

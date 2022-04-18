@@ -91,7 +91,7 @@ def test_recipe_result_forwarding():
 
 
 # We use these globals to avoid altering the hashes of bound functions when any of these change
-execution_counts = {}  # type: Dict[str, int]
+execution_counts: Dict[str, int] = {}
 build_dir_global = Path()
 file_global = Path()
 copied_file_global = Path()
@@ -109,9 +109,9 @@ def test_execution(caplog, tmpdir):
         file_and_copy=0,
         content_of_files=0
     )
-    build_dir_global = Path(tmpdir) / 'build'  # type: Path
-    file_global = build_dir_global / 'file.txt'  # type: Path
-    copied_file_global = build_dir_global / 'file_copy.txt'  # type: Path
+    build_dir_global: Path = Path(tmpdir) / 'build'
+    file_global: Path = build_dir_global / 'file.txt'
+    copied_file_global: Path = build_dir_global / 'file_copy.txt'
 
     @alk.recipe()
     def build_dir() -> Path:

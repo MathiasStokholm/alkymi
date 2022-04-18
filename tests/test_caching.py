@@ -61,8 +61,8 @@ def test_caching_no_return_value(caplog, tmpdir):
 
 
 # We use these globals to avoid altering the hashes of bound functions when these change
-execution_counts = []  # type: List[int]
-stopping_point = 0  # type: int
+execution_counts: List[int] = []
+stopping_point: int = 0
 
 
 def test_foreach_caching(caplog, tmpdir):

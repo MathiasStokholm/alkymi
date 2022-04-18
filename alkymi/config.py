@@ -18,7 +18,7 @@ class AlkymiConfig:
     """
     Global singleton config for alkymi
     """
-    __instance = None  # type: AlkymiConfig
+    __instance: Optional["AlkymiConfig"] = None
 
     @staticmethod
     def get() -> 'AlkymiConfig':
@@ -27,6 +27,7 @@ class AlkymiConfig:
         """
         if AlkymiConfig.__instance is None:
             AlkymiConfig()
+        assert AlkymiConfig.__instance is not None
         return AlkymiConfig.__instance
 
     def __init__(self):

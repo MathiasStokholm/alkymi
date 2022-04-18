@@ -50,9 +50,9 @@ class Recipe(Generic[R]):
         else:
             self._cache = cache
 
-        self._outputs = None  # type: Optional[Output]
-        self._input_checksums = None  # type: Optional[Tuple[Optional[str], ...]]
-        self._last_function_hash = None  # type: Optional[str]
+        self._outputs: Optional[Output] = None
+        self._input_checksums: Optional[Tuple[Optional[str], ...]] = None
+        self._last_function_hash: Optional[str] = None
 
         if self.cache == CacheType.Cache:
             # Try to reload last state

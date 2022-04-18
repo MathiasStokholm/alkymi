@@ -17,7 +17,7 @@ import inspect
 # Load additional checksum generators based on available libs
 from alkymi import AlkymiConfig
 
-additional_checksum_generators = {}  # type: Dict[Any, Callable]
+additional_checksum_generators: Dict[Any, Callable] = {}
 try:
     import numpy as np  # NOQA
 

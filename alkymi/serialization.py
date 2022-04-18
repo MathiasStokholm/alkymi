@@ -53,8 +53,8 @@ class Serializer(Generic[S]):
 
 
 # Load additional serializers and deserializers based on available libs
-additional_serializers = {}  # type: Dict[Any, Type[Serializer]]
-additional_deserializers = {}  # type: Dict[str, Type[Serializer]]
+additional_serializers: Dict[Any, Type[Serializer]] = {}
+additional_deserializers: Dict[str, Type[Serializer]] = {}
 try:
     import numpy as np  # NOQA
 
