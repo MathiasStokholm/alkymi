@@ -1,5 +1,5 @@
 import inspect
-from typing import Callable, TypeVar, List, Optional
+from typing import Callable, TypeVar, Optional
 
 from .config import CacheType
 from .foreach_recipe import ForeachRecipe

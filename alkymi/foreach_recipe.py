@@ -178,7 +178,7 @@ class ForeachRecipe(Recipe[R]):
         if not needs_full_eval:
             if mapped_inputs_checksum == self.mapped_inputs_checksum:
                 # Outputs have to be valid for us to return them
-                if all(output.valid for output in self._mapped_outputs):
+                if self._mapped_outputs is not None and all(output.valid for output in self._mapped_outputs):
                     log.debug("Returning early since mapped inputs did not change since last evaluation")
                     return self._mapped_outputs
 
