@@ -25,6 +25,7 @@ deleted file would not cause reevaluation)
 
 ### Removed
 - `kwargs`/`NamedArgs` built-in recipe removed (functionality can now be mimicked using the built-in `Arg`)
+- Dropped support for Python 3.5
 
 ## [0.0.5] - 2021-03-17
 ### Added

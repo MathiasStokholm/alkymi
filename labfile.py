@@ -113,7 +113,7 @@ def build() -> Path:
     # Clean output dir first
     dist_dir = Path("dist")
     if dist_dir.exists():
-        shutil.rmtree(str(dist_dir))  # This must be a str on Python 3.5
+        shutil.rmtree(dist_dir)
     dist_dir.mkdir(exist_ok=False)
 
     alk.utils.call(["python3", "setup.py", "sdist", "bdist_wheel"])

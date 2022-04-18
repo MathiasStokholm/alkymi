@@ -6,7 +6,7 @@
 [![pypi](https://img.shields.io/pypi/v/alkymi.svg)](https://pypi.org/project/alkymi)
 [![versions](https://img.shields.io/pypi/pyversions/alkymi.svg)](https://pypi.org/project/alkymi)
 
-Alkymi is a pure Python (3.5+) library for describing and executing tasks and pipelines with built-in caching and
+Alkymi is a pure Python (3.6+) library for describing and executing tasks and pipelines with built-in caching and
 conditional evaluation based on checksums.
 
 Alkymi is easy to install, simple to use, and has no dependencies outside of Python's standard library. The code is
