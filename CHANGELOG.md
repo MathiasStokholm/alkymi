@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated Sphinx and associated packages to fix documentation build errors
+- Updated development libraries (pytest, coverage, sphinx, mypy, flake8)
 
 ### Fixed
 - Fixed a bug where file names were not taken into account during checksumming (only file content was taken into
