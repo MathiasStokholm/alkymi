@@ -37,3 +37,28 @@ The above code will cause the script to present the user with a command-line int
 alkymi uses a *labfile* (``labfile.py`` in the root of the repo) to automate tasks such as linting using flake8, static
 type checking using mypy, running unit tests using pytest, as well as creating and uploading distributions to PyPI. Note
 that ``labfile.py`` is also subject to static type checking and linting, just like every other Python file.
+
+alkymi's :ref:`lab` functionality also allows for providing arguments to alkymi's evaluation system using alkymi's built
+in arg recipe (see :ref:`built_in_recipes`):
+
+.. code-block:: python
+
+    import alkymi as alk
+
+    name = alk.arg("John", name="name")
+
+    @alk.recipe()
+    def print_name(name: str) -> None:
+        print(name)
+
+    lab = alk.Lab("name printer")
+    lab.add_recipes(print_name)
+    lab.register_arg(name)
+    lab.open()
+
+
+The above code now allows the user to set the name and run the recipe from the CLI:
+
+.. code-block:: shell
+
+    python name_printer.py brew print_name --name "Robert"
