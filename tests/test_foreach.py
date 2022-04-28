@@ -152,3 +152,28 @@ def test_lists(caplog):
     arg.set([1, 0])
     record_execution.brew()
     _check_counts((2, 2, 1, 1, 1))
+
+
+def test_bound_function_changed(caplog):
+    """
+    Test that changing the bound function of a ForeachRecipe causes a full re-evaluation
+    """
+    caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
+
+    inputs = alk.arg([1, 2, 3, 4, 5], "inputs")
+    power = 2  # Note that power is captured in 'raised_inputs' - changing it changes the function hash
+
+    @alk.foreach(inputs)
+    def raised_inputs(val: int) -> int:
+        return val ** power
+
+    squared_inputs = raised_inputs.brew()
+    assert squared_inputs == [1, 4, 9, 16, 25]
+
+    # Changing power to something else should cause full re-evaluation due to the bound function changing
+    power = 3
+    cubed_inputs = raised_inputs.brew()
+    assert cubed_inputs == [1, 8, 27, 64, 125]
+
+
