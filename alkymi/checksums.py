@@ -124,6 +124,12 @@ class Checksummer(object):
         # Hash the bytecode
         self.update(code.co_code)
 
+        # Hash default arguments
+        defaults = fn.__defaults__
+        if defaults is not None:
+            default_values = dict(zip(code.co_varnames[-len(defaults):], defaults))
+            self.update(default_values)
+
         # Hash constants that are referenced by the bytecode but ignore names of lambdas
         if code.co_consts:
             for const in code.co_consts:

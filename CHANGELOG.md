@@ -23,6 +23,8 @@ account)
 - Fixed a bug where item validity was not being taken into account in `ForeachRecipe` (e.g., an invalid Path such as a
 deleted file would not cause reevaluation)
 - Fixed a bug where a `ForeachRecipe` wouldn't be completely reevaluated if its bound function changed
+- Fixed a bug where changing the default value of an argument to a bound function did not cause the checksum of the
+bound function to change
 
 ### Removed
 - `kwargs`/`NamedArgs` built-in recipe removed (functionality can now be mimicked using the built-in `Arg`)
