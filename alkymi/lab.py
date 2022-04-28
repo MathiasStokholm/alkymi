@@ -112,7 +112,7 @@ class Lab:
         """
         for arg_name, arg in self._args.items():
             # For iterables (e.g. lists), the "type" keyword is actually the type of elements in the iterable
-            if issubclass(arg.type, Iterable):
+            if issubclass(arg.type, Iterable) and not arg.type == str:
                 subtype = arg.subtype if arg.subtype is not None else str
                 parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*")
             else:
