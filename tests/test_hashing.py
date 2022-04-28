@@ -92,6 +92,11 @@ def test_path_checksum(tmpdir):
     tmpdir_checksum = checksums.checksum(tmpdir)
     assert tmpdir_checksum == tmpdir_checksum_empty
 
+    # Check that another file (with different name) but same contents has a different checksum
+    test_file_2 = test_file.with_name("test_file_2.txt")
+    shutil.copy2(test_file, test_file_2)
+    assert checksums.checksum(test_file_2) != checksums.checksum(test_file)
+
     # Finally, ensure that removing the directory causes the directory checksum to change
     shutil.rmtree(str(tmpdir))
     tmpdir_checksum_non_existent = checksums.checksum(tmpdir)
