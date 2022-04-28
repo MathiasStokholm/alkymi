@@ -177,3 +177,29 @@ def test_bound_function_changed(caplog):
     assert cubed_inputs == [1, 8, 27, 64, 125]
 
 
+def test_invalid_foreach_outputs(caplog, tmpdir):
+    """
+    Test that outputs of a ForeachRecipe will be re-evaluated on request if invalid (i.e. an external file pointed to by
+    a Path has been deleted)
+    """
+    tmpdir = Path(str(tmpdir))
+    caplog.set_level(logging.DEBUG)
+    AlkymiConfig.get().cache = False
+
+    inputs = alk.arg([1, 2, 3], "inputs")
+
+    @alk.foreach(inputs)
+    def files_with_values(val: int) -> Path:
+        f = Path(tmpdir) / (str(val) + ".txt")
+        f.write_text(str(val))
+        return f
+
+    # Initial evaluation should create all files
+    files: List[Path] = files_with_values.brew()
+    assert all([file.is_file() for file in files])
+
+    # If one of output files is deleted, a subsequent brew() should recreate it
+    files[0].unlink()
+    assert files_with_values.status() == Status.OutputsInvalid
+    files: List[Path] = files_with_values.brew()
+    assert all([file.is_file() for file in files])
