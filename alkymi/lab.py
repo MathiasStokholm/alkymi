@@ -1,6 +1,7 @@
 import argparse
 import logging
-from typing import Dict, Union, Any, List, Iterable
+import sys
+from typing import Dict, Union, Any, List, Iterable, Optional, TextIO
 
 from .alkymi import compute_status_with_cache, Status
 from .logging import log
@@ -128,11 +129,21 @@ class Lab:
             state += '\n\t{} - {}'.format(recipe.name, status[recipe])
         return '{} lab with recipes:{}'.format(self.name, state)
 
-    def open(self) -> None:
+    def open(self, args: Optional[List[str]] = None, stream: TextIO = sys.stderr) -> None:
         """
         Runs the command line interface for this Lab by parsing command line arguments and carrying out the designated
         command
+
+        :param args: The input arguments to use - will default to system args
+        :param stream: The stream to print output to
         """
+        if len(self.recipes) == 0:
+            raise RuntimeError("No recipes added to lab - CLI is useless")
+
+        # Use system args if nothing has been provided
+        if args is None:
+            args = sys.argv[1:]
+
         # Create the top-level parser
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         parser.add_argument("-v", "--verbose", action="store_true", help="Turn on verbose logging")
@@ -149,24 +160,24 @@ class Lab:
                                  help='Recipe(s) to brew')
         self._add_user_args_(brew_parser)
 
-        args = parser.parse_args()
-        log.addHandler(logging.StreamHandler())
-        if args.verbose:
+        parsed_args = parser.parse_args(args)
+        log.addHandler(logging.StreamHandler(stream))
+        if parsed_args.verbose:
             log.setLevel(logging.DEBUG)
         else:
             log.setLevel(logging.INFO)
 
         # Set arguments if supplied
         for arg_name, arg in self._args.items():
-            provided_val = getattr(args, arg_name, None)
+            provided_val = getattr(parsed_args, arg_name, None)
             if provided_val is not None:
                 arg.set(provided_val)
 
-        if args.subparser_name == 'status':
-            print(self)
-        elif args.subparser_name == 'brew':
-            for recipe in args.recipe:
+        if parsed_args.subparser_name == 'status':
+            print(self, file=stream)
+        elif parsed_args.subparser_name == 'brew':
+            for recipe in parsed_args.recipe:
                 self.brew(recipe)
         else:
             # No recognized command provided - print help
-            parser.print_help()
+            parser.print_help(file=stream)

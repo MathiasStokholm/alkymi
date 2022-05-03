@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added option to supply ingredients to a recipe by using argument names that match recipes (ala pytest's fixtures)
 - Added support for explicit naming of recipes (if not provided, the bound function name will be used)
 - Added support for providing CLI arguments to recipes through a `Lab` using the new `register_arg()` function
+- Added tests for the `Lab` class
 
 ### Changed
 - Updated Sphinx and associated packages to fix documentation build errors
