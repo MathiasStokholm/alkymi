@@ -5,6 +5,7 @@ from .decorators import recipe, foreach  # NOQA
 from .recipes import glob_files, file, arg  # NOQA
 from .utils import call  # NOQA
 from .types import Status  # NOQA
+from . import checksums  # NOQA
 
 # Define version
 from .version import VERSION, __version__  # NOQA
