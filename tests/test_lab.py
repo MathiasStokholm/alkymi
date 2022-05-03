@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import io
+from typing import List
 
 import pytest
 
@@ -76,6 +77,9 @@ def test_lab_open() -> None:
 
     lab = alk.Lab("example lab")
     lab.add_recipes(a_string, another_string)
+    assert a_string in lab.recipes
+    assert another_string in lab.recipes
+    assert len(lab.recipes) == 2
 
     stream = io.StringIO()
     lab.open(["status"], stream=stream)
@@ -125,3 +129,30 @@ def test_lab_arg() -> None:
     new_value = 9
     lab.open(["brew", arg_squared.name, "--{}={}".format(arg.name, new_value)])
     assert output == new_value ** 2
+    assert arg.brew() == new_value
+
+
+def test_lab_arg_string_list() -> None:
+    """
+    Test providing a list of strings as an argument to a recipe through a lab's command line interface
+    """
+    AlkymiConfig.get().cache = False
+
+    arg = alk.arg(["initial"], name="arguments")
+    output = ""
+
+    @alk.recipe()
+    def arg_joined(arg: List[str]) -> str:
+        nonlocal output
+        output = "".join(arg)  # NOQA: Intentionally setting outside state
+        return output
+
+    lab = alk.Lab("arg lab")
+    lab.add_recipe(arg_joined)
+    lab.register_arg(arg)
+
+    assert lab.brew(arg_joined) == "initial"
+    assert output == "initial"
+
+    lab.open(["brew", arg_joined.name, "--{}".format(arg.name), "first", "second", "third"])
+    assert output == "firstsecondthird"
