@@ -28,6 +28,7 @@ deleted file would not cause reevaluation)
 - Fixed a bug where a `ForeachRecipe` wouldn't be completely reevaluated if its bound function changed
 - Fixed a bug where changing the default value of an argument to a bound function did not cause the checksum of the
 bound function to change
+- Fixed coverage to correctly include alkymi imports when executed through `labfile.py`
 
 ### Removed
 - `kwargs`/`NamedArgs` built-in recipe removed (functionality can now be mimicked using the built-in `Arg`)

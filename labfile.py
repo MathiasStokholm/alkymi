@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import importlib
 import shutil
 from pathlib import Path
 from typing import List
@@ -8,13 +7,17 @@ import mypy.api
 import pytest
 from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
+
 import coverage as Coverage
 
-import alkymi as alk
+# Start coverage to capture the initial alkymi import, then stop again to only include hits from testing later on
+cov = Coverage.coverage(source=["alkymi"])
+cov.start()
+import alkymi as alk  # NOQA: This has to happen after coverage start
+
+cov.stop()
 
 # Glob all source and test files and make them available as recipe outputs
-import alkymi.alkymi
-
 source_files = alk.recipes.glob_files("source_files", Path("alkymi"), "*.py", recursive=True)
 example_files = alk.recipes.glob_files("example_files", Path("examples"), "*.py", recursive=True)
 test_files = alk.recipes.glob_files("test_files", Path("tests"), "test_*.py", recursive=True)
@@ -42,28 +45,8 @@ def coverage(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute to generate test coverage data
     """
-
-    # TODO(mathias): Find a way to actually reload all of alkymi here
-    def reimport_alk() -> None:
-        importlib.reload(alk)
-        importlib.reload(alk.config)
-        importlib.reload(alk.types)
-        importlib.reload(alk.utils)
-        importlib.reload(alk.lab)
-        importlib.reload(alk.decorators)
-        importlib.reload(alk.recipes)
-        importlib.reload(alk.logging)
-        importlib.reload(alk.version)
-        importlib.reload(alk.alkymi)
-        importlib.reload(alk.checksums)
-
-    cov = Coverage.coverage(source=["alkymi"])
-    cov.erase()
+    # Start coverage again and run tests
     cov.start()
-
-    # alkymi was already imported to run this file, so to get proper coverage, we have to reimport it here
-    reimport_alk()
-
     test(test_files)
     cov.stop()
     cov.xml_report()
