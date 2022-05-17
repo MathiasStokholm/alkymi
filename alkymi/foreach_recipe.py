@@ -5,7 +5,6 @@ from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
 from .serialization import Output, OutputWithValue, CachedOutput
-from .types import Outputs
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Output], Dict[Any, Output]]
@@ -39,12 +38,12 @@ class ForeachRecipe(Recipe[R]):
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
         self._mapped_recipe = mapped_recipe
-        self._mapped_inputs = None  # type: Optional[MappedInputs]
-        self._mapped_inputs_type = None  # type: Optional[type]
-        self._mapped_inputs_checksums = None  # type: Optional[MappedInputsChecksums]
-        self._mapped_inputs_checksum = None  # type: Optional[str]
-        self._mapped_outputs = None  # type: Optional[MappedOutputs]
-        self._mapped_outputs_checksum = None  # type: Optional[str]
+        self._mapped_inputs: Optional[MappedInputs] = None
+        self._mapped_inputs_type: Optional[type] = None
+        self._mapped_inputs_checksums: Optional[MappedInputsChecksums] = None
+        self._mapped_inputs_checksum: Optional[str] = None
+        self._mapped_outputs: Optional[MappedOutputs] = None
+        self._mapped_outputs_checksum: Optional[str] = None
         super().__init__(func, ingredients, name, transient, cache, cleanliness_func)
 
     @property
@@ -105,28 +104,26 @@ class ForeachRecipe(Recipe[R]):
         return self._mapped_inputs_checksum
 
     @Recipe.outputs.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
-    def outputs(self) -> Optional[Outputs]:
+    def outputs(self) -> Optional[Union[Dict, List]]:
         """
         :return: The outputs of this ForeachRecipe in canonical form (None or a tuple with zero or more entries)
         """
         if self._mapped_outputs is None:
             return None
         if isinstance(self._mapped_outputs, list):
-            return self._canonical([output.value() for output in self._mapped_outputs])
+            return [output.value() for output in self._mapped_outputs]
         elif isinstance(self._mapped_outputs, dict):
-            return self._canonical({key: output.value() for key, output in self._mapped_outputs.items()})
+            return {key: output.value() for key, output in self._mapped_outputs.items()}
         raise RuntimeError("Invalid type for mapped outputs")
 
     @property
-    def output_checksums(self) -> Optional[Tuple[Optional[str], ...]]:
+    def output_checksum(self) -> Optional[str]:
         """
-        :return: The computed checksums for the outputs (this is set when outputs is set)
+        :return: The computed checksums for the outputs (this is set when outputs are set)
         """
         if self._mapped_outputs_checksum is None:
             return None
-        # A ForeachRecipe has just 1 "output", which is a list or dict. So we return a tuple with the checksum for that
-        # single entry
-        return self._mapped_outputs_checksum,
+        return self._mapped_outputs_checksum
 
     @property
     def mapped_outputs_checksums(self) -> Optional[MappedInputsChecksums]:
@@ -172,17 +169,24 @@ class ForeachRecipe(Recipe[R]):
                 if input_checksums:
                     needs_full_eval = True
 
+        # Check if bound function has changed - this should cause a full reevaluation
+        if not needs_full_eval:
+            if self.function_hash != self.last_function_hash:
+                needs_full_eval = True
+
         # Check if we actually need to do any work (in case everything remains the same as last invocation)
         if not needs_full_eval:
             if mapped_inputs_checksum == self.mapped_inputs_checksum:
-                log.debug("Returning early since mapped inputs did not change since last evaluation")
-                return self._mapped_outputs
+                # Outputs have to be valid for us to return them
+                if self._mapped_outputs is not None and all(output.valid for output in self._mapped_outputs):
+                    log.debug("Returning early since mapped inputs did not change since last evaluation")
+                    return self._mapped_outputs
 
         # Catch up on already done work
         # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
-        outputs = [] if isinstance(mapped_inputs, list) else {}  # type: MappedOutputs
-        evaluated = [] if isinstance(mapped_inputs, list) else {}  # type: MappedInputs
-        not_evaluated = [] if isinstance(mapped_inputs, list) else {}  # type: MappedInputs
+        outputs: MappedOutputs = [] if isinstance(mapped_inputs, list) else {}
+        evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
+        not_evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
         if needs_full_eval or self._mapped_outputs is None:
             not_evaluated = mapped_inputs
         else:
@@ -195,9 +199,11 @@ class ForeachRecipe(Recipe[R]):
                         idx = self.mapped_inputs_checksums.index(new_checksum)  # type: ignore
                         found_checksum = self.mapped_inputs_checksums[idx]  # type: ignore
                         if new_checksum == found_checksum:
-                            outputs.append(self._mapped_outputs[idx])
-                            evaluated.append(item)
-                            continue
+                            found_output = self._mapped_outputs[idx]
+                            if found_output.valid:
+                                outputs.append(found_output)
+                                evaluated.append(item)
+                                continue
                     except ValueError:
                         pass
                     not_evaluated.append(item)
@@ -208,9 +214,11 @@ class ForeachRecipe(Recipe[R]):
                     if found_checksum is not None:
                         new_checksum = checksums.checksum(key)
                         if new_checksum == found_checksum:
-                            outputs[key] = self._mapped_outputs[key]
-                            evaluated[key] = item
-                            continue
+                            found_output = self._mapped_outputs[key]
+                            if found_output.valid:
+                                outputs[key] = found_output
+                                evaluated[key] = item
+                                continue
                     not_evaluated[key] = item
 
         def _checkpoint(all_done: bool, save_state: bool = True) -> None:
@@ -271,10 +279,10 @@ class ForeachRecipe(Recipe[R]):
         :return: The ForeachRecipe as a dict for serialization purposes
         """
         # Force caching of all outputs (if they aren't already)
-        serialized_mapped_outputs = None  # type: Optional[Union[Dict, List]]
+        serialized_mapped_outputs: Optional[Union[Dict, List]] = None
         if self._mapped_outputs is not None:
             if isinstance(self._mapped_outputs, list):
-                outputs_list = []  # type: List[CachedOutput]
+                outputs_list: List[CachedOutput] = []
                 for output in self._mapped_outputs:
                     if isinstance(output, CachedOutput):
                         outputs_list.append(output)
@@ -285,7 +293,7 @@ class ForeachRecipe(Recipe[R]):
                 serialized_mapped_outputs = [output.serialized for output in outputs_list]
                 self._mapped_outputs = cast(List[Output], outputs_list)
             elif isinstance(self._mapped_outputs, dict):
-                outputs_dict = {}  # type: Dict[Any, CachedOutput]
+                outputs_dict: Dict[Any, CachedOutput] = {}
                 for key, output in self._mapped_outputs.items():
                     if isinstance(output, CachedOutput):
                         outputs_dict[key] = output
@@ -302,7 +310,7 @@ class ForeachRecipe(Recipe[R]):
             mapped_outputs=serialized_mapped_outputs,
             mapped_outputs_checksums=self.mapped_outputs_checksums,
             mapped_outputs_checksum=self._mapped_outputs_checksum,
-            output_checksums=self.output_checksums,
+            output_checksum=self.output_checksum,
             last_function_hash=self._last_function_hash,
             mapped_inputs_checksums=self.mapped_inputs_checksums,
             mapped_inputs_checksum=self.mapped_inputs_checksum,
@@ -331,7 +339,7 @@ class ForeachRecipe(Recipe[R]):
                                     zip(old_state["mapped_outputs"].items(), old_state["mapped_outputs_checksums"])}
         else:
             raise ValueError("Unknown mapped type: {}".format(mapped_type))
-        self._last_function_hash = old_state["last_function_hash"]
-        self._mapped_inputs_checksums = old_state["mapped_inputs_checksums"]
-        self._mapped_inputs_checksum = old_state["mapped_inputs_checksum"]
-        self._mapped_outputs_checksum = old_state["mapped_outputs_checksum"]
+        self._last_function_hash = cast(str, old_state["last_function_hash"])
+        self._mapped_inputs_checksums = cast(MappedInputsChecksums, old_state["mapped_inputs_checksums"])
+        self._mapped_inputs_checksum = cast(str, old_state["mapped_inputs_checksum"])
+        self._mapped_outputs_checksum = cast(str, old_state["mapped_outputs_checksum"])

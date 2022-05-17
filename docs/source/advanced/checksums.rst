@@ -4,7 +4,7 @@ Checksums
 =========
 
 alkymi uses checksums to determine whether nodes in the pipeline are up-to-date. Checksumming is implemented for
-arbitrary types by using a recursive MD5 checksum that takes nested types into account (see
+arbitrary types by using a recursive MD5 (or xxhash) checksum that takes nested types into account (see
 :ref:`Checksums API reference <checksums_api>`).
 
 
@@ -34,7 +34,7 @@ will not result in the function being marked dirty.
 To interface with the filesystem outside of alkymi's internal cache, alkymi uses the
 `pathlib.Path <https://docs.python.org/3/library/pathlib.html#pathlib.Path>`_ type. Because external files live outside
 of the alkymi cache, alkymi can't know for sure if they've been changed by other processes in between evaluations. Thus,
-the hashing scheme for ``Path`` instances will compute MD5 checksums for the binary contents of the file that a ``Path``
+the hashing scheme for ``Path`` instances will compute checksums for the binary contents of the file that a ``Path``
 points to (if one such exists).
 
 For external directories pointed to by ``Path`` instances, alkymi will simply treat the

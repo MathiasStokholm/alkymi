@@ -7,20 +7,26 @@ import mypy.api
 import pytest
 from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
+
 import coverage as Coverage
 
-import alkymi as alk
+# Start coverage to capture the initial alkymi import, then stop again to only include hits from testing later on
+cov = Coverage.coverage(source=["alkymi"])
+cov.start()
+import alkymi as alk  # NOQA: This has to happen after coverage start
+
+cov.stop()
 
 # Glob all source and test files and make them available as recipe outputs
-glob_source_files = alk.recipes.glob_files("glob_source_files", Path("alkymi"), "*.py", recursive=True)
-glob_example_files = alk.recipes.glob_files("glob_example_files", Path("examples"), "*.py", recursive=True)
-glob_test_files = alk.recipes.glob_files("glob_test_files", Path("tests"), "test_*.py", recursive=True)
+source_files = alk.recipes.glob_files("source_files", Path("alkymi"), "*.py", recursive=True)
+example_files = alk.recipes.glob_files("example_files", Path("examples"), "*.py", recursive=True)
+test_files = alk.recipes.glob_files("test_files", Path("tests"), "test_*.py", recursive=True)
 
 # Also run linting and type checking on this file itself
-labfile_file = alk.recipes.file("get_labfile", Path("labfile.py"))
+labfile = alk.recipes.file("get_labfile", Path("labfile.py"))
 
 
-@alk.recipe(ingredients=[glob_test_files], transient=True)
+@alk.recipe(transient=True)
 def test(test_files: List[Path]) -> None:
     """
     Run all alkymi unit tests
@@ -32,15 +38,14 @@ def test(test_files: List[Path]) -> None:
         exit(1)
 
 
-@alk.recipe(ingredients=[glob_test_files], transient=True)
+@alk.recipe(transient=True)
 def coverage(test_files: List[Path]) -> None:
     """
     Run all alkymi unit tests while capturing test coverage data
 
     :param test_files: The pytest files to execute to generate test coverage data
     """
-    cov = Coverage.coverage(source=["alkymi"])
-    cov.erase()
+    # Start coverage again and run tests
     cov.start()
     test(test_files)
     cov.stop()
@@ -48,7 +53,7 @@ def coverage(test_files: List[Path]) -> None:
     cov.report()
 
 
-@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
+@alk.recipe(transient=True)
 def lint(source_files: List[Path], example_files: List[Path], test_files: List[Path], labfile: Path) -> None:
     """
     Lint all alkymi source, example and test files using flake8
@@ -66,7 +71,7 @@ def lint(source_files: List[Path], example_files: List[Path], test_files: List[P
     print("Flake8 found no style violations in {} files".format(len(all_files)))
 
 
-@alk.recipe(ingredients=[glob_source_files, glob_example_files, glob_test_files, labfile_file], transient=True)
+@alk.recipe(transient=True)
 def type_check(source_files: List[Path], example_files: List[Path], test_files: List[Path], labfile: Path) -> None:
     """
     Type check all alkymi source, example and test files using mypy
@@ -113,33 +118,33 @@ def build() -> Path:
     # Clean output dir first
     dist_dir = Path("dist")
     if dist_dir.exists():
-        shutil.rmtree(str(dist_dir))  # This must be a str on Python 3.5
+        shutil.rmtree(dist_dir)
     dist_dir.mkdir(exist_ok=False)
 
     alk.utils.call(["python3", "setup.py", "sdist", "bdist_wheel"])
     return dist_dir
 
 
-@alk.recipe(ingredients=[build], transient=True)
-def release_test(build_dir: Path) -> None:
+@alk.recipe(transient=True)
+def release_test(build: Path) -> None:
     """
     Uploads the built alkymi distributions to the pypi test server
 
-    :param build_dir: The build directory containing alkymi distributions to upload
+    :param build: The build directory containing alkymi distributions to upload
     """
     alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
-    alk.utils.call(["python3", "-m", "twine", "upload", "--repository", "testpypi", "{}/*".format(build_dir)])
+    alk.utils.call(["python3", "-m", "twine", "upload", "--repository", "testpypi", "{}/*".format(build)])
 
 
-@alk.recipe(ingredients=[build], transient=True)
-def release(build_dir: Path) -> None:
+@alk.recipe(transient=True)
+def release(build: Path) -> None:
     """
     Uploads the built alkymi distributions to the pypi production server
 
-    :param build_dir: The build directory containing alkymi distributions to upload
+    :param build: The build directory containing alkymi distributions to upload
     """
     alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
-    alk.utils.call(["python3", "-m", "twine", "upload", "{}/*".format(build_dir)])
+    alk.utils.call(["python3", "-m", "twine", "upload", "{}/*".format(build)])
 
 
 def main():

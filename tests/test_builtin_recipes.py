@@ -52,7 +52,7 @@ def test_builtin_file(tmpdir):
 def test_builtin_args(tmpdir):
     tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache = False
-    args = alkymi.recipes.args("value1", 2, name="args")
+    args = alkymi.recipes.arg(("value1", 2), name="args")
 
     assert len(args.ingredients) == 0
     assert args.status() == Status.NotEvaluatedYet
@@ -62,81 +62,35 @@ def test_builtin_args(tmpdir):
     assert results[0] == "value1"
     assert results[1] == 2
 
-    args.set_args("3")
+    args.set(("value2", 42))
     assert args.status() == Status.CustomDirty
     results = args.brew()
     assert args.status() == Status.Ok
     assert results is not None
-    assert results[0] == "3"
-
-    args.set_args()
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert len(results) == 0
+    assert results[0] == "value2"
+    assert results[1] == 42
 
     # Check that altering an external file triggers dirtyness
     file_a = tmpdir / "file_a.txt"
     file_a.write_text(file_a.name)
-    args.set_args(file_a)
-    assert args.status() == Status.CustomDirty
-    result = args.brew()
-    assert args.status() == Status.Ok
+    file_arg = alkymi.recipes.arg(file_a, name="file_arg")
+    assert file_arg.status() == Status.NotEvaluatedYet
+    result = file_arg.brew()
+    assert file_arg.status() == Status.Ok
     assert result == file_a
 
     # Now change the file and check that recipe is dirty
     file_a.write_text("something_else")
-    assert args.status() == Status.OutputsInvalid
+    assert file_arg.status() == Status.OutputsInvalid
 
     # Changing the file contents back should fix things
     file_a.write_text(file_a.name)
-    assert args.status() == Status.Ok
+    assert file_arg.status() == Status.Ok
 
-
-def test_builtin_kwargs(tmpdir):
-    tmpdir = Path(str(tmpdir))
-    AlkymiConfig.get().cache = False
-    args = alkymi.recipes.kwargs("kwargs_test", argument1="value1", argument2=2)
-
-    assert len(args.ingredients) == 0
-    assert args.status() == Status.NotEvaluatedYet
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert results["argument1"] == "value1"
-    assert results["argument2"] == 2
-
-    args.set_args(argument3="3")
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert results["argument3"] == "3"
-
-    args.set_args()
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results is not None
-    assert len(results) == 0
-
-    # Check that altering an external file triggers dirtyness
-    file_a = tmpdir / "file_a.txt"
-    file_a.write_text(file_a.name)
-    args.set_args(path=file_a)
-    assert args.status() == Status.CustomDirty
-    results = args.brew()
-    assert args.status() == Status.Ok
-    assert results["path"] == file_a
-
-    # Now change the file and check that recipe is dirty
-    file_a.write_text("something_else")
-    assert args.status() == Status.OutputsInvalid
-
-    # Changing the file contents back should fix things
-    file_a.write_text(file_a.name)
-    assert args.status() == Status.Ok
+    # Test that supplying a different type of argument causes an error
+    with pytest.raises(TypeError):
+        # noinspection PyTypeChecker
+        file_arg.set(2)
 
 
 def test_zip_results():
