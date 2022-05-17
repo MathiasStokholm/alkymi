@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.6] - 2022-05-17
 ### Added
 - Added py.typed file to signal to downstream user's that alkymi has type annotations
 - Added optional dependency on xxhash to speed up hashing of large files (`Path` objects outside of alkymi's cache)
@@ -115,7 +117,8 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/MathiasStokholm/alkymi/releases/tag/v0.0.3
