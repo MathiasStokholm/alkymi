@@ -16,11 +16,10 @@ in some cases, custom cleanliness functions - see :ref:`custom_cleanliness`). Th
   `zip() <https://docs.python.org/3/library/functions.html#zip>`_ function. Notably, dictionaries are handled a bit
   differently, in that a dictionary is returned with keys mapping to tuples consisting of items from each of the
   different inputs.
-* ``args``: Creates a recipe that outputs a number of positional arguments. The recipe has a special ``set_args()``
-  function that allows the user to later change the arguments, potentially resulting in a need for re-evaluation.
-* ``kwargs``: Creates a recipe that outputs a number of keyword arguments. The recipe has a special ``set_args()``
-  function that allows the user to later change the arguments, potentially resulting in a need for re-evaluation.
-
+* ``arg``: Creates a recipe that outputs a value. The recipe has a special ``set()``
+  function that allows the user to later change the argument, potentially resulting in a need for re-evaluation. The
+  ``Arg`` type can also be used to accept user input using alkymi's Lab functionality (see
+  :ref:`command_line_interface`)
 
 .. note::
     All built-in recipes are described in detail in the :ref:`Built-in Recipes API reference <built_in_recipes_api>`

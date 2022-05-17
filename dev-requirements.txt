@@ -1,8 +1,9 @@
 -r requirements.txt
-pytest==5.4.3
-mypy==0.782
-flake8==3.8.3
-sphinx==3.2.1
-sphinx_rtd_theme==0.5.1
-m2r2==0.2.7
-coverage==5.5
+pytest==7.0.0
+mypy==0.942
+flake8==4.0.1
+sphinx==4.3.0
+sphinx_rtd_theme==1.0.0
+markupsafe<2.1.0
+m2r2==0.3.2
+coverage==6.2

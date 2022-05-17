@@ -1,12 +1,12 @@
 from typing import Dict, List, Any, Tuple, Optional
 
-from .types import Status, Outputs
+from .types import Status
 from .recipe import Recipe
 from .logging import log
 from .foreach_recipe import ForeachRecipe
 
 # TODO(mathias): Rename this file to something more fitting
-OutputsAndChecksums = Tuple[Outputs, Tuple[Optional[str], ...]]
+OutputsAndChecksums = Tuple[Any, Optional[str]]
 
 
 def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
@@ -16,7 +16,7 @@ def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
     :param recipe: The recipe for which status should be computed
     :return: The status of the provided recipe and all dependencies as a dictionary
     """
-    status = {}  # type: Dict[Recipe, Status]
+    status: Dict[Recipe, Status] = {}
     compute_status_with_cache(recipe, status)
     return status
 
@@ -45,30 +45,28 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
         return status[recipe]
 
     # Check if recipe hasn't been evaluated yet
-    if recipe.transient or recipe.output_checksums is None:
+    if recipe.transient or recipe.output_checksum is None:
         status[recipe] = Status.NotEvaluatedYet
         return status[recipe]
 
     # Check if one or more children are dirty
-    ingredient_output_checksums = []  # type: List[Optional[str]]
+    ingredient_output_checksums: List[Optional[str]] = []
     for ingredient in recipe.ingredients:
         if compute_status_with_cache(ingredient, status) != Status.Ok:
             status[recipe] = Status.IngredientDirty
             return status[recipe]
-        if ingredient.output_checksums is not None:  # This will never happen, but this satisfies the type checker
-            ingredient_output_checksums.extend(ingredient.output_checksums)
-    ingredient_output_checksums_tuple = tuple(ingredient_output_checksums)  # type: Tuple[Optional[str], ...]
+        if ingredient.output_checksum is not None:
+            ingredient_output_checksums.append(ingredient.output_checksum)
+    ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
 
     if isinstance(recipe, ForeachRecipe):
         # Check cleanliness of mapped inputs, inputs and outputs
         if compute_status_with_cache(recipe.mapped_recipe, status) != Status.Ok:
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
-        if recipe.mapped_recipe.output_checksums is None:
+        if recipe.mapped_recipe.output_checksum is None:
             raise Exception("Input checksum to mapped recipe {} is None".format(recipe.name))
-        if len(recipe.mapped_recipe.output_checksums) != 1:
-            raise Exception("Input checksum to mapped recipe {} must be a single element".format(recipe.name))
-        if not is_foreach_clean(recipe, recipe.mapped_recipe.output_checksums[0]):
+        if not is_foreach_clean(recipe, recipe.mapped_recipe.output_checksum):
             status[recipe] = Status.MappedInputsDirty
             return status[recipe]
 
@@ -89,12 +87,8 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
 
     def _print_and_return() -> OutputsAndChecksums:
         log.debug('Finished evaluating {}'.format(recipe.name))
-        outputs, checksums = recipe.outputs, recipe.output_checksums
-        if outputs is None:
-            raise RuntimeError("Output of recipe is None - this should never happen")
-        if checksums is None:
-            raise RuntimeError("Output checksum(s) of recipe is None - this should never happen")
-        return outputs, checksums
+        outputs, checksum = recipe.outputs, recipe.output_checksum
+        return outputs, checksum
 
     if status[recipe] == Status.Ok:
         return _print_and_return()
@@ -104,25 +98,19 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
         return _print_and_return()
 
     # Load ingredient inputs
-    ingredient_inputs = []  # type: List[Any]
-    ingredient_input_checksums = []  # type: List[Optional[str]]
+    ingredient_inputs: List[Any] = []
+    ingredient_input_checksums: List[Optional[str]] = []
     for ingredient in recipe.ingredients:
         result, checksum = evaluate_recipe(ingredient, status)
-        ingredient_inputs.extend(result)
-        ingredient_input_checksums.extend(checksum)
-    ingredient_inputs_tuple = tuple(ingredient_inputs)  # type: Tuple[Any, ...]
-    ingredient_input_checksums_tuple = tuple(ingredient_input_checksums)  # type: Tuple[Optional[str], ...]
+        ingredient_inputs.append(result)
+        ingredient_input_checksums.append(checksum)
+    ingredient_inputs_tuple: Tuple[Any, ...] = tuple(ingredient_inputs)
+    ingredient_input_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_input_checksums)
 
     # Process inputs
     if isinstance(recipe, ForeachRecipe):
         # Process mapped inputs
-        mapped_inputs_tuple, mapped_inputs_checksum_tuple = evaluate_recipe(recipe.mapped_recipe, status)
-        if len(mapped_inputs_tuple) != 1:
-            raise Exception("Input to mapped recipe {} must be a single list or dict".format(recipe.name))
-        mapped_inputs = mapped_inputs_tuple[0]
-        if len(mapped_inputs_checksum_tuple) != 1:
-            raise Exception("Input checksums to mapped recipe {} must be a single list or dict".format(recipe.name))
-        mapped_inputs_checksum = mapped_inputs_checksum_tuple[0]
+        mapped_inputs, mapped_inputs_checksum = evaluate_recipe(recipe.mapped_recipe, status)
 
         # Mapped inputs can either be a list or a dictionary
         if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
@@ -149,7 +137,7 @@ def is_clean(recipe, new_input_checksums: Tuple[Optional[str], ...]) -> Status:
             return Status.CustomDirty
 
     # Not clean if outputs were never generated
-    if recipe.output_checksums is None:
+    if recipe.output_checksum is None:
         return Status.NotEvaluatedYet
 
     # Compute input checksums and perform equality check
@@ -192,11 +180,4 @@ def brew(recipe: Recipe) -> Any:
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     result, _ = evaluate_recipe(recipe, compute_recipe_status(recipe))
-    if not result.exists:
-        # Return empty output as standard None type
-        return None
-    elif len(result) == 1:
-        # Unwrap single item tuple
-        return result[0]
-    # Return as regular tuple
-    return tuple(result)
+    return result

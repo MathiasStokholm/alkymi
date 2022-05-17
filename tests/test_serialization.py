@@ -69,12 +69,12 @@ def test_recipe_serialization(tmpdir):
     AlkymiConfig.get().cache_path = tmpdir  # Use temporary directory for caching
 
     @alk.recipe()
-    def produces_build_dir() -> Path:
-        build_dir = Path(tmpdir) / "build"
-        build_dir.mkdir(parents=False, exist_ok=True)
-        return build_dir
+    def build_dir() -> Path:
+        d = Path(tmpdir) / "build"
+        d.mkdir(parents=False, exist_ok=True)
+        return d
 
-    @alk.recipe(ingredients=[produces_build_dir])
+    @alk.recipe()
     def files_in_dir(build_dir: Path) -> List[Path]:
         new_file_1 = build_dir / "test.txt"
         new_file_1.touch()
@@ -88,7 +88,7 @@ def test_recipe_serialization(tmpdir):
             return fh.read()
 
     # Copy before brewing
-    produces_build_dir_copy = copy.deepcopy(produces_build_dir)
+    produces_build_dir_copy = copy.deepcopy(build_dir)
     files_in_dir_copy = copy.deepcopy(files_in_dir)
     read_file_copy = copy.deepcopy(read_file)
     read_file.brew()
@@ -97,26 +97,26 @@ def test_recipe_serialization(tmpdir):
     for recipe in [produces_build_dir_copy, files_in_dir_copy, read_file_copy]:
         assert recipe.input_checksums is None
         assert recipe.outputs is None
-        assert recipe.output_checksums is None
+        assert recipe.output_checksum is None
     assert read_file_copy.mapped_inputs is None
     assert read_file_copy.mapped_inputs_checksums is None
     assert read_file_copy.mapped_inputs_checksum is None
 
     # Test serializing -> deserializing
-    produces_build_dir_copy.restore_from_dict(produces_build_dir.to_dict())
-    assert produces_build_dir_copy.input_checksums == produces_build_dir.input_checksums
-    assert produces_build_dir_copy.outputs == produces_build_dir.outputs
-    assert produces_build_dir_copy.output_checksums == produces_build_dir.output_checksums
+    produces_build_dir_copy.restore_from_dict(build_dir.to_dict())
+    assert produces_build_dir_copy.input_checksums == build_dir.input_checksums
+    assert produces_build_dir_copy.outputs == build_dir.outputs
+    assert produces_build_dir_copy.output_checksum == build_dir.output_checksum
 
     files_in_dir_copy.restore_from_dict(files_in_dir.to_dict())
     assert files_in_dir_copy.input_checksums == files_in_dir.input_checksums
     assert files_in_dir_copy.outputs == files_in_dir.outputs
-    assert files_in_dir_copy.output_checksums == files_in_dir.output_checksums
+    assert files_in_dir_copy.output_checksum == files_in_dir.output_checksum
 
     read_file_copy.restore_from_dict(read_file.to_dict())
     assert read_file_copy.input_checksums == read_file.input_checksums
     assert read_file_copy.outputs == read_file.outputs
-    assert read_file_copy.output_checksums == read_file.output_checksums
+    assert read_file_copy.output_checksum == read_file.output_checksum
     assert read_file_copy.mapped_inputs_checksums == read_file.mapped_inputs_checksums
 
 

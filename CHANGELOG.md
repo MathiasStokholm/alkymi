@@ -5,6 +5,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added py.typed file to signal to downstream user's that alkymi has type annotations
+- Added optional dependency on xxhash to speed up hashing of large files (`Path` objects outside of alkymi's cache)
+- Added option to supply ingredients to a recipe by using argument names that match recipes (ala pytest's fixtures)
+- Added support for explicit naming of recipes (if not provided, the bound function name will be used)
+- Added support for providing CLI arguments to recipes through a `Lab` using the new `register_arg()` function
+- Added tests for the `Lab` class
+
+### Changed
+- Updated Sphinx and associated packages to fix documentation build errors
+- Updated development libraries (pytest, coverage, sphinx, mypy, flake8)
+- Made the `call()` utility function print error stack traces to stderr by default - this can be controlled using the
+`echo_error_to_stream` argument.
+
+### Fixed
+- Fixed a bug where file names were not taken into account during checksumming (only file content was taken into
+account)
+- Fixed a bug where a recipe's cache path would be different when a script was invoked as a relative or absolute path
+- Fixed a bug where item validity was not being taken into account in `ForeachRecipe` (e.g., an invalid Path such as a
+deleted file would not cause reevaluation)
+- Fixed a bug where a `ForeachRecipe` wouldn't be completely reevaluated if its bound function changed
+- Fixed a bug where changing the default value of an argument to a bound function did not cause the checksum of the
+bound function to change
+- Fixed coverage to correctly include alkymi imports when executed through `labfile.py`
+
+### Removed
+- `kwargs`/`NamedArgs` built-in recipe removed (functionality can now be mimicked using the built-in `Arg`)
+- Dropped support for Python 3.5
 
 ## [0.0.5] - 2021-03-17
 ### Added

@@ -6,7 +6,7 @@
 [![pypi](https://img.shields.io/pypi/v/alkymi.svg)](https://pypi.org/project/alkymi)
 [![versions](https://img.shields.io/pypi/pyversions/alkymi.svg)](https://pypi.org/project/alkymi)
 
-Alkymi is a pure Python (3.5+) library for describing and executing tasks and pipelines with built-in caching and
+Alkymi is a pure Python (3.6+) library for describing and executing tasks and pipelines with built-in caching and
 conditional evaluation based on checksums.
 
 Alkymi is easy to install, simple to use, and has no dependencies outside of Python's standard library. The code is
@@ -50,7 +50,6 @@ Or one of the examples, e.g. [MNIST](https://alkymi.readthedocs.io/en/latest/exa
 
 ## Upcoming Features
 The following features are being considered for future implementation:
-* Arguments to recipes when calling `brew` in `Lab` CLI
 * Type annotations propagated from bound functions to recipes
 * Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
 * Cache maintenance functionality

@@ -39,6 +39,23 @@ def test_function_hash():
     assert func_1_hash != checksums.function_hash(func_different_func_reference)
 
 
+def test_function_hash_default_arg():
+    """
+    Test that changing the default value of an argument to function also changes the checksum of the function
+    """
+
+    def add(value: int, to_be_added: int = 5) -> int:
+        return value + to_be_added
+
+    func_hash = checksums.function_hash(add)
+
+    # Redefine function with different default value - this should change the checksum of the function
+    def add(value: int, to_be_added: int = 10) -> int:  # NOQA: Redefinition for the purpose of testing
+        return value + to_be_added
+
+    assert checksums.function_hash(add) != func_hash
+
+
 class MyClass:
     def __init__(self, public_value, private_value):
         self.public_value = public_value
@@ -91,6 +108,11 @@ def test_path_checksum(tmpdir):
     # And check that directory checksum remains the same
     tmpdir_checksum = checksums.checksum(tmpdir)
     assert tmpdir_checksum == tmpdir_checksum_empty
+
+    # Check that another file (with different name) but same contents has a different checksum
+    test_file_2 = test_file.with_name("test_file_2.txt")
+    shutil.copy2(test_file, test_file_2)
+    assert checksums.checksum(test_file_2) != checksums.checksum(test_file)
 
     # Finally, ensure that removing the directory causes the directory checksum to change
     shutil.rmtree(str(tmpdir))

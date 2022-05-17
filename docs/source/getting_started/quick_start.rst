@@ -37,8 +37,8 @@ Recipes can depend on other recipes using the *ingredients* argument to ``recipe
 
     import requests
 
-    @alk.recipe(ingredients=[long_running_task])
-    def upload_to_cloud(result: int) -> None:
+    @alk.recipe()
+    def upload_to_cloud(long_running_task: int) -> None:
         r = requests.post('http://httpbin.org/post', json={"hard_to_compute_value": result})
         if r.status_code != 200:
             raise RuntimeError("Post to cloud failed with code: {}".format(r.status_code))
@@ -47,11 +47,10 @@ Recipes can depend on other recipes using the *ingredients* argument to ``recipe
 
 Whenever ``upload_to_cloud.brew()`` is called, alkymi will automatically traverse the entire dependency chain (in this
 case just ``long_running_task``) to see if everything is up-to-date. If not, the needed steps will be evaluated to bring
-the graph up-to-data. Note that the ``result`` argument to ``upload_to_cloud`` is provided by the output of
-``long_running_task``.
+the graph up-to-data. Note that alkymi will automatically associate the ``long_running_task`` argument with the
+previously defined recipe of the same name, equivalent to how pytest resolves fixtures.
 
 
 .. note::
-    Bound functions can return zero (None) or more values. When passing the output(s) of one recipe to another
-    downstream recipe, the spread operator ``*`` will be used. If a recipe depends on multiple recipes, the outputs of
-    those recipes will be spread and concatenated before being passed to the bound function
+    Ingredients can also be passed explicitly to a recipe using the ``ingredients`` argument of the ``recipe``
+    decorator (instead of relying on the automatic lookup based on argument name <-> recipe name)
