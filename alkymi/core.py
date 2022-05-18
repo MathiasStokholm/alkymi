@@ -1,6 +1,6 @@
 from typing import Dict, Tuple, Optional, cast
 
-from .types import Status
+from .types import Status, ProgressCallback
 from .recipe import Recipe, R
 from .logging import log
 
@@ -98,7 +98,8 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     return statuses
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
+def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status],
+                    progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
 
@@ -122,7 +123,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         # Collect inputs and checksums
         inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
         input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
-        recipe.invoke(inputs, input_checksums)
+        recipe.invoke(inputs, input_checksums, progress_callback)
 
     # Return the output and checksum of the final recipe
     return cast(R, recipe.outputs), recipe.output_checksum

@@ -7,7 +7,7 @@ from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .serialization import OutputWithValue, CachedOutput, Output
-from .types import Status
+from .types import Status, ProgressCallback
 
 R = TypeVar("R")  # The return type of the bound function
 
@@ -80,7 +80,8 @@ class Recipe(Generic[R]):
         """
         return self._func(*args)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> None:
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...],
+               progress_callback: Optional[ProgressCallback]) -> None:
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
@@ -252,3 +253,6 @@ class Recipe(Generic[R]):
         if old_state["outputs"] is not None and old_state["output_checksum"] is not None:
             self._outputs = CachedOutput(None, old_state["output_checksum"], old_state["outputs"])
         self._last_function_hash = cast(str, old_state["last_function_hash"])
+
+    def __repr__(self) -> str:
+        return self.name

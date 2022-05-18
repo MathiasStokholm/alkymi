@@ -22,7 +22,6 @@ the graph. The status can take on the following states:
   (see :ref:`checksums_external_files`)
 * ``BoundFunctionChanged``: The function referenced by the recipe has changed
 * ``CustomDirty``: The recipe has been marked dirty through a custom cleanliness function
-* ``MappedInputsDirty``: One or more mapped inputs to the recipe have changed (see :ref:`sequences`)
 
 Throughout the documentation, "clean" will be used to refer to the ``Ok`` status, in which everything is up-to-date, and
 no work needs to be done; and "dirty", which is all the status states that require some sort of (re)evaluation.

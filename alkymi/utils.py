@@ -16,6 +16,10 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     :param echo_output_to_stream: A stream to which to echo the call's stdout while the command is executing
     :return: The result of the execution as a subprocess.CompletedProcess instance
     """
+    # If running through a Lab CLI, sys.stdout may have been redirected
+    if echo_output_to_stream is not None and getattr(echo_output_to_stream, "name", None) == sys.stdout.name:
+        echo_output_to_stream = sys.stdout
+
     # Buffer one line at a time if echoing live, otherwise just use the default
     buffer_size = 1 if echo_output_to_stream is not None else -1
     proc = subprocess.Popen(args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,

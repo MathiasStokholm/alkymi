@@ -28,7 +28,7 @@ def test(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute
     """
-    result = pytest.main(args=[str(file) for file in test_files])
+    result = pytest.main(args=[str(file) for file in test_files] + ["-sv"])
     if result != pytest.ExitCode.OK:
         exit(1)
 
@@ -70,7 +70,7 @@ def lint(source_files: List[Path], example_files: List[Path], test_files: List[P
     report = style_guide.check_files([str(file) for file in all_files])
     if report.get_statistics("E"):
         exit(1)
-    print("Flake8 found no style violations in {} files".format(len(all_files)))
+    print("Flake8 found no style violations in {} files".format(len(all_files)), file=sys.stderr)
 
 
 @alk.recipe(transient=True)
@@ -105,8 +105,10 @@ def docs() -> None:
     doc_dir = Path("docs")
     source_dir = doc_dir / "source"
     build_dir = doc_dir / "build"
+
+    # Explicitly set 'status' and 'warning' here to make sure progress is forwarded to Rich for formatting
     sphinx = Sphinx(str(source_dir), confdir=str(source_dir), outdir=str(build_dir),
-                    doctreedir=str(build_dir / "doctrees"), buildername="html")
+                    doctreedir=str(build_dir / "doctrees"), buildername="html", status=sys.stdout, warning=sys.stderr)
     sphinx.build()
 
 

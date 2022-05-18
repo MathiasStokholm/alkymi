@@ -6,6 +6,7 @@ from . import checksums, serialization
 from .logging import log
 from .recipe import Recipe, CacheType, CleanlinessFunc
 from .serialization import Output, OutputWithValue, CachedOutput
+from .types import ProgressCallback, EvaluateProgress
 
 MappedInputs = Union[List[Any], Dict[Any, Any]]
 MappedOutputs = Union[List[Output], Dict[Any, Output]]
@@ -131,7 +132,8 @@ class ForeachRecipe(Recipe[R]):
             return {key: output.checksum for key, output in self._mapped_outputs.items()}
         raise RuntimeError("Invalid type for mapped outputs")
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> None:
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...],
+               progress_callback: Optional[ProgressCallback]) -> None:
         """
         Evaluate this ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
@@ -221,15 +223,26 @@ class ForeachRecipe(Recipe[R]):
                 self._mapped_inputs_checksum = mapped_inputs_checksum
             else:
                 self._mapped_inputs_checksum = "0xmissing_mapped_inputs_eval"
+
+            # Set input checksums to checksum of mapped inputs plus other inputs (since first ingredient is mapped)
             self._input_checksums = (self._mapped_inputs_checksum,) + other_input_checksums
+
             if save_state:
                 self._save_state()
+
+            # Signal progress via callback
+            if progress_callback is not None:
+                progress_callback(EvaluateProgress.InProgress, self, len(mapped_inputs), len(evaluated))
 
         log.debug("Num already cached results: {}/{}".format(len(evaluated), len(mapped_inputs)))
         if len(evaluated) == len(mapped_inputs):
             log.debug("Returning early since all items were already cached")
             _checkpoint(all_done=True, save_state=False)
             return
+
+        # Signal progress via callback
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.InProgress, self, len(mapped_inputs), len(evaluated))
 
         # Perform remaining work - store state every time an evaluation is successful
         if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
@@ -263,6 +276,7 @@ class ForeachRecipe(Recipe[R]):
             return all(output.valid for output in self._mapped_outputs.values())
         else:
             raise ValueError("Invalid type of mapped_outputs")
+
 
     def to_dict(self) -> OrderedDict:
         """
@@ -306,6 +320,7 @@ class ForeachRecipe(Recipe[R]):
             mapped_inputs_checksum=self.mapped_inputs_checksum,
             mapped_type="dict" if self.mapped_inputs_type == dict else "list"
         )
+
 
     def restore_from_dict(self, old_state: Dict) -> None:
         """

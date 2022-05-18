@@ -1,12 +1,22 @@
 import argparse
 import logging
 import sys
-from typing import Dict, Union, Any, List, Iterable, Optional, TextIO
+from typing import Iterable, TextIO
 
-from .core import Status, compute_recipe_status, create_graph
+from .core import Status, compute_recipe_status, create_graph, evaluate_recipe
+from .foreach_recipe import ForeachRecipe
 from .logging import log
 from .recipe import Recipe
 from .recipes import Arg
+
+from typing import Dict, Union, Any, List, Optional
+
+from rich import console
+from rich.progress import Progress, TaskID, TextColumn, TimeElapsedColumn, BarColumn, TimeRemainingColumn
+from rich.rule import Rule
+from rich.console import Group
+
+from .types import EvaluateProgress
 
 
 class Lab:
@@ -25,6 +35,7 @@ class Lab:
         self._name = name
         self._recipes: List[Recipe] = []
         self._args: Dict[str, Arg] = {}
+        self._console = console.Console()
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         """
@@ -54,6 +65,50 @@ class Lab:
         """
         self._args[arg.name] = arg
 
+    def _call_brew(self, target_recipe: Recipe) -> Any:
+        class LabProgress(Progress):
+            def get_renderables(self):
+                rule = Rule(title=f"Brewing {target_recipe.name}")
+                yield Group(rule, self.make_tasks_table(self.tasks))
+
+        progress = LabProgress(TextColumn("[bold cyan]{task.description}"),
+                               BarColumn(),
+                               TextColumn("{task.completed}/{task.total} ({task.percentage}%)"),
+                               TimeRemainingColumn(),
+                               TimeElapsedColumn(),
+                               console=self._console)
+
+        graph = create_graph(target_recipe)
+        statuses = compute_recipe_status(target_recipe, graph)
+
+        tasks: Dict[Recipe, TaskID] = {}
+        with progress:
+            def _progress_callback(evaluate_progress: EvaluateProgress, recipe: Recipe, units_total=0, units_done=0):
+                if recipe not in tasks:
+                    if isinstance(recipe, ForeachRecipe):
+                        tasks[recipe] = progress.add_task(recipe.name, total=units_total, completed=units_done)
+                    else:
+                        tasks[recipe] = progress.add_task(recipe.name, total=1, completed=0)
+
+                if evaluate_progress == EvaluateProgress.Started:
+                    pass
+                elif evaluate_progress == EvaluateProgress.InProgress:
+                    if units_total != 0:
+                        progress.update(tasks[recipe], total=units_total, completed=units_done)
+                elif evaluate_progress == EvaluateProgress.Done:
+                    progress.update(tasks[recipe], total=units_total, completed=units_done)
+                    progress.stop_task(tasks[recipe])
+                elif evaluate_progress == EvaluateProgress.UpToDate:
+                    progress.update(tasks[recipe], total=units_total, completed=units_done)
+                    progress.stop_task(tasks[recipe])
+
+            try:
+                result, _ = evaluate_recipe(target_recipe, graph, statuses, _progress_callback)
+                return result
+            except KeyboardInterrupt:
+                self._console.print("[bold red]Interrupted by user")
+                sys.exit(1)
+
     def brew(self, target_recipe: Union[Recipe, str]) -> Any:
         """
         Brew (evaluate) a target recipe defined by its reference or name, and return the results
@@ -65,12 +120,12 @@ class Lab:
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    return recipe.brew()
+                    return self._call_brew(recipe)
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                return target_recipe.brew()
+                return self._call_brew(target_recipe)
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property
@@ -130,6 +185,25 @@ class Lab:
             state += '\n\t{} - {}'.format(recipe.name, status[recipe])
         return '{} lab with recipes:{}'.format(self.name, state)
 
+    def print_status(self) -> None:
+        colors = {
+            Status.Ok: "green",
+            Status.NotEvaluatedYet: "red",
+            Status.CustomDirty: "yellow",
+            Status.BoundFunctionChanged: "yellow",
+            Status.IngredientDirty: "yellow",
+            Status.InputsChanged: "yellow",
+            Status.OutputsInvalid: "yellow",
+        }
+
+        status = self._build_full_status()
+        state = ''
+        for recipe in self._recipes:
+            color = colors[status[recipe]]
+            status_string = status[recipe].name.replace("Status.", "")
+            state += '\n\t[cyan]{} - [{}]{}'.format(recipe.name, color, status_string)
+        self._console.print('[bold]{} lab with recipes:[/bold]{}'.format(self.name, state))
+
     def open(self, args: Optional[List[str]] = None, stream: TextIO = sys.stderr) -> None:
         """
         Runs the command line interface for this Lab by parsing command line arguments and carrying out the designated
@@ -175,7 +249,7 @@ class Lab:
                 arg.set(provided_val)
 
         if parsed_args.subparser_name == 'status':
-            print(self, file=stream)
+            self.print_status()
         elif parsed_args.subparser_name == 'brew':
             for recipe in parsed_args.recipe:
                 self.brew(recipe)

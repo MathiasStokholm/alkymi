@@ -1,4 +1,5 @@
 import enum
+from typing import Callable, TYPE_CHECKING
 
 
 @enum.unique
@@ -15,3 +16,17 @@ class Status(enum.Enum):
     OutputsInvalid = 4  # One or more outputs of the recipe have been changed externally
     BoundFunctionChanged = 5  # The function referenced by the recipe has changed
     CustomDirty = 6  # The recipe has been marked dirty through a custom cleanliness function
+
+
+@enum.unique
+class EvaluateProgress(enum.Enum):
+    UpToDate = 0
+    Started = 1
+    InProgress = 2
+    Done = 3
+
+
+if TYPE_CHECKING:
+    from .recipe import Recipe
+
+ProgressCallback = Callable[[EvaluateProgress, "Recipe", int, int], None]
