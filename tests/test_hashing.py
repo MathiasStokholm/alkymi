@@ -1,8 +1,12 @@
 #!/usr/bin/env python
-from pathlib import Path
 import shutil
+import time
+from pathlib import Path
+
+import pytest
 
 from alkymi import checksums
+from alkymi.config import FileChecksumMethod, AlkymiConfig
 
 
 def test_function_hash():
@@ -71,11 +75,13 @@ def test_custom_class_checksum():
     assert class_1_hash == class_4_hash
 
 
-def test_path_checksum(tmpdir):
+@pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
+def test_path_checksum(tmpdir, file_checksum_method: FileChecksumMethod):
     """
     Test that checksumming of Path objects work as expected
     """
     tmpdir = Path(str(tmpdir))
+    AlkymiConfig.get().file_checksum_method = file_checksum_method
 
     # Checksum the directory before adding any data to it
     tmpdir_checksum_empty = checksums.checksum(tmpdir)
@@ -100,6 +106,9 @@ def test_path_checksum(tmpdir):
     assert test_file_checksum_1 != test_file_checksum_non_existent
 
     # Change the data a bit and check again
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     with test_file.open("w") as f:
         f.write("Testing 1")
     test_file_checksum_2 = checksums.checksum(test_file)

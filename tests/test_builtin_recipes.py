@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import time
+
 import pytest
 from pathlib import Path
 from typing import List, Dict
@@ -6,10 +8,13 @@ from typing import List, Dict
 import alkymi.recipes
 from alkymi import AlkymiConfig
 from alkymi.alkymi import Status
+from alkymi.config import FileChecksumMethod
 
 
-def test_builtin_glob(tmpdir):
+@pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
+def test_builtin_glob(tmpdir, file_checksum_method: FileChecksumMethod):
     AlkymiConfig.get().cache = False
+    AlkymiConfig.get().file_checksum_method = file_checksum_method
     tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
@@ -21,18 +26,27 @@ def test_builtin_glob(tmpdir):
     assert glob_recipe.status() == Status.Ok
 
     # Altering the file should mark the recipe dirty
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     with test_file.open('w') as f:
         f.write("something else")
     assert glob_recipe.status() == Status.OutputsInvalid
 
     # Changing the file back again should make things work again
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     with test_file.open('w') as f:
         f.write("test")
-    assert glob_recipe.status() == Status.Ok
+    expected_status = Status.Ok if file_checksum_method == FileChecksumMethod.HashContents else Status.OutputsInvalid
+    assert glob_recipe.status() == expected_status
 
 
-def test_builtin_file(tmpdir):
+@pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
+def test_builtin_file(tmpdir, file_checksum_method: FileChecksumMethod):
     AlkymiConfig.get().cache = False
+    AlkymiConfig.get().file_checksum_method = file_checksum_method
     tmpdir = Path(str(tmpdir))
     test_file = Path(tmpdir) / 'test_file.txt'
     with test_file.open('w') as f:
@@ -44,14 +58,19 @@ def test_builtin_file(tmpdir):
     assert file_recipe.status() == Status.Ok
 
     # Altering the file should mark the recipe dirty
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     with test_file.open('w') as f:
         f.write("something else")
     assert file_recipe.status() == Status.OutputsInvalid
 
 
-def test_builtin_args(tmpdir):
+@pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
+def test_builtin_args(tmpdir, file_checksum_method: FileChecksumMethod):
     tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache = False
+    AlkymiConfig.get().file_checksum_method = file_checksum_method
     args = alkymi.recipes.arg(("value1", 2), name="args")
 
     assert len(args.ingredients) == 0
@@ -80,12 +99,19 @@ def test_builtin_args(tmpdir):
     assert result == file_a
 
     # Now change the file and check that recipe is dirty
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     file_a.write_text("something_else")
     assert file_arg.status() == Status.OutputsInvalid
 
-    # Changing the file contents back should fix things
+    # Changing the file contents back should fix things if using file content hashing
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     file_a.write_text(file_a.name)
-    assert file_arg.status() == Status.Ok
+    expected_status = Status.Ok if file_checksum_method == FileChecksumMethod.HashContents else Status.OutputsInvalid
+    assert file_arg.status() == expected_status
 
     # Test that supplying a different type of argument causes an error
     with pytest.raises(TypeError):

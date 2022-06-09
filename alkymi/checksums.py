@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Sequence, Dict, Callable
 import pickle
+import alkymi.config
 
 # Try to use xxh3 from xxhash to speed up hashing significantly, otherwise fallback to built-in MD5
 try:
@@ -160,14 +161,23 @@ class Checksummer(object):
             self.update(path.exists())
             return
 
-        # For files, we care about file name and contents too
+        # For files, we care about file name ...
         self.update(str(path))
-        with path.open('rb') as f:
-            size = 1024 * self._hasher.block_size
-            b = f.read(size)
-            while len(b) > 0:
-                self._hasher.update(b)
+
+        # ... and either the file hash
+        file_checksum_method = alkymi.config.AlkymiConfig.get().file_checksum_method
+        if file_checksum_method == alkymi.config.FileChecksumMethod.HashContents:
+            with path.open('rb') as f:
+                size = 1024 * self._hasher.block_size
                 b = f.read(size)
+                while len(b) > 0:
+                    self._hasher.update(b)
+                    b = f.read(size)
+
+        # ... or the file modification timestamp
+        elif file_checksum_method == alkymi.config.FileChecksumMethod.ModificationTimestamp:
+            last_modification_timestamp = path.stat().st_mtime_ns
+            self.update(last_modification_timestamp)
 
     def digest(self) -> str:
         """
