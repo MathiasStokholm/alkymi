@@ -104,13 +104,14 @@ def test_lab_open() -> None:
     assert str(alk.Status.Ok) in status_msg
 
 
-def test_lab_arg() -> None:
+@pytest.mark.parametrize("arg_name", ("an_arg", "an-arg"))
+def test_lab_arg(arg_name: str) -> None:
     """
     Test providing an argument to a recipe through a lab's command line interface
     """
     AlkymiConfig.get().cache = False
 
-    arg = alk.arg(42, name="an_arg")
+    arg = alk.arg(42, name=arg_name)
     output = 0
 
     @alk.recipe()
