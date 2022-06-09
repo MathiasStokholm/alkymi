@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a `file_checksum_method` config option that can be used to select whether to use file content hashing (default)
 or file modification timestamps for calculating the checksum of an external file represented by a `Path` object
 
+### Fixed
+- Fixed a bug where CLI arguments containing a hyphen would not be parsed correctly when used in a `Lab` 
+
 ## [0.0.6] - 2022-05-17
 ### Added
 - Added py.typed file to signal to downstream user's that alkymi has type annotations
