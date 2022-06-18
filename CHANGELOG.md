@@ -11,6 +11,9 @@ or file modification timestamps for calculating the checksum of an external file
 
 ### Fixed
 - Fixed a bug where CLI arguments containing a hyphen would not be parsed correctly when used in a `Lab`
+- Fixed a bug where the implementation of coverage in `labfile.py` would break the debugger for the entire script. Now
+only the `coverage` steps breaks debugging (which is expected, since coverage replaces the tracing function used by the
+debugger)
 
 ### Changed
 - Made the `call()` utility function print program outputs (stdout) to stdout by default - this can be controlled using
