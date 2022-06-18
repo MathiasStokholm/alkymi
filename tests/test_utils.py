@@ -68,7 +68,7 @@ import time
 
 for i in range({}):
     print(i)
-    time.sleep(0.01)
+    time.sleep(0.1)
     """.format(num_outputs)
 
     alkymi.utils.call(["python3", "-c", program], echo_output_to_stream=stream)
