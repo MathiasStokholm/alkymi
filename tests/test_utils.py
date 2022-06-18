@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import io
+import os
 import subprocess
 import threading
 import time
@@ -68,10 +69,13 @@ import time
 
 for i in range({}):
     print(i)
-    time.sleep(0.1)
+    time.sleep(0.01)
     """.format(num_outputs)
 
+    # We have to set 'PYTHONUNBUFFERED' to avoid buffering inside the subprocess itself
+    os.environ["PYTHONUNBUFFERED"] = "1"
     alkymi.utils.call(["python3", "-c", program], echo_output_to_stream=stream)
+    os.unsetenv("PYTHONUNBUFFERED")
 
     # Stop reader thread
     process_stream = False
