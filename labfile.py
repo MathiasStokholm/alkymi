@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 import shutil
+import sys
 from pathlib import Path
 from typing import List
 
+import coverage as coverage_
 import mypy.api
 import pytest
-from sphinx.application import Sphinx
 from flake8.api import legacy as flake8
+from sphinx.application import Sphinx
 
-import coverage as Coverage
-
-# Start coverage to capture the initial alkymi import, then stop again to only include hits from testing later on
-cov = Coverage.coverage(source=["alkymi"])
-cov.start()
 import alkymi as alk  # NOQA: This has to happen after coverage start
-
-cov.stop()
 
 # Glob all source and test files and make them available as recipe outputs
 source_files = alk.recipes.glob_files("source_files", Path("alkymi"), "*.py", recursive=True)
@@ -45,7 +40,14 @@ def coverage(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute to generate test coverage data
     """
-    # Start coverage again and run tests
+    # Because alkymi was already imported to run this script, we need to delete it before running coverage. Otherwise,
+    # coverage won't see the lines hit by import statements, resulting in a false coverage value. The test files will
+    # automatically reimport everything needed from alkymi once executed by pytest
+    for module in list(sys.modules.keys()):
+        if "alkymi" in module:
+            del sys.modules[module]
+    # Start coverage and run tests - note that debugging will not work from this point on
+    cov = coverage_.coverage(source=["alkymi"], check_preimported=True)
     cov.start()
     test(test_files)
     cov.stop()
