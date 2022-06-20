@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 or file modification timestamps for calculating the checksum of an external file represented by a `Path` object
 
 ### Fixed
-- Fixed a bug where CLI arguments containing a hyphen would not be parsed correctly when used in a `Lab` 
+- Fixed a bug where CLI arguments containing a hyphen would not be parsed correctly when used in a `Lab`
+
+### Changed
+- Made the `call()` utility function print program outputs (stdout) to stdout by default - this can be controlled using
+the `echo_output_to_stream` argument.
 
 ## [0.0.6] - 2022-05-17
 ### Added
