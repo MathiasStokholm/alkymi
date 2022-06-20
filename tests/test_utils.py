@@ -75,7 +75,7 @@ for i in range({}):
     # We have to set 'PYTHONUNBUFFERED' to avoid buffering inside the subprocess itself
     os.environ["PYTHONUNBUFFERED"] = "1"
     alkymi.utils.call(["python3", "-c", program], echo_output_to_stream=stream)
-    os.unsetenv("PYTHONUNBUFFERED")
+    del os.environ['PYTHONUNBUFFERED']
 
     # Stop reader thread
     process_stream = False
