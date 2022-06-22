@@ -1,15 +1,15 @@
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional, cast
 
 from .types import Status
-from .recipe import Recipe
+from .recipe import Recipe, R
 from .logging import log
 from .foreach_recipe import ForeachRecipe
 
 # TODO(mathias): Rename this file to something more fitting
-OutputsAndChecksums = Tuple[Any, Optional[str]]
+OutputsAndChecksums = Tuple[R, Optional[str]]
 
 
-def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
+def compute_recipe_status(recipe: Recipe[R]) -> Dict[Recipe, Status]:
     """
     Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs)
 
@@ -21,7 +21,7 @@ def compute_recipe_status(recipe: Recipe) -> Dict[Recipe, Status]:
     return status
 
 
-def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> Status:
+def compute_status_with_cache(recipe: Recipe[R], status: Dict[Recipe, Status]) -> Status:
     """
     Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs) and store the results
     in the provided status dictionary.
@@ -75,7 +75,7 @@ def compute_status_with_cache(recipe: Recipe, status: Dict[Recipe, Status]) -> S
     return status[recipe]
 
 
-def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndChecksums:
+def evaluate_recipe(recipe: Recipe[R], status: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
     """
     Evaluate a recipe using precomputed statuses
 
@@ -85,10 +85,9 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
     """
     log.debug('Evaluating recipe: {}'.format(recipe.name))
 
-    def _print_and_return() -> OutputsAndChecksums:
+    def _print_and_return() -> OutputsAndChecksums[R]:
         log.debug('Finished evaluating {}'.format(recipe.name))
-        outputs, checksum = recipe.outputs, recipe.output_checksum
-        return outputs, checksum
+        return cast(R, recipe.outputs), recipe.output_checksum
 
     if status[recipe] == Status.Ok:
         return _print_and_return()
@@ -123,7 +122,7 @@ def evaluate_recipe(recipe: Recipe, status: Dict[Recipe, Status]) -> OutputsAndC
     return _print_and_return()
 
 
-def is_clean(recipe, new_input_checksums: Tuple[Optional[str], ...]) -> Status:
+def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) -> Status:
     """
     Check whether a Recipe is clean (result is cached) based on a set of (potentially new) input checksums
 
@@ -158,7 +157,7 @@ def is_clean(recipe, new_input_checksums: Tuple[Optional[str], ...]) -> Status:
     return Status.Ok
 
 
-def is_foreach_clean(recipe: ForeachRecipe, mapped_inputs_checksum: Optional[str]) -> bool:
+def is_foreach_clean(recipe: ForeachRecipe[R], mapped_inputs_checksum: Optional[str]) -> bool:
     """
     Check whether a ForeachRecipe is clean (in addition to the regular recipe cleanliness checks). This is done by
     comparing the overall checksum for the current mapped inputs to that from the last invoke evaluation
@@ -171,7 +170,7 @@ def is_foreach_clean(recipe: ForeachRecipe, mapped_inputs_checksum: Optional[str
     return recipe.mapped_inputs_checksum == mapped_inputs_checksum
 
 
-def brew(recipe: Recipe) -> Any:
+def brew(recipe: Recipe[R]) -> R:
     """
     Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
     dependencies to produce the outputs of the input Recipe
