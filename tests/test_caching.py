@@ -9,6 +9,46 @@ from alkymi.alkymi import Status
 from alkymi.recipe import Recipe
 
 
+def test_graph() -> None:
+    AlkymiConfig.get().cache = False
+
+    @alk.recipe()
+    def a() -> str:
+        return "a"
+
+    @alk.recipe()
+    def b() -> str:
+        return "b"
+
+    @alk.recipe()
+    def depends_a(a: str) -> List[str]:
+        return [a, a, a, a]
+
+    @alk.foreach(depends_a)
+    def foreach_a(a: str) -> str:
+        return a + "_"
+
+    @alk.recipe()
+    def depends_ab(a: str, b: str) -> str:
+        return a + b
+
+    @alk.recipe()
+    def root(foreach_a: List[str], depends_ab: str) -> str:
+        return "".join(foreach_a) + depends_ab
+
+    # root.brew()
+    graph = alk.alkymi.create_graph(root)
+    import matplotlib.pyplot as plt
+    import networkx as nx
+    plt.subplot(121)
+    color_state_map = {Status.Ok: 'green', Status.NotEvaluatedYet: 'red', Status.MappedInputsDirty: "yellow"}
+    nx.draw(graph, with_labels=True, font_weight='bold', node_color=[color_state_map[node[1]['status']]
+                                                                     for node in graph.nodes(data=True)])
+    plt.show()
+    print(graph)
+    assert len(graph.nodes) > 1
+
+
 def test_caching(caplog, tmpdir):
     """
     Test that a cache is created (in the set location), and that recipe can be restored correctly

@@ -5,8 +5,61 @@ from .recipe import Recipe, R
 from .logging import log
 from .foreach_recipe import ForeachRecipe
 
+import networkx as nx
+
 # TODO(mathias): Rename this file to something more fitting
 OutputsAndChecksums = Tuple[R, Optional[str]]
+
+
+def create_graph(recipe: Recipe[R]):
+    graph = nx.DiGraph()
+    add_recipe_to_graph(recipe, graph)
+    return graph
+
+
+def add_recipe_to_graph(recipe: Recipe[R], graph: nx.DiGraph) -> Status:
+    def _add_node_and_dependencies(_status: Status) -> Status:
+        graph.add_node(recipe, status=_status)
+        for _ingredient in recipe.ingredients:
+            graph.add_edge(recipe, _ingredient)
+        if isinstance(recipe, ForeachRecipe):
+            graph.add_edge(recipe, recipe.mapped_recipe)
+        return _status
+
+    # Add dependencies
+    ingredient_dirty = False
+    ingredient_output_checksums: List[Optional[str]] = []
+    for ingredient in recipe.ingredients:
+        ingredient_status = add_recipe_to_graph(ingredient, graph)
+        if ingredient_status != Status.Ok:
+            ingredient_dirty = True
+        if ingredient.output_checksum is not None:
+            ingredient_output_checksums.append(ingredient.output_checksum)
+    ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
+
+    mapped_dirty = False
+    if isinstance(recipe, ForeachRecipe):
+        # Check cleanliness of mapped inputs, inputs and outputs
+        mapped_recipe_status = add_recipe_to_graph(recipe.mapped_recipe, graph)
+        if mapped_recipe_status != Status.Ok:
+            mapped_dirty = True
+        else:
+            if recipe.mapped_recipe.output_checksum is None:
+                raise Exception("Input checksum to mapped recipe {} is None".format(recipe.name))
+            if not is_foreach_clean(recipe, recipe.mapped_recipe.output_checksum):
+                mapped_dirty = True
+
+    if recipe.transient or recipe.output_checksum is None:
+        return _add_node_and_dependencies(Status.NotEvaluatedYet)
+
+    if ingredient_dirty:
+        return _add_node_and_dependencies(Status.IngredientDirty)
+
+    if mapped_dirty:
+        return _add_node_and_dependencies(Status.MappedInputsDirty)
+
+    status = is_clean(recipe, ingredient_output_checksums_tuple)
+    return _add_node_and_dependencies(status)
 
 
 def compute_recipe_status(recipe: Recipe[R]) -> Dict[Recipe, Status]:

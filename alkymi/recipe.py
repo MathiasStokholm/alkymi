@@ -117,6 +117,9 @@ class Recipe(Generic[R]):
         from .alkymi import compute_recipe_status
         return compute_recipe_status(self)[self]
 
+    def __str__(self) -> str:
+        return self.name
+
     def _save_state(self) -> None:
         """
         Save the current state of this Recipe to a json file and zero or more extra data files (as needed)
