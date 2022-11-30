@@ -17,20 +17,22 @@ def create_graph(recipe: Recipe[R]) -> nx.DiGraph:
     return graph
 
 
+def add_node_and_dependencies_to_graph(graph: nx.DiGraph, recipe: Recipe, status: Status) -> Status:
+    graph.add_node(recipe, status=status)
+
+    # For each ingredient, add an edge from the ingredient to this recipe
+    for _ingredient in recipe.ingredients:
+        graph.add_edge(_ingredient, recipe)
+
+    if isinstance(recipe, ForeachRecipe):
+        # Add an edge from the mapped recipe to this recipe
+        graph.add_edge(recipe.mapped_recipe, recipe)
+    return status
+
+
 def add_recipe_to_graph(recipe: Recipe[R], graph: nx.DiGraph) -> Status:
-    def _add_node_and_dependencies(_status: Status) -> Status:
-        graph.add_node(recipe, status=_status)
-
-        # For each ingredient, add an edge from the ingredient to this recipe
-        for _ingredient in recipe.ingredients:
-            graph.add_edge(_ingredient, recipe)
-
-        if isinstance(recipe, ForeachRecipe):
-            # Add an edge from the mapped recipe to this recipe
-            graph.add_edge(recipe.mapped_recipe, recipe)
-        return _status
-
-    # Add dependencies
+    # Add ingredients as dependencies - create an edge in graph from ingredient to this recipe
+    # This is done before any returns to ensure that the full graph is constructed, regardless of statuses
     ingredient_dirty = False
     ingredient_output_checksums: List[Optional[str]] = []
     for ingredient in recipe.ingredients:
@@ -41,6 +43,8 @@ def add_recipe_to_graph(recipe: Recipe[R], graph: nx.DiGraph) -> Status:
             ingredient_output_checksums.append(ingredient.output_checksum)
     ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
 
+    # For ForeachRecipes, add the mapped input as a dependency - create an edge in graph from mapped input to this
+    # recipe. This is done before any returns to ensure that the full graph is constructed, regardless of statuses
     mapped_dirty = False
     if isinstance(recipe, ForeachRecipe):
         # Check cleanliness of mapped inputs, inputs and outputs
@@ -54,16 +58,16 @@ def add_recipe_to_graph(recipe: Recipe[R], graph: nx.DiGraph) -> Status:
                 mapped_dirty = True
 
     if recipe.transient or recipe.output_checksum is None:
-        return _add_node_and_dependencies(Status.NotEvaluatedYet)
+        return add_node_and_dependencies_to_graph(graph, recipe, Status.NotEvaluatedYet)
 
     if ingredient_dirty:
-        return _add_node_and_dependencies(Status.IngredientDirty)
+        return add_node_and_dependencies_to_graph(graph, recipe, Status.IngredientDirty)
 
     if mapped_dirty:
-        return _add_node_and_dependencies(Status.MappedInputsDirty)
+        return add_node_and_dependencies_to_graph(graph, recipe, Status.MappedInputsDirty)
 
     status = is_clean(recipe, ingredient_output_checksums_tuple)
-    return _add_node_and_dependencies(status)
+    return add_node_and_dependencies_to_graph(graph, recipe, status)
 
 
 def compute_recipe_status(recipe: Recipe[R]) -> Dict[Recipe, Status]:
@@ -73,14 +77,9 @@ def compute_recipe_status(recipe: Recipe[R]) -> Dict[Recipe, Status]:
     :param recipe: The recipe for which status should be computed
     :return: The status of the provided recipe and all dependencies as a dictionary
     """
+    # Create graph and extract status map from it
     graph = create_graph(recipe)
-    statuses = nx.get_node_attributes(graph, "status")
-
-    status = {
-        node: statuses[node] for node in nx.ancestors(graph, recipe)
-    }
-    status[recipe] = statuses[recipe]
-
+    status: Dict[Recipe, Status] = nx.get_node_attributes(graph, "status")
     return status
 
 
@@ -107,22 +106,28 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph) -> OutputsAndChecksums
 
     for step in steps:
         for recipe in step:
+            # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
             if statuses[recipe] == Status.Ok:
                 continue
 
+            # Collect inputs and checksums
             inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
             input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
 
             if isinstance(recipe, ForeachRecipe):
+                # Collect mapped inputs and checksum of these
                 mapped_inputs = recipe.mapped_recipe.outputs
                 mapped_inputs_checksum = recipe.mapped_recipe.output_checksum
+
                 # Mapped inputs can either be a list or a dictionary
                 if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
                     raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
+
                 recipe.invoke_mapped(mapped_inputs, mapped_inputs_checksum, inputs, input_checksums)
             else:
                 recipe.invoke(inputs, input_checksums)
 
+    # Return the output and checksum of the final recipe
     return cast(R, recipe.outputs), recipe.output_checksum
 
 

@@ -3,7 +3,6 @@
 from typing import List
 from alkymi import AlkymiConfig
 import alkymi as alk
-from alkymi.alkymi import Status
 
 
 def test_graph_construction() -> None:
