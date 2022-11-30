@@ -11,7 +11,7 @@ import networkx as nx
 OutputsAndChecksums = Tuple[R, Optional[str]]
 
 
-def create_graph(recipe: Recipe[R]):
+def create_graph(recipe: Recipe[R]) -> nx.DiGraph:
     graph = nx.DiGraph()
     add_recipe_to_graph(recipe, graph)
     return graph
@@ -20,10 +20,14 @@ def create_graph(recipe: Recipe[R]):
 def add_recipe_to_graph(recipe: Recipe[R], graph: nx.DiGraph) -> Status:
     def _add_node_and_dependencies(_status: Status) -> Status:
         graph.add_node(recipe, status=_status)
+
+        # For each ingredient, add an edge from the ingredient to this recipe
         for _ingredient in recipe.ingredients:
-            graph.add_edge(recipe, _ingredient)
+            graph.add_edge(_ingredient, recipe)
+
         if isinstance(recipe, ForeachRecipe):
-            graph.add_edge(recipe, recipe.mapped_recipe)
+            # Add an edge from the mapped recipe to this recipe
+            graph.add_edge(recipe.mapped_recipe, recipe)
         return _status
 
     # Add dependencies

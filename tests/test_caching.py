@@ -36,7 +36,6 @@ def test_graph() -> None:
     def root(foreach_a: List[str], depends_ab: str) -> str:
         return "".join(foreach_a) + depends_ab
 
-    # root.brew()
     graph = alk.alkymi.create_graph(root)
     import matplotlib.pyplot as plt
     import networkx as nx
@@ -47,6 +46,12 @@ def test_graph() -> None:
     plt.show()
     print(graph)
     assert len(graph.nodes) > 1
+    assert graph.has_successor(a, depends_a)
+    assert graph.has_successor(a, depends_ab)
+    assert graph.has_successor(b, depends_ab)
+    assert graph.has_successor(depends_a, foreach_a)
+    assert graph.has_successor(foreach_a, root)
+    assert graph.has_successor(depends_ab, root)
 
 
 def test_caching(caplog, tmpdir):
