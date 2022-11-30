@@ -12,13 +12,31 @@ OutputsAndChecksums = Tuple[R, Optional[str]]
 
 
 def create_graph(recipe: Recipe[R]) -> nx.DiGraph:
+    """
+    Create a Directed Acyclic Graph (DAG) based on the provided recipe
+    Each node in the graph represents a recipe, and has an associated "status" attribute
+
+    :param recipe: The recipe to construct a graph for
+    :return: The constructed graph
+    """
+    log.debug(f'Building graph for {recipe.name}')
     graph = nx.DiGraph()
     add_recipe_to_graph(recipe, graph)
     return graph
 
 
 def add_node_and_dependencies_to_graph(graph: nx.DiGraph, recipe: Recipe, status: Status) -> Status:
+    """
+    Add a node representing a recipe to the graph, along with edges from dependencies to the new node. This assumes
+    that the graph already has nodes for the dependent items, so this should be called recursively
+
+    :param graph: The graph to which the new node and edges should be added
+    :param recipe: The recipe to create a node for
+    :param status: The status to associate with the new node
+    :return: The status that was passed in (for convenience)
+    """
     graph.add_node(recipe, status=status)
+    log.debug(f'Added {recipe.name} to graph with status: {status}')
 
     # For each ingredient, add an edge from the ingredient to this recipe
     for _ingredient in recipe.ingredients:
@@ -31,6 +49,13 @@ def add_node_and_dependencies_to_graph(graph: nx.DiGraph, recipe: Recipe, status
 
 
 def add_recipe_to_graph(recipe: Recipe[R], graph: nx.DiGraph) -> Status:
+    """
+    Add a recipe, along with all its dependencies to the graph
+
+    :param recipe: The recipe to add
+    :param graph: The graph to add the recipe and dependencies to
+    :return: The computed status of the recipe (for convenience)
+    """
     # Add ingredients as dependencies - create an edge in graph from ingredient to this recipe
     # This is done before any returns to ensure that the full graph is constructed, regardless of statuses
     ingredient_dirty = False
@@ -84,8 +109,6 @@ def compute_recipe_status(recipe: Recipe[R]) -> Dict[Recipe, Status]:
 
 
 def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph) -> OutputsAndChecksums[R]:
-    log.debug('Evaluating recipe: {}'.format(recipe.name))
-
     def topological_sort_grouping(g):
         # copy the graph
         _g = g.copy()
@@ -104,11 +127,15 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph) -> OutputsAndChecksums
     steps = list(topological_sort_grouping(graph))
     statuses = nx.get_node_attributes(graph, "status")
 
-    for step in steps:
+    for i, step in enumerate(steps, start=1):
+        log.debug('Graph step: {}/{}'.format(i, len(steps)))
+
         for recipe in step:
             # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
             if statuses[recipe] == Status.Ok:
+                log.debug('Recipe already evaluated: {}'.format(recipe.name))
                 continue
+            log.debug('Evaluating recipe: {}'.format(recipe.name))
 
             # Collect inputs and checksums
             inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
