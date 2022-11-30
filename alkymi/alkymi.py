@@ -73,63 +73,15 @@ def compute_recipe_status(recipe: Recipe[R]) -> Dict[Recipe, Status]:
     :param recipe: The recipe for which status should be computed
     :return: The status of the provided recipe and all dependencies as a dictionary
     """
-    status: Dict[Recipe, Status] = {}
-    compute_status_with_cache(recipe, status)
+    graph = create_graph(recipe)
+    statuses = nx.get_node_attributes(graph, "status")
+
+    status = {
+        node: statuses[node] for node in nx.ancestors(graph, recipe)
+    }
+    status[recipe] = statuses[recipe]
+
     return status
-
-
-def compute_status_with_cache(recipe: Recipe[R], status: Dict[Recipe, Status]) -> Status:
-    """
-    Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs) and store the results
-    in the provided status dictionary.
-
-    This function will early-exit if the status for the provided recipe has already been computed, and will recursively
-    compute statuses of dependencies (ingredients or mapped inputs)
-
-    :param recipe: The recipe for which status should be computed
-    :param status: The dictionary to add computed statuses to
-    :return: The status of the input recipe
-    """
-    # FIXME(mathias): Find a neater way to cache without early exits
-    # Force caching of mapped recipe and ingredients
-    if isinstance(recipe, ForeachRecipe):
-        compute_status_with_cache(recipe.mapped_recipe, status)
-    for ingredient in recipe.ingredients:
-        compute_status_with_cache(ingredient, status)
-
-    # Early exit if status already determined
-    if recipe in status:
-        return status[recipe]
-
-    # Check if recipe hasn't been evaluated yet
-    if recipe.transient or recipe.output_checksum is None:
-        status[recipe] = Status.NotEvaluatedYet
-        return status[recipe]
-
-    # Check if one or more children are dirty
-    ingredient_output_checksums: List[Optional[str]] = []
-    for ingredient in recipe.ingredients:
-        if compute_status_with_cache(ingredient, status) != Status.Ok:
-            status[recipe] = Status.IngredientDirty
-            return status[recipe]
-        if ingredient.output_checksum is not None:
-            ingredient_output_checksums.append(ingredient.output_checksum)
-    ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
-
-    if isinstance(recipe, ForeachRecipe):
-        # Check cleanliness of mapped inputs, inputs and outputs
-        if compute_status_with_cache(recipe.mapped_recipe, status) != Status.Ok:
-            status[recipe] = Status.MappedInputsDirty
-            return status[recipe]
-        if recipe.mapped_recipe.output_checksum is None:
-            raise Exception("Input checksum to mapped recipe {} is None".format(recipe.name))
-        if not is_foreach_clean(recipe, recipe.mapped_recipe.output_checksum):
-            status[recipe] = Status.MappedInputsDirty
-            return status[recipe]
-
-    # Check cleanliness of inputs and outputs
-    status[recipe] = is_clean(recipe, ingredient_output_checksums_tuple)
-    return status[recipe]
 
 
 def evaluate_recipe(recipe: Recipe[R], status: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
