@@ -21,6 +21,10 @@ def test_graph() -> None:
         return "b"
 
     @alk.recipe()
+    def c() -> str:
+        return "c"
+
+    @alk.recipe()
     def depends_a(a: str) -> List[str]:
         return [a, a, a, a]
 
@@ -33,18 +37,18 @@ def test_graph() -> None:
         return a + b
 
     @alk.recipe()
-    def root(foreach_a: List[str], depends_ab: str) -> str:
-        return "".join(foreach_a) + depends_ab
+    def root(foreach_a: List[str], depends_ab: str, c: str) -> str:
+        return "".join(foreach_a) + depends_ab + c
 
     graph = alk.alkymi.create_graph(root)
-    import matplotlib.pyplot as plt
-    import networkx as nx
-    plt.subplot(121)
-    color_state_map = {Status.Ok: 'green', Status.NotEvaluatedYet: 'red', Status.MappedInputsDirty: "yellow"}
-    nx.draw(graph, with_labels=True, font_weight='bold', node_color=[color_state_map[node[1]['status']]
-                                                                     for node in graph.nodes(data=True)])
-    plt.show()
-    print(graph)
+    # import matplotlib.pyplot as plt
+    # import networkx as nx
+    # plt.subplot(121)
+    # color_state_map = {Status.Ok: 'green', Status.NotEvaluatedYet: 'red', Status.MappedInputsDirty: "yellow"}
+    # nx.draw(graph, with_labels=True, font_weight='bold', node_color=[color_state_map[node[1]['status']]
+    #                                                                  for node in graph.nodes(data=True)])
+    # plt.show()
+    # print(graph)
     assert len(graph.nodes) > 1
     assert graph.has_successor(a, depends_a)
     assert graph.has_successor(a, depends_ab)
@@ -52,6 +56,11 @@ def test_graph() -> None:
     assert graph.has_successor(depends_a, foreach_a)
     assert graph.has_successor(foreach_a, root)
     assert graph.has_successor(depends_ab, root)
+    assert graph.has_successor(c, root)
+
+    result, _ = alk.alkymi.evaluate_recipe(root, graph)
+    assert result == "a_a_a_a_abc"
+
 
 
 def test_caching(caplog, tmpdir):
