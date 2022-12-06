@@ -5,8 +5,11 @@ import time
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
+import pytest
+
 import alkymi as alk
 from alkymi import AlkymiConfig
+from alkymi.config import FileChecksumMethod
 from alkymi.foreach_recipe import ForeachRecipe
 from alkymi.recipe import Recipe
 
@@ -97,10 +100,12 @@ file_global = Path()
 copied_file_global = Path()
 
 
-def test_execution(caplog, tmpdir):
+@pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
+def test_execution(caplog, tmpdir, file_checksum_method: FileChecksumMethod):
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
+    AlkymiConfig.get().file_checksum_method = file_checksum_method
 
     global execution_counts, build_dir_global, file_global, copied_file_global
     execution_counts = dict(
@@ -161,15 +166,29 @@ def test_execution(caplog, tmpdir):
         assert execution_counts['file_and_copy'] == 1
         assert execution_counts['content_of_files'] == (1 + i) * 2
 
-    # Touching an output (but leaving the contents the exact same) should not cause reevaluation of the function that
-    # created that output
-    time.sleep(0.01)
+    # Test touching of an output
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     file_global.touch(exist_ok=True)
     content_of_files.brew()
-    assert execution_counts['build_dir'] == 1
-    assert execution_counts['a_single_file'] == 1
-    assert execution_counts['file_and_copy'] == 1
-    assert execution_counts['content_of_files'] == 5 * 2
+    extra_executions = 0
+    if file_checksum_method == FileChecksumMethod.HashContents:
+        # When using file content hashing, touching an output (but leaving the contents the exact same) should not cause
+        # reevaluation of the function that created that output
+        assert execution_counts['build_dir'] == 1
+        assert execution_counts['a_single_file'] == 1
+        assert execution_counts['file_and_copy'] == 1
+        assert execution_counts['content_of_files'] == 5 * 2
+        extra_executions = 0
+    elif file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        # When using file modification timestamps, touching an output (but leaving the contents the exact same) should
+        # cause reevaluation of the function that created that output
+        assert execution_counts['build_dir'] == 1
+        assert execution_counts['a_single_file'] == 2
+        assert execution_counts['file_and_copy'] == 2
+        assert execution_counts['content_of_files'] == 5 * 2
+        extra_executions = 1
 
     # Changing an output should cause reevaluation of the function that created that output
     time.sleep(0.01)
@@ -177,14 +196,14 @@ def test_execution(caplog, tmpdir):
         f.write("something new!")
     content_of_files.brew()
     assert execution_counts['build_dir'] == 1
-    assert execution_counts['a_single_file'] == 2
-    assert execution_counts['file_and_copy'] == 2
+    assert execution_counts['a_single_file'] == 2 + extra_executions
+    assert execution_counts['file_and_copy'] == 2 + extra_executions
     assert execution_counts['content_of_files'] == 6 * 2
 
     # Deleting the build dir should cause full reevaluation
     shutil.rmtree(str(build_dir_global))
     content_of_files.brew()
     assert execution_counts['build_dir'] == 2
-    assert execution_counts['a_single_file'] == 3
-    assert execution_counts['file_and_copy'] == 3
+    assert execution_counts['a_single_file'] == 3 + extra_executions
+    assert execution_counts['file_and_copy'] == 3 + extra_executions
     assert execution_counts['content_of_files'] == 7 * 2

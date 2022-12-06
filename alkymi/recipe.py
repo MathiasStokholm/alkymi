@@ -50,7 +50,7 @@ class Recipe(Generic[R]):
         else:
             self._cache = cache
 
-        self._outputs: Optional[Output] = None
+        self._outputs: Optional[Output[R]] = None
         self._input_checksums: Optional[Tuple[Optional[str], ...]] = None
         self._last_function_hash: Optional[str] = None
 
@@ -107,7 +107,7 @@ class Recipe(Generic[R]):
         """
         # Lazy import to avoid circular imports
         from .alkymi import brew
-        return cast(R, brew(self))
+        return brew(self)
 
     def status(self) -> Status:
         """
@@ -190,7 +190,7 @@ class Recipe(Generic[R]):
         return self._input_checksums
 
     @property
-    def outputs(self) -> Any:
+    def outputs(self) -> Optional[R]:
         """
         :return: The outputs of this Recipe
         """
@@ -199,7 +199,7 @@ class Recipe(Generic[R]):
         return self._outputs.value()
 
     @outputs.setter
-    def outputs(self, outputs: Any) -> None:
+    def outputs(self, outputs: R) -> None:
         """
         Sets the outputs of this Recipe and computes the necessary checksums needed for checking dirtiness
 

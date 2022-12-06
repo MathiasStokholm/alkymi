@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import copy
 import json
+import time
 from pathlib import Path
 from typing import List
 
@@ -8,6 +9,7 @@ import pytest
 
 import alkymi as alk
 from alkymi import serialization, AlkymiConfig, checksums
+from alkymi.config import FileChecksumMethod
 from alkymi.serialization import OutputWithValue
 
 
@@ -120,12 +122,14 @@ def test_recipe_serialization(tmpdir):
     assert read_file_copy.mapped_inputs_checksums == read_file.mapped_inputs_checksums
 
 
-def test_complex_serialization(tmpdir):
+@pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
+def test_complex_serialization(tmpdir, file_checksum_method: FileChecksumMethod):
     """
     Test serializing a complex nested structure and checking it for validity (without deserializing) by inspecting Path
     objects in the value hierarchy
     """
     AlkymiConfig.get().cache = True
+    AlkymiConfig.get().file_checksum_method = file_checksum_method
     tmpdir = Path(str(tmpdir))
     AlkymiConfig.get().cache_path = tmpdir  # Use temporary directory for caching
     subdir = tmpdir / "subdir"
@@ -145,19 +149,37 @@ def test_complex_serialization(tmpdir):
     obj_cached = serialization.cache(obj, subdir)
     assert obj_cached.valid
 
-    # Touching an external file shouldn't cause invalidation
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
+
     file_a.touch()
-    assert obj_cached.valid
+    if file_checksum_method == FileChecksumMethod.HashContents:
+        # Touching an external file shouldn't cause invalidation if using content hash
+        assert obj_cached.valid
+    elif file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        # Touching an external file should cause invalidation if using modification timestamp
+        assert not obj_cached.valid
 
     # Changing one of the "external" files _should_ cause invalidation
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.01)
     with file_a.open("a") as f:
         f.write("Changed!")
     assert not obj_cached.valid
 
-    # Changing it back to the original value should cause things to work again
+    # If using timestamps, ensure that writes doesn't happen at the exact same time
+    if file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        time.sleep(0.1)
     with file_a.open("w") as f:
         f.write(f.name)
-    assert obj_cached.valid
+    if file_checksum_method == FileChecksumMethod.HashContents:
+        # Changing the file back should make the path valid again if using the content hash
+        assert obj_cached.valid
+    elif file_checksum_method == FileChecksumMethod.ModificationTimestamp:
+        # Changing the file back shouldn't make the path valid again if using modification timestamp
+        assert not obj_cached.valid
 
 
 class MyClass:

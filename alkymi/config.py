@@ -14,6 +14,15 @@ class CacheType(enum.Enum):
     Auto = 2  # Enable or disable caching based on AlkymiConfig.cache setting
 
 
+@enum.unique
+class FileChecksumMethod(enum.Enum):
+    """
+    Supported ways of calculating the checksum for a Path object representing a file
+    """
+    HashContents = 0  # Hash the contents of the file
+    ModificationTimestamp = 1  # Use timestamp of last modification
+
+
 class AlkymiConfig:
     """
     Global singleton config for alkymi
@@ -42,6 +51,7 @@ class AlkymiConfig:
         self._cache = True
         self._cache_path = None
         self._allow_pickling = True
+        self._file_checksum_method = FileChecksumMethod.HashContents
 
     @property
     def cache(self) -> bool:
@@ -94,6 +104,22 @@ class AlkymiConfig:
         :param allow_pickling: Whether to allow pickling for serialization, deserialization and checksumming
         """
         self._allow_pickling = allow_pickling
+
+    @property
+    def file_checksum_method(self) -> FileChecksumMethod:
+        """
+        :return: The currently used method for calculating file checksums (for Path objects)
+        """
+        return self._file_checksum_method
+
+    @file_checksum_method.setter
+    def file_checksum_method(self, file_checksum_method: FileChecksumMethod) -> None:
+        """
+        Set the method to use for calculating file checksums (for Path objects)
+
+        :param file_checksum_method: The method to use for calculating file checksums (for Path objects)
+        """
+        self._file_checksum_method = file_checksum_method
 
 
 # Force creation of singleton
