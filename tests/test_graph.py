@@ -44,7 +44,7 @@ def test_graph_construction() -> None:
         return "".join(foreach_a) + depends_ab + c
 
     # Create a graph from the 'root' recipe (this will automatically traverse the dependencies)
-    graph = alk.alkymi.create_graph(root)
+    graph = alk.core.create_graph(root)
 
     # Graph should be directed and not a multi-graph (no parallel edges)
     assert graph.is_directed()
@@ -66,5 +66,5 @@ def test_graph_construction() -> None:
     assert graph.has_successor(c, root)
 
     # Evaluating the graph should result in the following output
-    result, _ = alk.alkymi.evaluate_recipe(root, graph)
+    result, _ = alk.core.evaluate_recipe(root, graph)
     assert result == "a_a_a_a_abc"

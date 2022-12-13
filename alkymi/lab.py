@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Dict, Union, Any, List, Iterable, Optional, TextIO
 
-from .alkymi import Status, compute_recipe_status
+from .core import Status, compute_recipe_status
 from .logging import log
 from .recipe import Recipe
 from .recipes import Arg

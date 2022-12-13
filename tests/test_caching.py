@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 from alkymi import AlkymiConfig
 import alkymi as alk
-from alkymi.alkymi import Status
+from alkymi.core import Status
 from alkymi.recipe import Recipe
 
 

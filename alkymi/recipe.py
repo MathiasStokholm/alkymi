@@ -106,7 +106,7 @@ class Recipe(Generic[R]):
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import brew
+        from .core import brew
         return brew(self)
 
     def status(self) -> Status:
@@ -114,7 +114,7 @@ class Recipe(Generic[R]):
         :return: The status of this recipe (will evaluate all upstream dependencies)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import compute_recipe_status
+        from .core import compute_recipe_status
         return compute_recipe_status(self)[self]
 
     def __str__(self) -> str:

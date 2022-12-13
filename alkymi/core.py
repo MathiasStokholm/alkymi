@@ -7,7 +7,6 @@ from .foreach_recipe import ForeachRecipe
 
 import networkx as nx
 
-# TODO(mathias): Rename this file to something more fitting
 OutputsAndChecksums = Tuple[R, Optional[str]]
 
 

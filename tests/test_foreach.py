@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Union
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
-from alkymi.alkymi import Status
+from alkymi.core import Status
 import alkymi as alk
 
 # We use these globals to avoid altering the hashes of bound functions when any of these change
