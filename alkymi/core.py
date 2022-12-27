@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Optional, cast
+from typing import Dict, Tuple, Optional, cast
 
 from .types import Status
 from .recipe import Recipe, R
@@ -41,28 +41,46 @@ def _add_recipe_to_graph(recipe: Recipe, graph: nx.DiGraph) -> None:
 
 
 def _compute_status(recipe: Recipe, graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> Status:
-    def _store_and_return(_status: Status):
+    """
+    Compute the status for the provided recipe (and recursively for dependencies) and add them all to the provided
+    'statuses' dict
+
+    :param recipe: The recipe to compute the status for
+    :param graph: The graph to use for establishing statuses
+    :param statuses: A dictionary used to collect the results of the recursive call
+    :return status: The status of this recipe
+    """
+
+    def _store_and_return(_status: Status) -> Status:
+        """
+        Helper function to store a result in the 'statuses' dict before returning it
+        """
         statuses[recipe] = _status
         return _status
 
-    # Check if one or more ingredients (dependencies) are dirty
-    ingredient_dirty = False
-    ingredient_output_checksums: List[Optional[str]] = []
-    for ingredient in graph.predecessors(recipe):
-        ingredient_status = _compute_status(ingredient, graph, statuses)
-        if ingredient_status != Status.Ok:
-            ingredient_dirty = True
-        if ingredient.output_checksum is not None:
-            ingredient_output_checksums.append(ingredient.output_checksum)
-    ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
+    # Determine statuses of dependencies - note that this recursively computes statuses for dependencies and adds them
+    # to 'statuses', so this needs to be called before any return
+    dependencies = tuple(graph.predecessors(recipe))
+    ingredient_statuses = tuple(
+        _compute_status(ingredient, graph, statuses)
+        for ingredient in dependencies
+    )
 
+    # If output checksum is None (or transient), a full re-evaluation is needed
     if recipe.transient or recipe.output_checksum is None:
         return _store_and_return(Status.NotEvaluatedYet)
 
-    if ingredient_dirty:
+    # Check if one or more ingredients (dependencies) are dirty
+    if any(status != Status.Ok for status in ingredient_statuses):
         return _store_and_return(Status.IngredientDirty)
 
-    status = is_clean(recipe, ingredient_output_checksums_tuple)
+    # Check if one or more ingredients (dependencies) are dirty
+    ingredient_output_checksums: Tuple[Optional[str], ...] = tuple(
+        ingredient.output_checksum
+        for ingredient in dependencies
+        if ingredient.output_checksum is not None
+    )
+    status = is_clean(recipe, ingredient_output_checksums)
     return _store_and_return(status)
 
 
@@ -81,6 +99,14 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
 
 
 def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
+    """
+    Evaluate a Recipe, including any dependencies that are not up-to-date
+
+    :param recipe: The recipe to evaluate
+    :param graph: The graph to use for evaluation
+    :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
+    :return: The output(s) and checksum(s) of the evaluated recipe
+    """
     # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
     # This guarantees that the 'outputs' and 'output_checksum' attributes will be available for all dependencies of a
     # recipe once we arrive at it in the order of iteration
