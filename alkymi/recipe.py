@@ -114,8 +114,8 @@ class Recipe(Generic[R]):
         :return: The status of this recipe (will evaluate all upstream dependencies)
         """
         # Lazy import to avoid circular imports
-        from .core import compute_recipe_status
-        return compute_recipe_status(self)[self]
+        from .core import compute_recipe_status, create_graph
+        return compute_recipe_status(self, create_graph(self))[self]
 
     def __str__(self) -> str:
         return self.name
