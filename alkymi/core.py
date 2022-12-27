@@ -46,7 +46,7 @@ def _add_recipe_to_graph(recipe: Recipe, graph: nx.DiGraph) -> None:
         graph.add_edge(recipe.mapped_recipe, recipe)
 
 
-def _compute_status(recipe: Recipe, recipe_graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> Status:
+def _compute_status(recipe: Recipe, statuses: Dict[Recipe, Status]) -> Status:
     def _store_and_return(_status: Status):
         statuses[recipe] = _status
         return _status
@@ -55,7 +55,7 @@ def _compute_status(recipe: Recipe, recipe_graph: nx.DiGraph, statuses: Dict[Rec
     ingredient_dirty = False
     ingredient_output_checksums: List[Optional[str]] = []
     for ingredient in recipe.ingredients:
-        ingredient_status = _compute_status(ingredient, recipe_graph, statuses)
+        ingredient_status = _compute_status(ingredient, statuses)
         if ingredient_status != Status.Ok:
             ingredient_dirty = True
         if ingredient.output_checksum is not None:
@@ -66,7 +66,7 @@ def _compute_status(recipe: Recipe, recipe_graph: nx.DiGraph, statuses: Dict[Rec
     mapped_dirty = False
     if isinstance(recipe, ForeachRecipe):
         # Check cleanliness of mapped inputs, inputs and outputs
-        mapped_recipe_status = _compute_status(recipe.mapped_recipe, recipe_graph, statuses)
+        mapped_recipe_status = _compute_status(recipe.mapped_recipe, statuses)
         if mapped_recipe_status != Status.Ok:
             mapped_dirty = True
         else:
@@ -93,6 +93,7 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs)
 
     :param recipe: The recipe for which status should be computed
+    :param graph: The graph representing the recipe and all its dependencies
     :return: The status of the provided recipe and all dependencies as a dictionary
     """
     # Start recursion with an empty status dict
@@ -102,49 +103,34 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
 
 
 def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
-    def topological_sort_grouping(g):
-        # copy the graph
-        _g = g.copy()
-        res = []
-        # while _g is not empty
-        while _g:
-            zero_indegree = [v for v, d in _g.in_degree() if d == 0]
-            res.append(zero_indegree)
-            _g.remove_nodes_from(zero_indegree)
-        return res
-
-    # Sort the graph into steps where each element (recipe) is independent, such that each task in a step can be
-    # evaluated in parallel, and such that any recipe in step N only depends on recipes in steps < N
+    # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
     # This guarantees that the 'outputs' and 'output_checksum' attributes will be available for all dependencies of a
     # recipe once we arrive at it in the order of iteration
-    steps = list(topological_sort_grouping(graph))
+    recipes = list(nx.topological_sort(graph))
 
-    for i, step in enumerate(steps, start=1):
-        log.debug('Graph step: {}/{}'.format(i, len(steps)))
+    for recipe in recipes:
+        # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
+        if statuses[recipe] == Status.Ok:
+            log.debug('Recipe already evaluated: {}'.format(recipe.name))
+            continue
+        log.debug('Evaluating recipe: {}'.format(recipe.name))
 
-        for recipe in step:
-            # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
-            if statuses[recipe] == Status.Ok:
-                log.debug('Recipe already evaluated: {}'.format(recipe.name))
-                continue
-            log.debug('Evaluating recipe: {}'.format(recipe.name))
+        # Collect inputs and checksums
+        inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
+        input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
 
-            # Collect inputs and checksums
-            inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
-            input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
+        if isinstance(recipe, ForeachRecipe):
+            # Collect mapped inputs and checksum of these
+            mapped_inputs = recipe.mapped_recipe.outputs
+            mapped_inputs_checksum = recipe.mapped_recipe.output_checksum
 
-            if isinstance(recipe, ForeachRecipe):
-                # Collect mapped inputs and checksum of these
-                mapped_inputs = recipe.mapped_recipe.outputs
-                mapped_inputs_checksum = recipe.mapped_recipe.output_checksum
+            # Mapped inputs can either be a list or a dictionary
+            if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
+                raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
 
-                # Mapped inputs can either be a list or a dictionary
-                if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
-                    raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
-
-                recipe.invoke_mapped(mapped_inputs, mapped_inputs_checksum, inputs, input_checksums)
-            else:
-                recipe.invoke(inputs, input_checksums)
+            recipe.invoke_mapped(mapped_inputs, mapped_inputs_checksum, inputs, input_checksums)
+        else:
+            recipe.invoke(inputs, input_checksums)
 
     # Return the output and checksum of the final recipe
     return cast(R, recipe.outputs), recipe.output_checksum
