@@ -31,13 +31,10 @@ def test_execution(caplog, tmpdir):
 
     execution_counts = {f1: 0, f2: 0, f3: 0, f1.stem: 0, f2.stem: 0, f3.stem: 0}
 
-    def _check_counts(counts: Tuple[int, int, int, int, int, int]):
-        assert execution_counts[f1] == counts[0]
-        assert execution_counts[f2] == counts[1]
-        assert execution_counts[f3] == counts[2]
-        assert execution_counts[f1.stem] == counts[3]
-        assert execution_counts[f2.stem] == counts[4]
-        assert execution_counts[f3.stem] == counts[5]
+    def _check_counts(expected_counts: Tuple[int, int, int, int, int, int]):
+        actual_counts = (execution_counts[f1], execution_counts[f2], execution_counts[f3], execution_counts[f1.stem],
+                         execution_counts[f2.stem], execution_counts[f3.stem])
+        assert actual_counts == expected_counts
 
     arg = alkymi.recipes.arg([f1], name="arg")
 
@@ -67,7 +64,7 @@ def test_execution(caplog, tmpdir):
     _check_counts((1, 0, 0, 1, 0, 0))
 
     arg.set([f1, f2, f3])
-    assert file_contents.status() == Status.MappedInputsDirty
+    assert file_contents.status() == Status.IngredientDirty
     change_count.brew()
     assert file_contents.status() == Status.Ok
     _check_counts((1, 1, 1, 1, 1, 1))
@@ -86,7 +83,7 @@ def test_execution(caplog, tmpdir):
 
     # Test that changing an ingredient forces reevaluation of all foreach inputs
     arg.set([f1, f2, f3])
-    assert change_count.status() == Status.MappedInputsDirty
+    assert change_count.status() == Status.IngredientDirty
     change_count.brew()
     assert change_count.status() == Status.Ok
     _check_counts((3, 2, 2, 3, 2, 2))

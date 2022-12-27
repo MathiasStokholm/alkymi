@@ -3,7 +3,6 @@ from typing import Dict, List, Tuple, Optional, cast
 from .types import Status
 from .recipe import Recipe, R
 from .logging import log
-from .foreach_recipe import ForeachRecipe
 
 import networkx as nx
 
@@ -40,13 +39,8 @@ def _add_recipe_to_graph(recipe: Recipe, graph: nx.DiGraph) -> None:
         _add_recipe_to_graph(_ingredient, graph)
         graph.add_edge(_ingredient, recipe)
 
-    if isinstance(recipe, ForeachRecipe):
-        # Add an edge from the mapped recipe to this recipe
-        _add_recipe_to_graph(recipe.mapped_recipe, graph)
-        graph.add_edge(recipe.mapped_recipe, recipe)
 
-
-def _compute_status(recipe: Recipe, statuses: Dict[Recipe, Status]) -> Status:
+def _compute_status(recipe: Recipe, graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> Status:
     def _store_and_return(_status: Status):
         statuses[recipe] = _status
         return _status
@@ -54,35 +48,19 @@ def _compute_status(recipe: Recipe, statuses: Dict[Recipe, Status]) -> Status:
     # Check if one or more ingredients (dependencies) are dirty
     ingredient_dirty = False
     ingredient_output_checksums: List[Optional[str]] = []
-    for ingredient in recipe.ingredients:
-        ingredient_status = _compute_status(ingredient, statuses)
+    for ingredient in graph.predecessors(recipe):
+        ingredient_status = _compute_status(ingredient, graph, statuses)
         if ingredient_status != Status.Ok:
             ingredient_dirty = True
         if ingredient.output_checksum is not None:
             ingredient_output_checksums.append(ingredient.output_checksum)
     ingredient_output_checksums_tuple: Tuple[Optional[str], ...] = tuple(ingredient_output_checksums)
 
-    # Check if mapped recipe (iterable dependency) is dirty
-    mapped_dirty = False
-    if isinstance(recipe, ForeachRecipe):
-        # Check cleanliness of mapped inputs, inputs and outputs
-        mapped_recipe_status = _compute_status(recipe.mapped_recipe, statuses)
-        if mapped_recipe_status != Status.Ok:
-            mapped_dirty = True
-        else:
-            if recipe.mapped_recipe.output_checksum is None:
-                raise Exception("Input checksum to mapped recipe {} is None".format(recipe.name))
-            if not is_foreach_clean(recipe, recipe.mapped_recipe.output_checksum):
-                mapped_dirty = True
-
     if recipe.transient or recipe.output_checksum is None:
         return _store_and_return(Status.NotEvaluatedYet)
 
     if ingredient_dirty:
         return _store_and_return(Status.IngredientDirty)
-
-    if mapped_dirty:
-        return _store_and_return(Status.MappedInputsDirty)
 
     status = is_clean(recipe, ingredient_output_checksums_tuple)
     return _store_and_return(status)
@@ -118,19 +96,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         # Collect inputs and checksums
         inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
         input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
-
-        if isinstance(recipe, ForeachRecipe):
-            # Collect mapped inputs and checksum of these
-            mapped_inputs = recipe.mapped_recipe.outputs
-            mapped_inputs_checksum = recipe.mapped_recipe.output_checksum
-
-            # Mapped inputs can either be a list or a dictionary
-            if not isinstance(mapped_inputs, list) and not isinstance(mapped_inputs, dict):
-                raise Exception("Input to mapped recipe {} must be a list or a dict".format(recipe.name))
-
-            recipe.invoke_mapped(mapped_inputs, mapped_inputs_checksum, inputs, input_checksums)
-        else:
-            recipe.invoke(inputs, input_checksums)
+        recipe.invoke(inputs, input_checksums)
 
     # Return the output and checksum of the final recipe
     return cast(R, recipe.outputs), recipe.output_checksum
@@ -169,19 +135,6 @@ def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) 
 
     # All checks passed
     return Status.Ok
-
-
-def is_foreach_clean(recipe: ForeachRecipe[R], mapped_inputs_checksum: Optional[str]) -> bool:
-    """
-    Check whether a ForeachRecipe is clean (in addition to the regular recipe cleanliness checks). This is done by
-    comparing the overall checksum for the current mapped inputs to that from the last invoke evaluation
-
-    :param recipe: The ForeachRecipe to check cleanliness of mapped inputs for
-    :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-        whether anything has changed
-    :return: Whether the input recipe needs to be reevaluated
-    """
-    return recipe.mapped_inputs_checksum == mapped_inputs_checksum
 
 
 def brew(recipe: Recipe[R]) -> R:

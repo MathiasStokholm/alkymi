@@ -80,7 +80,7 @@ class Recipe(Generic[R]):
         """
         return self._func(*args)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> R:
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> None:
         """
         Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
         is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
@@ -88,7 +88,6 @@ class Recipe(Generic[R]):
 
         :param inputs: The inputs provided by the ingredients (dependencies) of this Recipe
         :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
-        :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         log.debug('Invoking recipe: {}'.format(self.name))
         outputs = self(*inputs)
@@ -96,7 +95,6 @@ class Recipe(Generic[R]):
         self._input_checksums = input_checksums
         self._last_function_hash = self.function_hash
         self._save_state()
-        return outputs
 
     def brew(self) -> R:
         """

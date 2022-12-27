@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from typing import Iterable, Callable, Optional, Tuple, Any, List, Dict, Union, cast, TypeVar
+from itertools import chain
 
 from . import checksums, serialization
 from .logging import log
@@ -37,25 +38,31 @@ class ForeachRecipe(Recipe[R]):
         :param cache: The type of caching to use for this Recipe
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
-        self._mapped_recipe = mapped_recipe
         self._mapped_inputs: Optional[MappedInputs] = None
         self._mapped_inputs_type: Optional[type] = None
         self._mapped_inputs_checksums: Optional[MappedInputsChecksums] = None
         self._mapped_inputs_checksum: Optional[str] = None
         self._mapped_outputs: Optional[MappedOutputs] = None
         self._mapped_outputs_checksum: Optional[str] = None
-        super().__init__(func, ingredients, name, transient, cache, cleanliness_func)
-
-    @property
-    def mapped_recipe(self) -> Recipe:
-        """
-        :return: The dependent Recipe that produces the input sequence to map the bound function to
-        """
-        return self._mapped_recipe
+        super().__init__(func, chain([mapped_recipe], ingredients), name, transient, cache, cleanliness_func)
 
     @property
     def mapped_inputs_type(self) -> Optional[type]:
         return self._mapped_inputs_type
+
+    @property
+    def mapped_inputs_checksums(self) -> Optional[MappedInputsChecksums]:
+        """
+        :return: The computed checksums for the sequence of mapped inputs (this is set when mapped_inputs is set)
+        """
+        return self._mapped_inputs_checksums
+
+    @property
+    def mapped_inputs_checksum(self) -> Optional[str]:
+        """
+        :return: The summary of the mapped inputs checksum
+        """
+        return self._mapped_inputs_checksum
 
     @property
     def mapped_inputs(self) -> Optional[MappedInputs]:
@@ -88,20 +95,6 @@ class ForeachRecipe(Recipe[R]):
             raise RuntimeError("Cannot handle mapped input of type: {}".format(type(mapped_inputs)))
         self._mapped_inputs = mapped_inputs
         self._mapped_inputs_type = type(self._mapped_inputs)
-
-    @property
-    def mapped_inputs_checksums(self) -> Optional[MappedInputsChecksums]:
-        """
-        :return: The computed checksums for the sequence of mapped inputs (this is set when mapped_inputs is set)
-        """
-        return self._mapped_inputs_checksums
-
-    @property
-    def mapped_inputs_checksum(self) -> Optional[str]:
-        """
-        :return: The summary of the mapped inputs checksum
-        """
-        return self._mapped_inputs_checksum
 
     @Recipe.outputs.getter  # type: ignore # see https://github.com/python/mypy/issues/1465
     def outputs(self) -> Optional[Union[Dict, List]]:
@@ -138,21 +131,23 @@ class ForeachRecipe(Recipe[R]):
             return {key: output.checksum for key, output in self._mapped_outputs.items()}
         raise RuntimeError("Invalid type for mapped outputs")
 
-    def invoke_mapped(self, mapped_inputs: MappedInputs, mapped_inputs_checksum: Optional[str],
-                      inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> Optional[MappedOutputs]:
+    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> None:
         """
         Evaluate this ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
         "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
         is used to check this). Only items from the immediately previous invoke call will be cached
 
-        :param mapped_inputs: The (possibly new) sequence of inputs to apply the bound function to
-        :param mapped_inputs_checksum: A single checksum for all the mapped inputs, used to quickly check
-            whether anything has changed
         :param inputs: The inputs provided by the ingredients (dependencies) of this ForeachRecipe
         :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
-        :return: The outputs of this ForeachRecipe
         """
         log.debug("Invoking recipe: {}".format(self.name))
+
+        # The first ingredient will provide the sequence to apply the bound function too
+        mapped_inputs = inputs[0]
+        mapped_inputs_checksum = input_checksums[0]
+        other_inputs = inputs[1:]
+        other_input_checksums = input_checksums[1:]
+
         if not (isinstance(mapped_inputs, list) or isinstance(mapped_inputs, dict)):
             raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
 
@@ -161,26 +156,22 @@ class ForeachRecipe(Recipe[R]):
         # Check if a full reevaluation across all mapped inputs is needed
         needs_full_eval = self.transient or not mapped_inputs_of_same_type
 
-        # Check if ingredient inputs have changed - this should also cause a full reevaluation
-        if not needs_full_eval:
-            if self.input_checksums:
-                needs_full_eval = self.input_checksums != input_checksums
-            else:
-                if input_checksums:
-                    needs_full_eval = True
-
         # Check if bound function has changed - this should cause a full reevaluation
         if not needs_full_eval:
             if self.function_hash != self.last_function_hash:
                 needs_full_eval = True
 
         # Check if we actually need to do any work (in case everything remains the same as last invocation)
-        if not needs_full_eval:
-            if mapped_inputs_checksum == self.mapped_inputs_checksum:
+        if not needs_full_eval and self.input_checksums is not None:
+            if self.input_checksums == input_checksums:
                 # Outputs have to be valid for us to return them
                 if self._mapped_outputs is not None and all(output.valid for output in self._mapped_outputs):
                     log.debug("Returning early since mapped inputs did not change since last evaluation")
-                    return self._mapped_outputs
+                    return
+            # If input checksums do not match, a full re-evaluation is needed if the mapped checksums match, since the
+            # mismatch has to be caused by a non-mapped input
+            elif mapped_inputs_checksum == self._mapped_inputs_checksum:
+                needs_full_eval = True
 
         # Catch up on already done work
         # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
@@ -222,7 +213,6 @@ class ForeachRecipe(Recipe[R]):
                     not_evaluated[key] = item
 
         def _checkpoint(all_done: bool, save_state: bool = True) -> None:
-            self._input_checksums = input_checksums
             self.mapped_inputs = evaluated
             self._mapped_outputs = outputs
             self._mapped_outputs_checksum = checksums.checksum(outputs)
@@ -231,6 +221,7 @@ class ForeachRecipe(Recipe[R]):
                 self._mapped_inputs_checksum = mapped_inputs_checksum
             else:
                 self._mapped_inputs_checksum = "0xmissing_mapped_inputs_eval"
+            self._input_checksums = (self._mapped_inputs_checksum,) + other_input_checksums
             if save_state:
                 self._save_state()
 
@@ -238,24 +229,23 @@ class ForeachRecipe(Recipe[R]):
         if len(evaluated) == len(mapped_inputs):
             log.debug("Returning early since all items were already cached")
             _checkpoint(all_done=True, save_state=False)
-            return self._mapped_outputs
+            return
 
         # Perform remaining work - store state every time an evaluation is successful
         if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
             for item in not_evaluated:
-                result = self(item, *inputs)
+                result = self(item, *other_inputs)
                 outputs.append(OutputWithValue(result, checksums.checksum(result)))
                 evaluated.append(item)
                 _checkpoint(False)
         elif isinstance(not_evaluated, dict):
             for key, item in not_evaluated.items():
-                result = self(item, *inputs)
+                result = self(item, *other_inputs)
                 outputs[key] = OutputWithValue(result, checksums.checksum(result))
                 evaluated[key] = item
                 _checkpoint(False)
 
         _checkpoint(True)
-        return self._mapped_outputs
 
     @property
     def outputs_valid(self) -> bool:

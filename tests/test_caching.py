@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 from alkymi import AlkymiConfig
 import alkymi as alk
@@ -80,10 +80,6 @@ def test_foreach_caching(caplog, tmpdir):
 
     arg = alk.recipes.arg(list(range(len(execution_counts))), name="args")
 
-    def _check_counts(expected_counts: Tuple[int, int, int, int, int]):
-        for actual_count, expected_count in zip(execution_counts, expected_counts):
-            assert actual_count == expected_count
-
     def record_execution(idx: int) -> int:
         if idx == stopping_point:
             raise InterruptedError("Simulated failure")
@@ -98,10 +94,10 @@ def test_foreach_caching(caplog, tmpdir):
         record_execution_recipe.brew()
     except InterruptedError:
         pass
-    _check_counts((1, 1, 0, 0, 0))
+    assert execution_counts == [1, 1, 0, 0, 0]
 
     # At this point, the status should have changed to reflect the partial evaluation
-    assert record_execution_recipe.status() == Status.MappedInputsDirty
+    assert record_execution_recipe.status() == Status.InputsChanged
 
     # Move interruption by one
     stopping_point += 1
@@ -109,12 +105,12 @@ def test_foreach_caching(caplog, tmpdir):
         record_execution_recipe.brew()
     except InterruptedError:
         pass
-    _check_counts((1, 1, 1, 0, 0))
-    assert record_execution_recipe.status() == Status.MappedInputsDirty
+    assert execution_counts == [1, 1, 1, 0, 0]
+    assert record_execution_recipe.status() == Status.InputsChanged
 
     # Reloading the recipe from cache should result in the same partially evaluated state
     record_execution_recipe_copy = alk.foreach(arg)(record_execution)
-    assert record_execution_recipe_copy.status() == Status.MappedInputsDirty
+    assert record_execution_recipe_copy.status() == Status.InputsChanged
 
     # Move interruption by another index - only the single element should be evaluated now
     stopping_point += 1
@@ -122,13 +118,13 @@ def test_foreach_caching(caplog, tmpdir):
         record_execution_recipe_copy.brew()
     except InterruptedError:
         pass
-    _check_counts((1, 1, 1, 1, 0))
-    assert record_execution_recipe_copy.status() == Status.MappedInputsDirty
+    assert execution_counts == [1, 1, 1, 1, 0]
+    assert record_execution_recipe_copy.status() == Status.InputsChanged
 
     # Reload from cache and finish
     record_execution_recipe_copy_2 = alk.foreach(arg)(record_execution)
-    assert record_execution_recipe_copy_2.status() == Status.MappedInputsDirty
+    assert record_execution_recipe_copy_2.status() == Status.InputsChanged
     stopping_point = -1
     record_execution_recipe_copy_2.brew()
-    _check_counts((1, 1, 1, 1, 1))
+    assert execution_counts == [1, 1, 1, 1, 1]
     assert record_execution_recipe_copy_2.status() == Status.Ok
