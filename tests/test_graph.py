@@ -64,7 +64,3 @@ def test_create_graph() -> None:
     assert graph.has_successor(foreach_a, root)
     assert graph.has_successor(depends_ab, root)
     assert graph.has_successor(c, root)
-
-    # # Evaluating the graph should result in the following output
-    # result, _ = alk.core.evaluate_recipe(root, graph)
-    # assert result == "a_a_a_a_abc"
