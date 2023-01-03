@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added `networkx` as a runtime dependency
+
+### Changed
+- Rewrote the internals of alkymi to create and use a `networkx` graph (DAG) for execution. This change will enable
+future changes, like running recipes in parallel.
+- Renamed `alkymi.py` to `core.py`
+- Converted `ForeachRecipe` to have the same functional interface as a regular `Recipe`. This change enables the
+functions in `core.py` to not have special handling for `ForeachRecipe`, which makes the code simpler and easier to
+maintain.
+- Coverage step `labfile.py brew coverage` will not print which lines lack test coverage
+
+### Removed
+- Removed the special `MappedInputsDirty` status, which only applied to `ForeachRecipe`. If a `ForeachRecipe` has only
+completed a partial evaluation of its enumerable input, its status will now show `InputsChanged` instead.
+
 ## [0.0.7] - 2022-12-02
 ### Added
 - Added a `file_checksum_method` config option that can be used to select whether to use file content hashing (default)
