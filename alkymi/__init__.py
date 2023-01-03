@@ -6,6 +6,7 @@ from .recipes import glob_files, file, arg  # NOQA
 from .utils import call  # NOQA
 from .types import Status  # NOQA
 from . import checksums  # NOQA
+from . import core  # NOQA
 
 # Define version
 from .version import VERSION, __version__  # NOQA

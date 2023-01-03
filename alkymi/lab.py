@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Dict, Union, Any, List, Iterable, Optional, TextIO
 
-from .alkymi import compute_status_with_cache, Status
+from .core import Status, compute_recipe_status, create_graph
 from .logging import log
 from .recipe import Recipe
 from .recipes import Arg
@@ -102,7 +102,8 @@ class Lab:
         """
         status: Dict[Recipe, Status] = {}
         for recipe in self._recipes:
-            compute_status_with_cache(recipe, status)
+            graph = create_graph(recipe)
+            status.update(compute_recipe_status(recipe, graph))
         return status
 
     def _add_user_args_(self, parser: argparse.ArgumentParser) -> None:

@@ -7,7 +7,7 @@ from typing import List, Dict
 
 import alkymi.recipes
 from alkymi import AlkymiConfig
-from alkymi.alkymi import Status
+from alkymi.core import Status
 from alkymi.config import FileChecksumMethod
 
 

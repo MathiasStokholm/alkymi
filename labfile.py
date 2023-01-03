@@ -52,7 +52,7 @@ def coverage(test_files: List[Path]) -> None:
     test(test_files)
     cov.stop()
     cov.xml_report()
-    cov.report()
+    cov.report(show_missing=True)
 
 
 @alk.recipe(transient=True)

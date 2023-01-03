@@ -46,6 +46,9 @@ setuptools.setup(
         "Documentation": "https://alkymi.readthedocs.io/en/latest/",
     },
     python_requires=">=3.6",
+    install_requires=[
+        "networkx>=2.0"
+    ],
     extras_require={
         "xxhash": ["xxhash>=2.0.0"]
     },
