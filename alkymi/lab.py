@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+import networkx as nx
 from typing import Iterable, TextIO
 
 from .core import Status, compute_recipe_status, create_graph, evaluate_recipe
@@ -81,26 +82,26 @@ class Lab:
         graph = create_graph(target_recipe)
         statuses = compute_recipe_status(target_recipe, graph)
 
-        tasks: Dict[Recipe, TaskID] = {}
+        tasks: Dict[Recipe, TaskID] = {
+            recipe: progress.add_task(recipe.name, start=False, total=1, completed=0)
+            for recipe in nx.topological_sort(graph)
+        }
         with progress:
             def _progress_callback(evaluate_progress: EvaluateProgress, recipe: Recipe, units_total=0, units_done=0):
-                if recipe not in tasks:
-                    if isinstance(recipe, ForeachRecipe):
-                        tasks[recipe] = progress.add_task(recipe.name, total=units_total, completed=units_done)
-                    else:
-                        tasks[recipe] = progress.add_task(recipe.name, total=1, completed=0)
-
                 if evaluate_progress == EvaluateProgress.Started:
-                    pass
+                    progress.start_task(tasks[recipe])
                 elif evaluate_progress == EvaluateProgress.InProgress:
                     if units_total != 0:
                         progress.update(tasks[recipe], total=units_total, completed=units_done)
+                    print(f"In progress: {recipe.name}")
                 elif evaluate_progress == EvaluateProgress.Done:
                     progress.update(tasks[recipe], total=units_total, completed=units_done)
                     progress.stop_task(tasks[recipe])
+                    print(f"Done: {recipe.name}")
                 elif evaluate_progress == EvaluateProgress.UpToDate:
                     progress.update(tasks[recipe], total=units_total, completed=units_done)
                     progress.stop_task(tasks[recipe])
+                    print(f"UpToDate: {recipe.name}")
 
             try:
                 result, _ = evaluate_recipe(target_recipe, graph, statuses, _progress_callback)

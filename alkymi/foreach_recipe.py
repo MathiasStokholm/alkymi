@@ -214,6 +214,9 @@ class ForeachRecipe(Recipe[R]):
                                 continue
                     not_evaluated[key] = item
 
+        if progress_callback is not None:
+            progress_callback(EvaluateProgress.Started, self, len(mapped_inputs), len(evaluated))
+
         def _checkpoint(all_done: bool, save_state: bool = True) -> None:
             self.mapped_inputs = evaluated
             self._mapped_outputs = outputs

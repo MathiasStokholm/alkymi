@@ -7,7 +7,7 @@ from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .serialization import OutputWithValue, CachedOutput, Output
-from .types import Status, ProgressCallback
+from .types import Status, ProgressCallback, EvaluateProgress
 
 R = TypeVar("R")  # The return type of the bound function
 
@@ -91,11 +91,13 @@ class Recipe(Generic[R]):
         :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
         """
         log.debug('Invoking recipe: {}'.format(self.name))
+        progress_callback(EvaluateProgress.Started, self, 0, 1)
         outputs = self(*inputs)
         self.outputs = outputs
         self._input_checksums = input_checksums
         self._last_function_hash = self.function_hash
         self._save_state()
+        progress_callback(EvaluateProgress.Done, self, 1, 1)
 
     def brew(self) -> R:
         """
