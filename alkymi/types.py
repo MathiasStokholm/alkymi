@@ -20,10 +20,9 @@ class Status(enum.Enum):
 
 @enum.unique
 class EvaluateProgress(enum.Enum):
-    UpToDate = 0
-    Started = 1
-    InProgress = 2
-    Done = 3
+    Started = 0
+    InProgress = 1
+    Done = 2
 
 
 if TYPE_CHECKING:

@@ -5,7 +5,6 @@ import networkx as nx
 from typing import Iterable, TextIO
 
 from .core import Status, compute_recipe_status, create_graph, evaluate_recipe
-from .foreach_recipe import ForeachRecipe
 from .logging import log
 from .recipe import Recipe
 from .recipes import Arg
@@ -13,7 +12,7 @@ from .recipes import Arg
 from typing import Dict, Union, Any, List, Optional
 
 from rich import console
-from rich.progress import Progress, TaskID, TextColumn, TimeElapsedColumn, BarColumn, TimeRemainingColumn
+from rich.progress import Progress, TaskID, TextColumn, TimeElapsedColumn, BarColumn
 from rich.rule import Rule
 from rich.console import Group
 
@@ -68,40 +67,47 @@ class Lab:
 
     def _call_brew(self, target_recipe: Recipe) -> Any:
         class LabProgress(Progress):
+            """
+            Subclass of Progress used to render progress bars underneath a horizontal divider with a title
+            """
+
             def get_renderables(self):
                 rule = Rule(title=f"Brewing {target_recipe.name}")
                 yield Group(rule, self.make_tasks_table(self.tasks))
 
-        progress = LabProgress(TextColumn("[bold cyan]{task.description}"),
+        # Define the columns to use for progress table
+        progress = LabProgress(TextColumn("[deep_sky_blue2]{task.description}"),
                                BarColumn(),
                                TextColumn("{task.completed}/{task.total} ({task.percentage}%)"),
-                               TimeRemainingColumn(),
+                               TextColumn("•"),
                                TimeElapsedColumn(),
                                console=self._console)
 
+        # Build the evaluation graph and determine recipe statuses
         graph = create_graph(target_recipe)
         statuses = compute_recipe_status(target_recipe, graph)
 
+        # Build the progress table by adding all required tasks sorted topographically (target recipe at the bottom)
         tasks: Dict[Recipe, TaskID] = {
             recipe: progress.add_task(recipe.name, start=False, total=1, completed=0)
             for recipe in nx.topological_sort(graph)
         }
+
+        # For all recipes that are already cached (Ok), mark them as completed from the beginning
+        for recipe, task_id in tasks.items():
+            if statuses[recipe] == Status.Ok:
+                progress.update(task_id, description=recipe.name + " [dim cyan](cached)[/dim cyan]", completed=1)
+                progress.stop_task(task_id)
+
         with progress:
             def _progress_callback(evaluate_progress: EvaluateProgress, recipe: Recipe, units_total=0, units_done=0):
                 if evaluate_progress == EvaluateProgress.Started:
                     progress.start_task(tasks[recipe])
                 elif evaluate_progress == EvaluateProgress.InProgress:
-                    if units_total != 0:
-                        progress.update(tasks[recipe], total=units_total, completed=units_done)
-                    print(f"In progress: {recipe.name}")
+                    progress.update(tasks[recipe], total=units_total, completed=units_done)
                 elif evaluate_progress == EvaluateProgress.Done:
                     progress.update(tasks[recipe], total=units_total, completed=units_done)
                     progress.stop_task(tasks[recipe])
-                    print(f"Done: {recipe.name}")
-                elif evaluate_progress == EvaluateProgress.UpToDate:
-                    progress.update(tasks[recipe], total=units_total, completed=units_done)
-                    progress.stop_task(tasks[recipe])
-                    print(f"UpToDate: {recipe.name}")
 
             try:
                 result, _ = evaluate_recipe(target_recipe, graph, statuses, _progress_callback)
