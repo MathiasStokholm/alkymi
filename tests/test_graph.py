@@ -1,6 +1,11 @@
 #!/usr/bin/env python
+import sys
+import threading
+import time
+from typing import List, Tuple
 
-from typing import List
+import pytest
+
 from alkymi import AlkymiConfig
 import alkymi as alk
 
@@ -64,3 +69,41 @@ def test_create_graph() -> None:
     assert graph.has_successor(foreach_a, root)
     assert graph.has_successor(depends_ab, root)
     assert graph.has_successor(c, root)
+
+
+def test_parallel() -> None:
+    """
+    Test that recipes can execute in parallel
+    """
+    AlkymiConfig.get().cache = False
+
+    @alk.recipe()
+    def a() -> Tuple[float, int]:
+        thread_idx = threading.current_thread().ident
+        print(f"Executing a on {thread_idx}")
+        time.sleep(0.01)
+        called = time.perf_counter_ns()
+        return called, thread_idx
+
+    @alk.recipe()
+    def b() -> Tuple[float, int]:
+        thread_idx = threading.current_thread().ident
+        print(f"Executing b on {thread_idx}")
+        time.sleep(0.01)
+        called = time.perf_counter_ns()
+        return called, thread_idx
+
+    @alk.recipe()
+    def ab(a, b) -> Tuple[Tuple[float, int], ...]:
+        thread_idx = threading.current_thread().ident
+        print(f"Executing ab on {thread_idx}")
+        called = time.perf_counter_ns()
+        return a, b, (called, thread_idx)
+
+    # 'a' and 'b' should have executed in parallel
+    results_a, results_b, results_ab = ab.brew()
+    assert results_a[0] == pytest.approx(results_b[0])
+    assert results_a != pytest.approx(results_ab[0])
+
+    # 'a' and 'b' should have executed on different threads
+    assert results_a[1] != results_b[1]

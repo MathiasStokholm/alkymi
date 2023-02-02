@@ -1,3 +1,5 @@
+import asyncio
+import concurrent.futures
 from typing import Dict, Tuple, Optional, cast
 
 from .types import Status
@@ -112,17 +114,46 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     # recipe once we arrive at it in the order of iteration
     recipes = list(nx.topological_sort(graph))
 
-    for recipe in recipes:
-        # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
-        if statuses[recipe] == Status.Ok:
-            log.debug('Recipe already evaluated: {}'.format(recipe.name))
-            continue
-        log.debug('Evaluating recipe: {}'.format(recipe.name))
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    loop = asyncio.get_event_loop()
 
-        # Collect inputs and checksums
-        inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
-        input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
-        recipe.invoke(inputs, input_checksums)
+    def _return(_recipe: Recipe, _inputs_and_checksums):
+        _inputs = tuple(inp[0] for inp in _inputs_and_checksums)
+        _input_checksums = tuple(inp[1] for inp in _inputs_and_checksums)
+        _recipe.invoke(_inputs, _input_checksums)
+        return _recipe.outputs, _recipe.output_checksum
+
+    async def _schedule(_recipe: Recipe, input_futs):
+        # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
+        if statuses[_recipe] == Status.Ok:
+            return loop.run_in_executor(executor, lambda: (_recipe.outputs, _recipe.output_checksum))
+
+        if len(_recipe.ingredients) == 0:
+            return loop.run_in_executor(executor, _return, _recipe, [])
+        else:
+            inputs = [await inp for inp in input_futs]
+            return loop.run_in_executor(executor, _return, _recipe, inputs)
+
+    # for recipe in recipes:
+    #     # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
+    #     if statuses[recipe] == Status.Ok:
+    #         log.debug('Recipe already evaluated: {}'.format(recipe.name))
+    #         continue
+    #     log.debug('Evaluating recipe: {}'.format(recipe.name))
+    #
+    #     # Collect inputs and checksums
+    #     inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
+    #     input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
+    #     recipe.invoke(inputs, input_checksums)
+
+    async def _execute():
+        tasks = {}
+        for _recipe in recipes:
+            input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
+            tasks[_recipe] = await _schedule(_recipe, input_futures)
+        await tasks[recipe]
+
+    loop.run_until_complete(_execute())
 
     # Return the output and checksum of the final recipe
     return cast(R, recipe.outputs), recipe.output_checksum
