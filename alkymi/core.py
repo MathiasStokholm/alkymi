@@ -1,6 +1,6 @@
 import asyncio
 import concurrent.futures
-from typing import Dict, Tuple, Optional, cast
+from typing import Dict, Tuple, Optional, cast, Awaitable
 
 from .types import Status
 from .recipe import Recipe, R
@@ -100,6 +100,15 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     return statuses
 
 
+def retrieve_recipe_outputs(recipe: Recipe, status: Status, inputs_and_checksums: Tuple[OutputsAndChecksums] = ()):
+    # If status is not Ok, call invoke to run recipe
+    if status != Status.Ok:
+        _inputs = tuple(inp[0] for inp in inputs_and_checksums)
+        _input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
+        recipe.invoke(_inputs, _input_checksums)
+    return recipe.outputs, recipe.output_checksum
+
+
 def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
@@ -109,54 +118,29 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
-    # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
-    # This guarantees that the 'outputs' and 'output_checksum' attributes will be available for all dependencies of a
-    # recipe once we arrive at it in the order of iteration
-    recipes = list(nx.topological_sort(graph))
-
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
     loop = asyncio.get_event_loop()
 
-    def _return(_recipe: Recipe, _inputs_and_checksums):
-        _inputs = tuple(inp[0] for inp in _inputs_and_checksums)
-        _input_checksums = tuple(inp[1] for inp in _inputs_and_checksums)
-        _recipe.invoke(_inputs, _input_checksums)
-        return _recipe.outputs, _recipe.output_checksum
+    async def _schedule(_recipe: Recipe, inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]):
+        inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
+        return loop.run_in_executor(executor, retrieve_recipe_outputs, _recipe, statuses[_recipe], inputs_and_checksums)
 
-    async def _schedule(_recipe: Recipe, input_futs):
-        # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
-        if statuses[_recipe] == Status.Ok:
-            return loop.run_in_executor(executor, lambda: (_recipe.outputs, _recipe.output_checksum))
+    async def _execute() -> Awaitable[OutputsAndChecksums]:
+        # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
+        # This guarantees that futures only depend on already created futures
+        recipes = list(nx.topological_sort(graph))
 
-        if len(_recipe.ingredients) == 0:
-            return loop.run_in_executor(executor, _return, _recipe, [])
-        else:
-            inputs = [await inp for inp in input_futs]
-            return loop.run_in_executor(executor, _return, _recipe, inputs)
-
-    # for recipe in recipes:
-    #     # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
-    #     if statuses[recipe] == Status.Ok:
-    #         log.debug('Recipe already evaluated: {}'.format(recipe.name))
-    #         continue
-    #     log.debug('Evaluating recipe: {}'.format(recipe.name))
-    #
-    #     # Collect inputs and checksums
-    #     inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
-    #     input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
-    #     recipe.invoke(inputs, input_checksums)
-
-    async def _execute():
         tasks = {}
         for _recipe in recipes:
             input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
             tasks[_recipe] = await _schedule(_recipe, input_futures)
-        await tasks[recipe]
 
-    loop.run_until_complete(_execute())
+        # Wait for future for target recipe to return
+        return await tasks[recipe]
 
     # Return the output and checksum of the final recipe
-    return cast(R, recipe.outputs), recipe.output_checksum
+    output, checksum = loop.run_until_complete(_execute())
+    return cast(R, output), checksum
 
 
 def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) -> Status:

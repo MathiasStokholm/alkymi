@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys
+import os
 import threading
 import time
 from typing import List, Tuple
@@ -71,7 +71,7 @@ def test_create_graph() -> None:
     assert graph.has_successor(c, root)
 
 
-def test_parallel() -> None:
+def test_parallel_threading() -> None:
     """
     Test that recipes can execute in parallel
     """
@@ -82,7 +82,7 @@ def test_parallel() -> None:
         thread_idx = threading.current_thread().ident
         print(f"Executing a on {thread_idx}")
         time.sleep(0.01)
-        called = time.perf_counter_ns()
+        called = time.perf_counter()
         return called, thread_idx
 
     @alk.recipe()
@@ -90,15 +90,58 @@ def test_parallel() -> None:
         thread_idx = threading.current_thread().ident
         print(f"Executing b on {thread_idx}")
         time.sleep(0.01)
-        called = time.perf_counter_ns()
+        called = time.perf_counter()
         return called, thread_idx
 
     @alk.recipe()
     def ab(a, b) -> Tuple[Tuple[float, int], ...]:
         thread_idx = threading.current_thread().ident
         print(f"Executing ab on {thread_idx}")
-        called = time.perf_counter_ns()
+        called = time.perf_counter()
         return a, b, (called, thread_idx)
+
+    # 'a' and 'b' should have executed in parallel
+    results_a, results_b, results_ab = ab.brew()
+    assert results_a[0] == pytest.approx(results_b[0])
+    assert results_a != pytest.approx(results_ab[0])
+
+    # 'a' and 'b' should have executed on different threads
+    assert results_a[1] != results_b[1]
+
+
+def a_process() -> Tuple[float, int]:
+    process_idx = os.getpid()
+    print(f"Executing a on {process_idx}")
+    time.sleep(0.01)
+    called = time.perf_counter()
+    return called, process_idx
+
+
+def b_process() -> Tuple[float, int]:
+    process_idx = os.getpid()
+    print(f"Executing b on {process_idx}")
+    time.sleep(0.01)
+    called = time.perf_counter()
+    return called, process_idx
+
+
+def ab_process(a, b) -> Tuple[Tuple[float, int], ...]:
+    process_idx = os.getpid()
+    print(f"Executing ab on {process_idx}")
+    called = time.perf_counter()
+    return a, b, (called, process_idx)
+
+
+def test_parallel_multiprocess() -> None:
+    """
+    Test that recipes can execute in parallel using multiple processes
+    """
+    pytest.skip("multiprocessing doesnt work yet")
+    AlkymiConfig.get().cache = False
+
+    a = alk.recipe()(a_process)
+    b = alk.recipe()(b_process)
+    ab = alk.recipe(ingredients=(a, b))(ab_process)
 
     # 'a' and 'b' should have executed in parallel
     results_a, results_b, results_ab = ab.brew()
