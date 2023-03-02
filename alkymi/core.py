@@ -1,6 +1,6 @@
 import asyncio
 import concurrent.futures
-from asyncio import Future
+from asyncio import Future, AbstractEventLoop
 from typing import Dict, Tuple, Optional, Awaitable, Any
 
 from . import checksums
@@ -119,7 +119,8 @@ def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple[Optio
 
 
 def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
-                   input_checksums: Tuple[Optional[str], ...]) -> OutputsAndChecksums:
+                   input_checksums: Tuple[Optional[str], ...],
+                   executor: Optional[concurrent.futures.Executor]) -> OutputsAndChecksums:
     """
     Evaluate the ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
     "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
@@ -128,6 +129,7 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
     :param recipe: The ForeachRecipe to evaluate given the provided inputs
     :param inputs: The inputs provided by the ingredients (dependencies) of the ForeachRecipe
     :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
+    :param executor: The executor to use for calling the bound function in parallel
     """
     log.debug("Invoking recipe: {}".format(recipe.name))
 
@@ -209,14 +211,20 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
 
     # Perform remaining work - store state every time an evaluation is successful
     if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
-        for item in not_evaluated:
-            result = recipe(item, *other_inputs)
+        if executor is not None:
+            results = executor.map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
+        else:
+            results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
+        for item, result in zip(not_evaluated, results):
             outputs.append(OutputWithValue(result, checksums.checksum(result)))
             evaluated.append(item)
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
     elif isinstance(not_evaluated, dict):
-        for key, item in not_evaluated.items():
-            result = recipe(item, *other_inputs)
+        if executor is not None:
+            results = executor.map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
+        else:
+            results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
+        for (key, item), result in zip(not_evaluated.items(), results):
             outputs[key] = OutputWithValue(result, checksums.checksum(result))
             evaluated[key] = item
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
@@ -225,17 +233,26 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
     return recipe.outputs, recipe.output_checksum
 
 
-def retrieve_recipe_outputs(recipe: Recipe, status: Status,
+def retrieve_recipe_outputs(foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe, status: Status,
                             inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = ()) -> OutputsAndChecksums:
     # If status is not Ok, call invoke to run recipe
     if status != Status.Ok:
         _inputs = tuple(inp[0] for inp in inputs_and_checksums)
         _input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
         if isinstance(recipe, ForeachRecipe):
-            return invoke_foreach(recipe, _inputs, _input_checksums)
+            return invoke_foreach(recipe, _inputs, _input_checksums, foreach_executor)
         else:
             return invoke(recipe, _inputs, _input_checksums)
     return recipe.outputs, recipe.output_checksum
+
+
+async def schedule(loop: AbstractEventLoop, graph_executor: concurrent.futures.Executor,
+                   foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe,
+                   statuses: Dict[Recipe, Status],
+                   inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]) -> Future:
+    inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
+    return loop.run_in_executor(graph_executor, retrieve_recipe_outputs, foreach_executor, recipe, statuses[recipe],
+                                inputs_and_checksums)
 
 
 def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int) -> \
@@ -250,14 +267,15 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
+    # Create the executor to use for evaluating recipes
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
+
+    # If we have more than 1 job (threads) available, also use the executor for running ForeachRecipes in parallel
+    foreach_executor = executor if jobs > 1 else None
+
+    # Create the asyncio event loop and set it on the calling thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
-    async def _schedule(_recipe: Recipe, inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]) \
-            -> Future:
-        inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
-        return loop.run_in_executor(executor, retrieve_recipe_outputs, _recipe, statuses[_recipe], inputs_and_checksums)
 
     async def _execute() -> OutputsAndChecksums[R]:
         # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
@@ -267,7 +285,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         tasks: Dict[Recipe, Future] = {}
         for _recipe in recipes:
             input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
-            tasks[_recipe] = await _schedule(_recipe, input_futures)
+            tasks[_recipe] = await schedule(loop, executor, foreach_executor, _recipe, statuses, input_futures)
 
         # Wait for future for target recipe to return
         return await tasks[recipe]
