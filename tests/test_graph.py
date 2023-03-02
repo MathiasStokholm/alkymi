@@ -1,13 +1,12 @@
 #!/usr/bin/env python
-import os
 import threading
 import time
 from typing import List, Tuple
 
 import pytest
 
-from alkymi import AlkymiConfig
 import alkymi as alk
+from alkymi import AlkymiConfig
 
 
 def test_create_graph() -> None:
@@ -99,49 +98,6 @@ def test_parallel_threading() -> None:
         print(f"Executing ab on {thread_idx}")
         called = time.perf_counter()
         return a, b, (called, thread_idx)
-
-    # 'a' and 'b' should have executed in parallel
-    results_a, results_b, results_ab = ab.brew()
-    assert results_a[0] == pytest.approx(results_b[0])
-    assert results_a != pytest.approx(results_ab[0])
-
-    # 'a' and 'b' should have executed on different threads
-    assert results_a[1] != results_b[1]
-
-
-def a_process() -> Tuple[float, int]:
-    process_idx = os.getpid()
-    print(f"Executing a on {process_idx}")
-    time.sleep(0.01)
-    called = time.perf_counter()
-    return called, process_idx
-
-
-def b_process() -> Tuple[float, int]:
-    process_idx = os.getpid()
-    print(f"Executing b on {process_idx}")
-    time.sleep(0.01)
-    called = time.perf_counter()
-    return called, process_idx
-
-
-def ab_process(a, b) -> Tuple[Tuple[float, int], ...]:
-    process_idx = os.getpid()
-    print(f"Executing ab on {process_idx}")
-    called = time.perf_counter()
-    return a, b, (called, process_idx)
-
-
-def test_parallel_multiprocess() -> None:
-    """
-    Test that recipes can execute in parallel using multiple processes
-    """
-    pytest.skip("multiprocessing doesnt work yet")
-    AlkymiConfig.get().cache = False
-
-    a = alk.recipe()(a_process)
-    b = alk.recipe()(b_process)
-    ab = alk.recipe(ingredients=(a, b))(ab_process)
 
     # 'a' and 'b' should have executed in parallel
     results_a, results_b, results_ab = ab.brew()
