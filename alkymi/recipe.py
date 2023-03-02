@@ -1,7 +1,7 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Tuple, Any, TypeVar, Generic, cast
+from typing import Iterable, Callable, List, Optional, Tuple, TypeVar, Generic, cast
 
 from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
@@ -80,17 +80,7 @@ class Recipe(Generic[R]):
         """
         return self._func(*args)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> None:
-        """
-        Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
-        is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
-        previous invoke call will be cached
-
-        :param inputs: The inputs provided by the ingredients (dependencies) of this Recipe
-        :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
-        """
-        log.debug('Invoking recipe: {}'.format(self.name))
-        outputs = self(*inputs)
+    def set_result(self, outputs: R, input_checksums: Tuple[Optional[str], ...]) -> None:
         self.outputs = outputs
         self._input_checksums = input_checksums
         self._last_function_hash = self.function_hash

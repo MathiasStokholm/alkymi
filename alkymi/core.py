@@ -1,8 +1,11 @@
 import asyncio
 import concurrent.futures
 from asyncio import Future
-from typing import Dict, Tuple, Optional, Awaitable
+from typing import Dict, Tuple, Optional, Awaitable, Any
 
+from . import checksums
+from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
+from .serialization import OutputWithValue
 from .types import Status
 from .recipe import Recipe, R
 from .logging import log
@@ -101,12 +104,137 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     return statuses
 
 
-def retrieve_recipe_outputs(recipe: Recipe, status: Status, inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = ()):
+def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> OutputsAndChecksums:
+    """
+    Evaluate the Recipe using the provided inputs. This will call the bound function on the inputs.
+
+    :param recipe: The recipe to evaluate given the provided inputs
+    :param inputs: The inputs provided by the ingredients (dependencies) of the Recipe
+    :param input_checksums: The (possibly new) input checksum
+    """
+    log.debug('Invoking recipe: {}'.format(recipe.name))
+    outputs = recipe(*inputs)
+    recipe.set_result(outputs, input_checksums)
+    return recipe.outputs, recipe.output_checksum
+
+
+def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
+                   input_checksums: Tuple[Optional[str], ...]) -> OutputsAndChecksums:
+    """
+    Evaluate the ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
+    "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
+    is used to check this). Only items from the immediately previous invoke call will be cached
+
+    :param recipe: The ForeachRecipe to evaluate given the provided inputs
+    :param inputs: The inputs provided by the ingredients (dependencies) of the ForeachRecipe
+    :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
+    """
+    log.debug("Invoking recipe: {}".format(recipe.name))
+
+    # The first ingredient will provide the sequence to apply the bound function too
+    mapped_inputs = inputs[0]
+    mapped_inputs_checksum = input_checksums[0]
+    other_inputs = inputs[1:]
+    other_input_checksums = input_checksums[1:]
+
+    if not (isinstance(mapped_inputs, list) or isinstance(mapped_inputs, dict)):
+        raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
+
+    mapped_inputs_of_same_type = recipe.mapped_inputs_type == type(mapped_inputs)
+
+    # Check if a full reevaluation across all mapped inputs is needed
+    needs_full_eval = recipe.transient or not mapped_inputs_of_same_type
+
+    # Check if bound function has changed - this should cause a full reevaluation
+    if not needs_full_eval:
+        if recipe.function_hash != recipe.last_function_hash:
+            needs_full_eval = True
+
+    # Check if we actually need to do any work (in case everything remains the same as last invocation)
+    if not needs_full_eval and recipe.input_checksums is not None:
+        if recipe.input_checksums == input_checksums:
+            # Outputs have to be valid for us to return them
+            if recipe.outputs_valid:
+                log.debug("Returning early since mapped inputs did not change since last evaluation")
+                return recipe.outputs, recipe.output_checksum
+        # If input checksums do not match, a full re-evaluation is needed if the mapped checksums match, since the
+        # mismatch has to be caused by a non-mapped input
+        elif mapped_inputs_checksum == recipe.mapped_inputs_checksum:
+            needs_full_eval = True
+
+    # Catch up on already done work
+    # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
+    outputs: MappedOutputs = [] if isinstance(mapped_inputs, list) else {}
+    evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
+    not_evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
+    if needs_full_eval or recipe.mapped_outputs is None:
+        not_evaluated = mapped_inputs
+    else:
+        if isinstance(mapped_inputs, list) and isinstance(outputs, list) \
+                and isinstance(evaluated, list) and isinstance(not_evaluated, list):
+            for item in mapped_inputs:
+                # Try to look up cached result for this input
+                try:
+                    new_checksum = checksums.checksum(item)
+                    idx = recipe.mapped_inputs_checksums.index(new_checksum)  # type: ignore
+                    found_checksum = recipe.mapped_inputs_checksums[idx]  # type: ignore
+                    if new_checksum == found_checksum:
+                        found_output = recipe.mapped_outputs[idx]
+                        if found_output.valid:
+                            outputs.append(found_output)
+                            evaluated.append(item)
+                            continue
+                except ValueError:
+                    pass
+                not_evaluated.append(item)
+        elif isinstance(mapped_inputs, dict):
+            for key, item in mapped_inputs.items():
+                # Try to look up cached result for this input
+                found_checksum = recipe.mapped_inputs_checksums.get(key, None)  # type: ignore
+                if found_checksum is not None:
+                    new_checksum = checksums.checksum(key)
+                    if new_checksum == found_checksum:
+                        found_output = recipe.mapped_outputs[key]
+                        if found_output.valid:
+                            outputs[key] = found_output
+                            evaluated[key] = item
+                            continue
+                not_evaluated[key] = item
+
+    log.debug("Num already cached results: {}/{}".format(len(evaluated), len(mapped_inputs)))
+    if len(evaluated) == len(mapped_inputs):
+        log.debug("Returning early since all items were already cached")
+        recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, True)
+        return recipe.outputs, recipe.output_checksum
+
+    # Perform remaining work - store state every time an evaluation is successful
+    if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
+        for item in not_evaluated:
+            result = recipe(item, *other_inputs)
+            outputs.append(OutputWithValue(result, checksums.checksum(result)))
+            evaluated.append(item)
+            recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+    elif isinstance(not_evaluated, dict):
+        for key, item in not_evaluated.items():
+            result = recipe(item, *other_inputs)
+            outputs[key] = OutputWithValue(result, checksums.checksum(result))
+            evaluated[key] = item
+            recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+
+    recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, True)
+    return recipe.outputs, recipe.output_checksum
+
+
+def retrieve_recipe_outputs(recipe: Recipe, status: Status,
+                            inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = ()) -> OutputsAndChecksums:
     # If status is not Ok, call invoke to run recipe
     if status != Status.Ok:
         _inputs = tuple(inp[0] for inp in inputs_and_checksums)
         _input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
-        recipe.invoke(_inputs, _input_checksums)
+        if isinstance(recipe, ForeachRecipe):
+            return invoke_foreach(recipe, _inputs, _input_checksums)
+        else:
+            return invoke(recipe, _inputs, _input_checksums)
     return recipe.outputs, recipe.output_checksum
 
 
