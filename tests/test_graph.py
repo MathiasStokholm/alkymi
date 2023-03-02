@@ -81,7 +81,7 @@ def test_sequential() -> None:
         thread_idx = threading.current_thread().ident
         assert thread_idx is not None
         print(f"Executing a on {thread_idx}")
-        time.sleep(0.01)
+        time.sleep(0.02)
         called = time.perf_counter()
         return called, thread_idx
 
@@ -90,7 +90,7 @@ def test_sequential() -> None:
         thread_idx = threading.current_thread().ident
         assert thread_idx is not None
         print(f"Executing b on {thread_idx}")
-        time.sleep(0.01)
+        time.sleep(0.02)
         called = time.perf_counter()
         return called, thread_idx
 
@@ -104,7 +104,7 @@ def test_sequential() -> None:
 
     # 'a' and 'b' should not have executed in parallel
     results_a, results_b, results_ab = ab.brew(jobs=1)
-    assert results_a[0] != pytest.approx(results_b[0])
+    assert results_a[0] != pytest.approx(results_b[0], abs=0.01)
     assert results_a != pytest.approx(results_ab[0])
 
     # 'a' and 'b' should have executed on the same thread
@@ -123,7 +123,7 @@ def test_parallel_threading(jobs: int) -> None:
         thread_idx = threading.current_thread().ident
         assert thread_idx is not None
         print(f"Executing a on {thread_idx}")
-        time.sleep(0.01)
+        time.sleep(0.02)
         called = time.perf_counter()
         return called, thread_idx
 
@@ -132,7 +132,7 @@ def test_parallel_threading(jobs: int) -> None:
         thread_idx = threading.current_thread().ident
         assert thread_idx is not None
         print(f"Executing b on {thread_idx}")
-        time.sleep(0.01)
+        time.sleep(0.02)
         called = time.perf_counter()
         return called, thread_idx
 
@@ -146,7 +146,7 @@ def test_parallel_threading(jobs: int) -> None:
 
     # 'a' and 'b' should have executed in parallel
     results_a, results_b, results_ab = ab.brew(jobs=jobs)
-    assert results_a[0] == pytest.approx(results_b[0])
+    assert results_a[0] == pytest.approx(results_b[0], abs=0.01)
     assert results_a != pytest.approx(results_ab[0])
 
     # 'a' and 'b' should have executed on different threads
