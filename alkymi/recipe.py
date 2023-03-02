@@ -96,16 +96,18 @@ class Recipe(Generic[R]):
         self._last_function_hash = self.function_hash
         self._save_state()
 
-    def brew(self) -> R:
+    def brew(self, *, jobs: int = 1) -> R:
         """
         Evaluate this Recipe and all dependent inputs - this will build the computational graph and execute any needed
         dependencies to produce the outputs of this Recipe
 
+        :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
+        zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports
         from .core import brew
-        return brew(self)
+        return brew(self, jobs=jobs)
 
     def status(self) -> Status:
         """

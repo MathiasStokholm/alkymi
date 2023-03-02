@@ -70,15 +70,16 @@ def test_create_graph() -> None:
     assert graph.has_successor(c, root)
 
 
-def test_parallel_threading() -> None:
+def test_sequential() -> None:
     """
-    Test that recipes can execute in parallel
+    Test that recipes can execute sequentially (without parallelism)
     """
     AlkymiConfig.get().cache = False
 
     @alk.recipe()
     def a() -> Tuple[float, int]:
         thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
         print(f"Executing a on {thread_idx}")
         time.sleep(0.01)
         called = time.perf_counter()
@@ -87,6 +88,7 @@ def test_parallel_threading() -> None:
     @alk.recipe()
     def b() -> Tuple[float, int]:
         thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
         print(f"Executing b on {thread_idx}")
         time.sleep(0.01)
         called = time.perf_counter()
@@ -95,12 +97,55 @@ def test_parallel_threading() -> None:
     @alk.recipe()
     def ab(a, b) -> Tuple[Tuple[float, int], ...]:
         thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
+        print(f"Executing ab on {thread_idx}")
+        called = time.perf_counter()
+        return a, b, (called, thread_idx)
+
+    # 'a' and 'b' should not have executed in parallel
+    results_a, results_b, results_ab = ab.brew(jobs=1)
+    assert results_a[0] != pytest.approx(results_b[0])
+    assert results_a != pytest.approx(results_ab[0])
+
+    # 'a' and 'b' should have executed on the same thread
+    assert results_a[1] == results_b[1]
+
+
+@pytest.mark.parametrize("jobs", (0, 3, 5, 8, -1))
+def test_parallel_threading(jobs: int) -> None:
+    """
+    Test that recipes can execute in parallel
+    """
+    AlkymiConfig.get().cache = False
+
+    @alk.recipe()
+    def a() -> Tuple[float, int]:
+        thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
+        print(f"Executing a on {thread_idx}")
+        time.sleep(0.01)
+        called = time.perf_counter()
+        return called, thread_idx
+
+    @alk.recipe()
+    def b() -> Tuple[float, int]:
+        thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
+        print(f"Executing b on {thread_idx}")
+        time.sleep(0.01)
+        called = time.perf_counter()
+        return called, thread_idx
+
+    @alk.recipe()
+    def ab(a, b) -> Tuple[Tuple[float, int], ...]:
+        thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
         print(f"Executing ab on {thread_idx}")
         called = time.perf_counter()
         return a, b, (called, thread_idx)
 
     # 'a' and 'b' should have executed in parallel
-    results_a, results_b, results_ab = ab.brew()
+    results_a, results_b, results_ab = ab.brew(jobs=jobs)
     assert results_a[0] == pytest.approx(results_b[0])
     assert results_a != pytest.approx(results_ab[0])
 

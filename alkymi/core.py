@@ -1,6 +1,7 @@
 import asyncio
 import concurrent.futures
-from typing import Dict, Tuple, Optional, cast, Awaitable
+from asyncio import Future
+from typing import Dict, Tuple, Optional, Awaitable
 
 from .types import Status
 from .recipe import Recipe, R
@@ -100,7 +101,7 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     return statuses
 
 
-def retrieve_recipe_outputs(recipe: Recipe, status: Status, inputs_and_checksums: Tuple[OutputsAndChecksums] = ()):
+def retrieve_recipe_outputs(recipe: Recipe, status: Status, inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = ()):
     # If status is not Ok, call invoke to run recipe
     if status != Status.Ok:
         _inputs = tuple(inp[0] for inp in inputs_and_checksums)
@@ -109,28 +110,33 @@ def retrieve_recipe_outputs(recipe: Recipe, status: Status, inputs_and_checksums
     return recipe.outputs, recipe.output_checksum
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> OutputsAndChecksums[R]:
+def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int) -> \
+        OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
 
     :param recipe: The recipe to evaluate
     :param graph: The graph to use for evaluation
     :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
+    :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
+    zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    loop = asyncio.get_event_loop()
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-    async def _schedule(_recipe: Recipe, inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]):
+    async def _schedule(_recipe: Recipe, inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]) \
+            -> Future:
         inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
         return loop.run_in_executor(executor, retrieve_recipe_outputs, _recipe, statuses[_recipe], inputs_and_checksums)
 
-    async def _execute() -> Awaitable[OutputsAndChecksums]:
+    async def _execute() -> OutputsAndChecksums[R]:
         # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
         # This guarantees that futures only depend on already created futures
         recipes = list(nx.topological_sort(graph))
 
-        tasks = {}
+        tasks: Dict[Recipe, Future] = {}
         for _recipe in recipes:
             input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
             tasks[_recipe] = await _schedule(_recipe, input_futures)
@@ -140,7 +146,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
 
     # Return the output and checksum of the final recipe
     output, checksum = loop.run_until_complete(_execute())
-    return cast(R, output), checksum
+    return output, checksum
 
 
 def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) -> Status:
@@ -178,15 +184,17 @@ def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) 
     return Status.Ok
 
 
-def brew(recipe: Recipe[R]) -> R:
+def brew(recipe: Recipe[R], *, jobs: int) -> R:
     """
     Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
     dependencies to produce the outputs of the input Recipe
 
     :param recipe: The Recipe to evaluate
+    :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
+    zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     graph = create_graph(recipe)
     statuses = compute_recipe_status(recipe, graph)
-    result, _ = evaluate_recipe(recipe, graph, statuses)
+    result, _ = evaluate_recipe(recipe, graph, statuses, jobs)
     return result
