@@ -285,7 +285,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     :param graph: The graph to use for evaluation
     :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
     :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
-    zero or negative values will cause alkymi to use the system's default number of jobs
+                 zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
     # Create the executor to use for evaluating recipes
@@ -359,7 +359,7 @@ def brew(recipe: Recipe[R], *, jobs: int) -> R:
 
     :param recipe: The Recipe to evaluate
     :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
-    zero or negative values will cause alkymi to use the system's default number of jobs
+                 zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     graph = create_graph(recipe)

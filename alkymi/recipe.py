@@ -98,7 +98,7 @@ class Recipe(Generic[R]):
         dependencies to produce the outputs of this Recipe
 
         :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
-        zero or negative values will cause alkymi to use the system's default number of jobs
+                     zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports

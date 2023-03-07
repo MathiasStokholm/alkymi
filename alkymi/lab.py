@@ -60,7 +60,7 @@ class Lab:
 
         :param target_recipe: The recipe to evaluate, as a reference ot by name
         :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
-        zero or negative values will cause alkymi to use the system's default number of jobs
+                     zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The output of the evaluated recipe
         """
         if isinstance(target_recipe, str):
