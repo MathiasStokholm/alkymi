@@ -5,6 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- No unreleased changes yet
+
+## [0.1.0] - 2023-03-07
+### Added
+- Added `networkx` as a runtime dependency
+- Added support for parallel execution - the `brew()` function now takes a `jobs` parameter that controls
+parallelization of the recipe evaluation.
+- Added support for parallel execution to the `Lab` CLI - use `--jobs` or `-j` when calling `brew` to run pipeline in
+parallel
+- Added `twine` and `wheel` to `dev-requirements.txt`
+
+### Changed
+- Rewrote the internals of alkymi to create and use a `networkx` graph (DAG) for execution. This change will enable
+future changes, like running recipes in parallel.
+- Renamed `alkymi.py` to `core.py`
+- Converted `ForeachRecipe` to have the same functional interface as a regular `Recipe`. This change enables the
+functions in `core.py` to not have special handling for `ForeachRecipe`, which makes the code simpler and easier to
+maintain.
+- Coverage step `labfile.py brew coverage` will not print which lines lack test coverage
+- The `invoke` and `invoke_foreach` functions have been moved from `recipe.py` and `foreach_recipe.py` into `core.py`
+to allow more control over the execution flow.
+
+### Removed
+- Removed the special `MappedInputsDirty` status, which only applied to `ForeachRecipe`. If a `ForeachRecipe` has only
+completed a partial evaluation of its enumerable input, its status will now show `InputsChanged` instead.
 
 ## [0.0.7] - 2022-12-02
 ### Added
@@ -132,7 +157,8 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.7...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.4...v0.0.5

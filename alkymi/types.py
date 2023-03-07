@@ -15,4 +15,3 @@ class Status(enum.Enum):
     OutputsInvalid = 4  # One or more outputs of the recipe have been changed externally
     BoundFunctionChanged = 5  # The function referenced by the recipe has changed
     CustomDirty = 6  # The recipe has been marked dirty through a custom cleanliness function
-    MappedInputsDirty = 7  # One or more mapped inputs to the recipe have changed (only ForeachRecipe)

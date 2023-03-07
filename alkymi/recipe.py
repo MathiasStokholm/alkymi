@@ -1,7 +1,7 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable, Callable, List, Optional, Tuple, Any, TypeVar, Generic, cast
+from typing import Iterable, Callable, List, Optional, Tuple, TypeVar, Generic, cast
 
 from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
@@ -80,42 +80,41 @@ class Recipe(Generic[R]):
         """
         return self._func(*args)
 
-    def invoke(self, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> R:
+    def set_result(self, outputs: R, input_checksums: Tuple[Optional[str], ...]) -> None:
         """
-        Evaluate this Recipe using the provided inputs. This will call the bound function on the inputs. If the result
-        is already cached, that result will be used instead (the checksum is used to check this). Only the immediately
-        previous invoke call will be cached
+        Stores the provided result in the recipe and caches it to disk if applicable
 
-        :param inputs: The inputs provided by the ingredients (dependencies) of this Recipe
-        :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
-        :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
+        :param outputs: The outputs to store in the recipe
+        :param input_checksums: The checksums of the inputs that were used to calculate the outputs
         """
-        log.debug('Invoking recipe: {}'.format(self.name))
-        outputs = self(*inputs)
         self.outputs = outputs
         self._input_checksums = input_checksums
         self._last_function_hash = self.function_hash
         self._save_state()
-        return outputs
 
-    def brew(self) -> R:
+    def brew(self, *, jobs: int = 1) -> R:
         """
         Evaluate this Recipe and all dependent inputs - this will build the computational graph and execute any needed
         dependencies to produce the outputs of this Recipe
 
+        :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
+                     zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The outputs of this Recipe (which correspond to the outputs of the bound function)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import brew
-        return brew(self)
+        from .core import brew
+        return brew(self, jobs=jobs)
 
     def status(self) -> Status:
         """
         :return: The status of this recipe (will evaluate all upstream dependencies)
         """
         # Lazy import to avoid circular imports
-        from .alkymi import compute_recipe_status
-        return compute_recipe_status(self)[self]
+        from .core import compute_recipe_status, create_graph
+        return compute_recipe_status(self, create_graph(self))[self]
+
+    def __str__(self) -> str:
+        return self.name
 
     def _save_state(self) -> None:
         """

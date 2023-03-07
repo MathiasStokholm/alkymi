@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Dict, Union, Any, List, Iterable, Optional, TextIO
 
-from .alkymi import compute_status_with_cache, Status
+from .core import Status, compute_recipe_status, create_graph
 from .logging import log
 from .recipe import Recipe
 from .recipes import Arg
@@ -54,23 +54,25 @@ class Lab:
         """
         self._args[arg.name] = arg
 
-    def brew(self, target_recipe: Union[Recipe, str]) -> Any:
+    def brew(self, target_recipe: Union[Recipe, str], *, jobs=1) -> Any:
         """
         Brew (evaluate) a target recipe defined by its reference or name, and return the results
 
         :param target_recipe: The recipe to evaluate, as a reference ot by name
+        :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
+                     zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The output of the evaluated recipe
         """
         if isinstance(target_recipe, str):
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    return recipe.brew()
+                    return recipe.brew(jobs=jobs)
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                return target_recipe.brew()
+                return target_recipe.brew(jobs=jobs)
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property
@@ -102,7 +104,8 @@ class Lab:
         """
         status: Dict[Recipe, Status] = {}
         for recipe in self._recipes:
-            compute_status_with_cache(recipe, status)
+            graph = create_graph(recipe)
+            status.update(compute_recipe_status(recipe, graph))
         return status
 
     def _add_user_args_(self, parser: argparse.ArgumentParser) -> None:
@@ -158,6 +161,8 @@ class Lab:
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
         brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
                                  help='Recipe(s) to brew')
+        brew_parser.add_argument("-j", "--jobs", type=int, default=1,
+                                 help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         self._add_user_args_(brew_parser)
 
         parsed_args = parser.parse_args(args)
@@ -177,7 +182,7 @@ class Lab:
             print(self, file=stream)
         elif parsed_args.subparser_name == 'brew':
             for recipe in parsed_args.recipe:
-                self.brew(recipe)
+                self.brew(recipe, jobs=parsed_args.jobs)
         else:
             # No recognized command provided - print help
             parser.print_help(file=stream)

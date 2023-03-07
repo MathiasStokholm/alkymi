@@ -19,7 +19,7 @@ setuptools.setup(
     url="https://github.com/MathiasStokholm/alkymi",
     packages=["alkymi"],
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "License :: OSI Approved :: MIT License",
         "Environment :: Console",
         "Natural Language :: English",
@@ -46,10 +46,13 @@ setuptools.setup(
         "Documentation": "https://alkymi.readthedocs.io/en/latest/",
     },
     python_requires=">=3.6",
+    install_requires=[
+        "networkx>=2.0"
+    ],
     extras_require={
         "xxhash": ["xxhash>=2.0.0"]
     },
-    package_data = {
+    package_data={
         "alkymi": ["py.typed"],
     },
 )

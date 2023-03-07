@@ -48,21 +48,6 @@ result = long_running_task.brew()  # == np.ndarray([42])
 
 Or one of the examples, e.g. [MNIST](https://alkymi.readthedocs.io/en/latest/examples/mnist.html).
 
-## Upcoming Features
-The following features are being considered for future implementation:
-* Type annotations propagated from bound functions to recipes
-* Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
-* Cache maintenance functionality
-* Parallel execution of pipeline
-
-## Known Issues
-* alkymi currently doesn't check custom objects for altered external files when computing cleanliness (e.g. `MyClass`
-has a `self._some_path` that points to a file somewhere outside alkymi's internal cache)
-* `alk.foreach()` currently only supports enumerable inputs of type `List` or `Dict`
-* Recipes marked `transient` will always be dirty, and thus always require reevaluation. This functionality should be
-replaced by a proper means of creating recipes that don't cache outputs, but only run when needed to provide inputs for
-downstream recipes
-
 ## Installation
 Install via pip:
 ```shell script
@@ -80,3 +65,17 @@ python3 labfile.py brew test
 
 ## License
 alkymi is licensed under The MIT License as found in the LICENSE.md file
+
+## Upcoming Features
+The following features are being considered for future implementation:
+* Type annotations propagated from bound functions to recipes
+* Support for call/type checking all recipes (e.g. by adding a `check` command to `Lab`)
+* Cache maintenance functionality
+
+## Known Issues
+* alkymi currently doesn't check custom objects for altered external files when computing cleanliness (e.g. `MyClass`
+has a `self._some_path` that points to a file somewhere outside alkymi's internal cache)
+* `alk.foreach()` currently only supports enumerable inputs of type `List` or `Dict`
+* Recipes marked `transient` will always be dirty, and thus always require reevaluation. This functionality should be
+replaced by a proper means of creating recipes that don't cache outputs, but only run when needed to provide inputs for
+downstream recipes
