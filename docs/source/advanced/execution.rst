@@ -22,7 +22,6 @@ the graph. The status can take on the following states:
   (see :ref:`checksums_external_files`)
 * ``BoundFunctionChanged``: The function referenced by the recipe has changed
 * ``CustomDirty``: The recipe has been marked dirty through a custom cleanliness function
-* ``MappedInputsDirty``: One or more mapped inputs to the recipe have changed (see :ref:`sequences`)
 
 Throughout the documentation, "clean" will be used to refer to the ``Ok`` status, in which everything is up-to-date, and
 no work needs to be done; and "dirty", which is all the status states that require some sort of (re)evaluation.
@@ -60,6 +59,13 @@ evaluated, the outputs are returned from the ``.brew()`` call to the caller.
 Note that when a sequence of similar values (e.g. a list of strings) needs to have a function applied to each of them
 (similar to Python's built-in ``map`` function), alkymi can perform partial evaluation and caching of the results (see
 :ref:`sequences`)
+
+.. rubric:: Parallel Execution
+
+When calling ``.brew()``, the ``jobs`` argument can be used to specify a number of threads to parallelize the evaluation
+across (the default is 1 - i.e. single threaded execution). When using multiple threads, alkymi will automatically run
+bound functions as soon as their inputs become available.
+
 
 .. _custom_cleanliness:
 .. rubric:: Custom Cleanliness Functions

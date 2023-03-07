@@ -42,3 +42,9 @@ in future releases):
 Note that using ``foreach()`` still shares all the functionality of the regular ``recipe()`` decorator - alkymi will
 still check whether your bound function or dependencies have changed, and mark the recipe dirty in that case
 (see :ref:`execution`) for an exhaustive list of up-to-date checks.
+
+
+.. rubric:: Parallel Execution
+
+If parallel execution is enabled (see :ref:`execution`), alkymi will apply the bound function to each item in parallel.
+Note that the order of execution is not guaranteed in this case.

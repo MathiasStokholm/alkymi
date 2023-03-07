@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added `networkx` as a runtime dependency
+- Added support for parallel execution - the `brew()` function now takes a `jobs` parameter that controls
+parallelization of the recipe evaluation.
+- Added support for parallel execution to the `Lab` CLI - use `--jobs` or `-j` when calling `brew` to run pipeline in
+parallel
 
 ### Changed
 - Rewrote the internals of alkymi to create and use a `networkx` graph (DAG) for execution. This change will enable
@@ -17,6 +21,8 @@ future changes, like running recipes in parallel.
 functions in `core.py` to not have special handling for `ForeachRecipe`, which makes the code simpler and easier to
 maintain.
 - Coverage step `labfile.py brew coverage` will not print which lines lack test coverage
+- The `invoke` and `invoke_foreach` functions have been moved from `recipe.py` and `foreach_recipe.py` into `core.py`
+to allow more control over the execution flow.
 
 ### Removed
 - Removed the special `MappedInputsDirty` status, which only applied to `ForeachRecipe`. If a `ForeachRecipe` has only
