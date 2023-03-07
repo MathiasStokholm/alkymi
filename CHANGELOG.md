@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 parallelization of the recipe evaluation.
 - Added support for parallel execution to the `Lab` CLI - use `--jobs` or `-j` when calling `brew` to run pipeline in
 parallel
+- Added `twine` and `wheel` to `dev-requirements.txt`
 
 ### Changed
 - Rewrote the internals of alkymi to create and use a `networkx` graph (DAG) for execution. This change will enable
