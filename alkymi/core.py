@@ -235,6 +235,15 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
 
 def retrieve_recipe_outputs(foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe, status: Status,
                             inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = ()) -> OutputsAndChecksums:
+    """
+    Helper function to delegate recipe invocation calls
+
+    :param foreach_executor: The executor (if any) that should be used for evaluating ForeachRecipes in parallel
+    :param recipe: The recipe to evaluate using the executor
+    :param status: The status of the recipe - used to skip evaluation if unnecessary
+    :param inputs_and_checksums: The inputs and checksums of these to provide to the recipe for evaluation
+    :return: The output(s) and checksum(s) of the recipe
+    """
     # If status is not Ok, call invoke to run recipe
     if status != Status.Ok:
         _inputs = tuple(inp[0] for inp in inputs_and_checksums)
@@ -250,6 +259,18 @@ async def schedule(loop: AbstractEventLoop, graph_executor: concurrent.futures.E
                    foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe,
                    statuses: Dict[Recipe, Status],
                    inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]) -> Future:
+    """
+    Helper function used to asynchronously await inputs from dependant recipe futures, and then retrieve the output of
+    the provided recipe using the provided executor (evaluating it if necessary)
+
+    :param loop: The asyncio event loop to use for scheduling the recipe evaluation
+    :param graph_executor: The executor that is being used to evaluate the graph
+    :param foreach_executor: The executor (if any) that should be used for evaluating ForeachRecipes in parallel
+    :param recipe: The recipe to evaluate using the executor
+    :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
+    :param inputs_and_checksum_futures: A tuple of futures to await before providing them to the recipe evaluation
+    :return: A future that will eventually return the output(s) and checksum(s) of the recipe
+    """
     inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
     return loop.run_in_executor(graph_executor, retrieve_recipe_outputs, foreach_executor, recipe, statuses[recipe],
                                 inputs_and_checksums)
@@ -282,6 +303,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         # This guarantees that futures only depend on already created futures
         recipes = list(nx.topological_sort(graph))
 
+        # Schedule all recipes to execute as soon as their inputs are available
         tasks: Dict[Recipe, Future] = {}
         for _recipe in recipes:
             input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)

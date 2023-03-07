@@ -139,7 +139,7 @@ class ForeachRecipe(Recipe[R]):
     def outputs_valid(self) -> bool:
         """
         Check whether an output is still valid - this is currently only used to check files that may have been deleted
-        or altered outside of alkymi's cache. If no outputs have been produced yet, True will be returned.
+        or altered outside alkymi's cache. If no outputs have been produced yet, True will be returned.
 
         :return: Whether all outputs are still valid
         """
@@ -154,6 +154,15 @@ class ForeachRecipe(Recipe[R]):
 
     def set_current_result(self, evaluated: MappedInputs, outputs: MappedOutputs, mapped_inputs_checksum: Optional[str],
                            other_input_checksums: Tuple[Optional[str], ...], completed: bool) -> None:
+        """
+        Stores the provided results in the recipe and caches them to disk if applicable
+
+        :param evaluated: The inputs that were used to generate the provided outputs
+        :param outputs: The outputs to store in this recipe
+        :param mapped_inputs_checksum: The checksum of all mapped inputs
+        :param other_input_checksums: The checksums of other (non-mapped) inputs
+        :param completed: Bool indicating whether all mapped inputs have been processed
+        """
         self.mapped_inputs = evaluated
         self._mapped_outputs = outputs
         self._mapped_outputs_checksum = checksums.checksum(outputs)

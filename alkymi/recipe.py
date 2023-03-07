@@ -81,6 +81,12 @@ class Recipe(Generic[R]):
         return self._func(*args)
 
     def set_result(self, outputs: R, input_checksums: Tuple[Optional[str], ...]) -> None:
+        """
+        Stores the provided result in the recipe and caches it to disk if applicable
+
+        :param outputs: The outputs to store in the recipe
+        :param input_checksums: The checksums of the inputs that were used to calculate the outputs
+        """
         self.outputs = outputs
         self._input_checksums = input_checksums
         self._last_function_hash = self.function_hash
