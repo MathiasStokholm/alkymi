@@ -161,7 +161,8 @@ class Lab:
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
         brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
                                  help='Recipe(s) to brew')
-        brew_parser.add_argument("-j", "--jobs", type=int, default=1)
+        brew_parser.add_argument("-j", "--jobs", type=int, default=1,
+                                 help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         self._add_user_args_(brew_parser)
 
         parsed_args = parser.parse_args(args)
