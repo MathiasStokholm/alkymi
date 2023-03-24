@@ -36,6 +36,12 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
             line = proc.stdout.readline()
             echo_output_to_stream.write(line)
             stdout += line
+
+        # Program has finished executing, check if any part of stdout still needs to be piped
+        line = proc.stdout.readline()
+        if line:
+            echo_output_to_stream.write(line)
+            stdout += line
     else:
         # Otherwise, simply wait for the command to finish and then grab stdout
         proc.wait()
