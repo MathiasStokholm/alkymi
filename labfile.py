@@ -136,7 +136,6 @@ def release_test(build: Path) -> None:
 
     :param build: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
     alk.utils.call(["python3", "-m", "twine", "upload", "--repository", "testpypi", "{}/*".format(build)])
 
 
@@ -147,7 +146,6 @@ def release(build: Path) -> None:
 
     :param build: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call(["python3", "-m", "pip", "install", "--user", "twine==3.2.0"])
     alk.utils.call(["python3", "-m", "twine", "upload", "{}/*".format(build)])
 
 

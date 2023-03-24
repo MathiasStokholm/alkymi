@@ -48,7 +48,7 @@ Built-in Recipes
 
 Core
 ----
-.. automodule:: alkymi.alkymi
+.. automodule:: alkymi.core
     :members:
 
 .. _alkymi_config:

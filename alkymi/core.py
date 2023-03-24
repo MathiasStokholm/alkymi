@@ -1,6 +1,12 @@
-from typing import Dict, Tuple, Optional, cast
+import asyncio
+import concurrent.futures
+from asyncio import Future, AbstractEventLoop
+from typing import Dict, Tuple, Optional, Awaitable, Any
 
-from .types import Status, ProgressCallback
+from . import checksums
+from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
+from .serialization import OutputWithValue
+from .types import Status, ProgressCallback, EvaluateProgress
 from .recipe import Recipe, R
 from .logging import log
 
@@ -98,35 +104,231 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     return statuses
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status],
-                    progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums[R]:
+def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...], progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
+    """
+    Evaluate the Recipe using the provided inputs. This will call the bound function on the inputs.
+
+    :param recipe: The recipe to evaluate given the provided inputs
+    :param inputs: The inputs provided by the ingredients (dependencies) of the Recipe
+    :param input_checksums: The (possibly new) input checksum
+    """
+    log.debug('Invoking recipe: {}'.format(recipe.name))
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Started, recipe, 1, 1)
+    outputs = recipe(*inputs)
+    recipe.set_result(outputs, input_checksums)
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Done, recipe, 1, 1)
+    return recipe.outputs, recipe.output_checksum
+
+
+def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
+                   input_checksums: Tuple[Optional[str], ...],
+                   executor: Optional[concurrent.futures.Executor], progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
+    """
+    Evaluate the ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
+    "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
+    is used to check this). Only items from the immediately previous invoke call will be cached
+
+    :param recipe: The ForeachRecipe to evaluate given the provided inputs
+    :param inputs: The inputs provided by the ingredients (dependencies) of the ForeachRecipe
+    :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
+    :param executor: The executor to use for calling the bound function in parallel
+    """
+    log.debug("Invoking recipe: {}".format(recipe.name))
+
+    # The first ingredient will provide the sequence to apply the bound function too
+    mapped_inputs = inputs[0]
+    mapped_inputs_checksum = input_checksums[0]
+    other_inputs = inputs[1:]
+    other_input_checksums = input_checksums[1:]
+
+    if not (isinstance(mapped_inputs, list) or isinstance(mapped_inputs, dict)):
+        raise RuntimeError("Cannot handle type in invoke(): {}".format(type(mapped_inputs)))
+
+    mapped_inputs_of_same_type = recipe.mapped_inputs_type == type(mapped_inputs)
+
+    # Check if a full reevaluation across all mapped inputs is needed
+    needs_full_eval = recipe.transient or not mapped_inputs_of_same_type
+
+    # Check if bound function has changed - this should cause a full reevaluation
+    if not needs_full_eval:
+        if recipe.function_hash != recipe.last_function_hash:
+            needs_full_eval = True
+
+    # Check if we actually need to do any work (in case everything remains the same as last invocation)
+    if not needs_full_eval and recipe.input_checksums is not None:
+        if recipe.input_checksums == input_checksums:
+            # Outputs have to be valid for us to return them
+            if recipe.outputs_valid:
+                log.debug("Returning early since mapped inputs did not change since last evaluation")
+                return recipe.outputs, recipe.output_checksum
+        # If input checksums do not match, a full re-evaluation is needed if the mapped checksums match, since the
+        # mismatch has to be caused by a non-mapped input
+        elif mapped_inputs_checksum == recipe.mapped_inputs_checksum:
+            needs_full_eval = True
+
+    # Catch up on already done work
+    # TODO(mathias): Refactor this insanity to avoid the list/dict type checking
+    outputs: MappedOutputs = [] if isinstance(mapped_inputs, list) else {}
+    evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
+    not_evaluated: MappedInputs = [] if isinstance(mapped_inputs, list) else {}
+    if needs_full_eval or recipe.mapped_outputs is None:
+        not_evaluated = mapped_inputs
+    else:
+        if isinstance(mapped_inputs, list) and isinstance(outputs, list) \
+                and isinstance(evaluated, list) and isinstance(not_evaluated, list):
+            for item in mapped_inputs:
+                # Try to look up cached result for this input
+                try:
+                    new_checksum = checksums.checksum(item)
+                    idx = recipe.mapped_inputs_checksums.index(new_checksum)  # type: ignore
+                    found_checksum = recipe.mapped_inputs_checksums[idx]  # type: ignore
+                    if new_checksum == found_checksum:
+                        found_output = recipe.mapped_outputs[idx]
+                        if found_output.valid:
+                            outputs.append(found_output)
+                            evaluated.append(item)
+                            continue
+                except ValueError:
+                    pass
+                not_evaluated.append(item)
+        elif isinstance(mapped_inputs, dict):
+            for key, item in mapped_inputs.items():
+                # Try to look up cached result for this input
+                found_checksum = recipe.mapped_inputs_checksums.get(key, None)  # type: ignore
+                if found_checksum is not None:
+                    new_checksum = checksums.checksum(key)
+                    if new_checksum == found_checksum:
+                        found_output = recipe.mapped_outputs[key]
+                        if found_output.valid:
+                            outputs[key] = found_output
+                            evaluated[key] = item
+                            continue
+                not_evaluated[key] = item
+
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Started, recipe, len(mapped_inputs), len(evaluated))
+
+    log.debug("Num already cached results: {}/{}".format(len(evaluated), len(mapped_inputs)))
+    if len(evaluated) == len(mapped_inputs):
+        log.debug("Returning early since all items were already cached")
+        recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, True)
+        return recipe.outputs, recipe.output_checksum
+
+    # Perform remaining work - store state every time an evaluation is successful
+    if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
+        if executor is not None:
+            results = executor.map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
+        else:
+            results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
+        for item, result in zip(not_evaluated, results):
+            outputs.append(OutputWithValue(result, checksums.checksum(result)))
+            evaluated.append(item)
+            recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+            if progress_callback is not None:
+                progress_callback(EvaluateProgress.InProgress, recipe, len(mapped_inputs), len(evaluated))
+    elif isinstance(not_evaluated, dict):
+        if executor is not None:
+            results = executor.map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
+        else:
+            results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
+        for (key, item), result in zip(not_evaluated.items(), results):
+            outputs[key] = OutputWithValue(result, checksums.checksum(result))
+            evaluated[key] = item
+            recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+            if progress_callback is not None:
+                progress_callback(EvaluateProgress.InProgress, recipe, len(mapped_inputs), len(evaluated))
+
+    recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, True)
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Done, recipe, len(mapped_inputs), len(evaluated))
+    return recipe.outputs, recipe.output_checksum
+
+
+def retrieve_recipe_outputs(foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe, status: Status,
+                            inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = (), progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
+    """
+    Helper function to delegate recipe invocation calls
+
+    :param foreach_executor: The executor (if any) that should be used for evaluating ForeachRecipes in parallel
+    :param recipe: The recipe to evaluate using the executor
+    :param status: The status of the recipe - used to skip evaluation if unnecessary
+    :param inputs_and_checksums: The inputs and checksums of these to provide to the recipe for evaluation
+    :return: The output(s) and checksum(s) of the recipe
+    """
+    # If status is not Ok, call invoke to run recipe
+    if status != Status.Ok:
+        _inputs = tuple(inp[0] for inp in inputs_and_checksums)
+        _input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
+        if isinstance(recipe, ForeachRecipe):
+            return invoke_foreach(recipe, _inputs, _input_checksums, foreach_executor, progress_callback)
+        else:
+            return invoke(recipe, _inputs, _input_checksums, progress_callback)
+    return recipe.outputs, recipe.output_checksum
+
+
+async def schedule(loop: AbstractEventLoop, graph_executor: concurrent.futures.Executor,
+                   foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe,
+                   statuses: Dict[Recipe, Status],
+                   inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...], progress_callback: Optional[ProgressCallback] = None) -> Future:
+    """
+    Helper function used to asynchronously await inputs from dependant recipe futures, and then retrieve the output of
+    the provided recipe using the provided executor (evaluating it if necessary)
+
+    :param loop: The asyncio event loop to use for scheduling the recipe evaluation
+    :param graph_executor: The executor that is being used to evaluate the graph
+    :param foreach_executor: The executor (if any) that should be used for evaluating ForeachRecipes in parallel
+    :param recipe: The recipe to evaluate using the executor
+    :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
+    :param inputs_and_checksum_futures: A tuple of futures to await before providing them to the recipe evaluation
+    :return: A future that will eventually return the output(s) and checksum(s) of the recipe
+    """
+    inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
+    return loop.run_in_executor(graph_executor, retrieve_recipe_outputs, foreach_executor, recipe, statuses[recipe],
+                                inputs_and_checksums, progress_callback)
+
+
+def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int,
+                    progress_callback: Optional[ProgressCallback] = None) -> \
+        OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
 
     :param recipe: The recipe to evaluate
     :param graph: The graph to use for evaluation
     :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
+    :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
+                 zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
-    # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
-    # This guarantees that the 'outputs' and 'output_checksum' attributes will be available for all dependencies of a
-    # recipe once we arrive at it in the order of iteration
-    recipes = list(nx.topological_sort(graph))
+    # Create the executor to use for evaluating recipes
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
 
-    for recipe in recipes:
-        # If status is Ok, the recipe has already been evaluated, so we can just move on to the next recipe
-        if statuses[recipe] == Status.Ok:
-            log.debug('Recipe already evaluated: {}'.format(recipe.name))
-            continue
-        log.debug('Evaluating recipe: {}'.format(recipe.name))
+    # If we have more than 1 job (threads) available, also use the executor for running ForeachRecipes in parallel
+    foreach_executor = executor if jobs > 1 else None
 
-        # Collect inputs and checksums
-        inputs = tuple(recipe.outputs for recipe in recipe.ingredients)
-        input_checksums = tuple(recipe.output_checksum for recipe in recipe.ingredients)
-        recipe.invoke(inputs, input_checksums, progress_callback)
+    # Create the asyncio event loop and set it on the calling thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def _execute() -> OutputsAndChecksums[R]:
+        # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
+        # This guarantees that futures only depend on already created futures
+        recipes = list(nx.topological_sort(graph))
+
+        # Schedule all recipes to execute as soon as their inputs are available
+        tasks: Dict[Recipe, Future] = {}
+        for _recipe in recipes:
+            input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
+            tasks[_recipe] = await schedule(loop, executor, foreach_executor, _recipe, statuses, input_futures, progress_callback)
+
+        # Wait for future for target recipe to return
+        return await tasks[recipe]
 
     # Return the output and checksum of the final recipe
-    return cast(R, recipe.outputs), recipe.output_checksum
+    output, checksum = loop.run_until_complete(_execute())
+    return output, checksum
 
 
 def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) -> Status:
@@ -164,15 +366,17 @@ def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) 
     return Status.Ok
 
 
-def brew(recipe: Recipe[R]) -> R:
+def brew(recipe: Recipe[R], *, jobs: int) -> R:
     """
     Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
     dependencies to produce the outputs of the input Recipe
 
     :param recipe: The Recipe to evaluate
+    :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
+                 zero or negative values will cause alkymi to use the system's default number of jobs
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     graph = create_graph(recipe)
     statuses = compute_recipe_status(recipe, graph)
-    result, _ = evaluate_recipe(recipe, graph, statuses)
+    result, _ = evaluate_recipe(recipe, graph, statuses, jobs)
     return result

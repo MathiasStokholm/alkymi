@@ -21,7 +21,7 @@ from alkymi import __version__
 # -- Project information -----------------------------------------------------
 
 project = 'alkymi'
-copyright = '2021, Mathias Bøgh Stokholm'
+copyright = '2023, Mathias Bøgh Stokholm'
 author = 'Mathias Bøgh Stokholm'
 
 # The short X.Y version

@@ -60,6 +60,13 @@ Note that when a sequence of similar values (e.g. a list of strings) needs to ha
 (similar to Python's built-in ``map`` function), alkymi can perform partial evaluation and caching of the results (see
 :ref:`sequences`)
 
+.. rubric:: Parallel Execution
+
+When calling ``.brew()``, the ``jobs`` argument can be used to specify a number of threads to parallelize the evaluation
+across (the default is 1 - i.e. single threaded execution). When using multiple threads, alkymi will automatically run
+bound functions as soon as their inputs become available.
+
+
 .. _custom_cleanliness:
 .. rubric:: Custom Cleanliness Functions
 

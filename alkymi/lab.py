@@ -65,7 +65,7 @@ class Lab:
         """
         self._args[arg.name] = arg
 
-    def _call_brew(self, target_recipe: Recipe) -> Any:
+    def _call_brew(self, target_recipe: Recipe, *, jobs=1) -> Any:
         class LabProgress(Progress):
             """
             Subclass of Progress used to render progress bars underneath a horizontal divider with a title
@@ -110,29 +110,31 @@ class Lab:
                     progress.stop_task(tasks[recipe])
 
             try:
-                result, _ = evaluate_recipe(target_recipe, graph, statuses, _progress_callback)
+                result, _ = evaluate_recipe(target_recipe, graph, statuses, jobs, _progress_callback)
                 return result
             except KeyboardInterrupt:
                 self._console.print("[bold red]Interrupted by user")
                 sys.exit(1)
 
-    def brew(self, target_recipe: Union[Recipe, str]) -> Any:
+    def brew(self, target_recipe: Union[Recipe, str], *, jobs=1) -> Any:
         """
         Brew (evaluate) a target recipe defined by its reference or name, and return the results
 
         :param target_recipe: The recipe to evaluate, as a reference ot by name
+        :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
+                     zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The output of the evaluated recipe
         """
         if isinstance(target_recipe, str):
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    return self._call_brew(recipe)
+                    return self._call_brew(recipe, jobs=jobs)
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                return self._call_brew(target_recipe)
+                return self._call_brew(target_recipe, jobs=jobs)
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property
@@ -240,6 +242,8 @@ class Lab:
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
         brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
                                  help='Recipe(s) to brew')
+        brew_parser.add_argument("-j", "--jobs", type=int, default=1,
+                                 help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         self._add_user_args_(brew_parser)
 
         parsed_args = parser.parse_args(args)
@@ -259,7 +263,7 @@ class Lab:
             self.print_status()
         elif parsed_args.subparser_name == 'brew':
             for recipe in parsed_args.recipe:
-                self.brew(recipe)
+                self.brew(recipe, jobs=parsed_args.jobs)
         else:
             # No recognized command provided - print help
             parser.print_help(file=stream)
