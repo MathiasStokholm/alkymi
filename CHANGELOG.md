@@ -5,7 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- No unreleased changes yet
+### Changed
+- Rewrote parallel execution to only run bound functions in parallel, but use asyncio for the main execution logic
+
+### Fixed
+- Fixed a bug where a deadlock could occur when evaluating a number of `ForeachRecipes` with the same number of jobs
+- Fixed a bug where a certain graph configuration could prevent parallelization from happening correctly
 
 ## [0.1.0] - 2023-03-07
 ### Added
