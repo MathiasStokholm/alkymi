@@ -28,7 +28,10 @@ def test(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute
     """
-    result = pytest.main(args=[str(file) for file in test_files] + ["-sv"])
+    # Run pytest in a separate thread to avoid asyncio recursion issues
+    from concurrent.futures import ThreadPoolExecutor
+    executor = ThreadPoolExecutor(max_workers=1)
+    result = executor.submit(pytest.main, args=[str(file) for file in test_files]).result()
     if result != pytest.ExitCode.OK:
         exit(1)
 
