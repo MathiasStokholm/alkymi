@@ -107,15 +107,19 @@ def test_sequential() -> None:
     assert results_a[0] != pytest.approx(results_b[0], abs=0.01)
     assert results_a != pytest.approx(results_ab[0])
 
-    # 'a' and 'b' should have executed on the same thread
-    assert results_a[1] == results_b[1]
+    # 'a', 'b' and 'ab' should have executed on the current (main) thread
+    main_thread_idx = threading.current_thread().ident
+    assert main_thread_idx is not None
+    assert results_a[1] == main_thread_idx
+    assert results_b[1] == main_thread_idx
+    assert results_ab[1] == main_thread_idx
 
 
 # Barrier used by test_parallel_threading - has to be global to avoid being captured in checksum (cannot be pickled)
 barrier = threading.Barrier(parties=2, timeout=1)
 
 
-@pytest.mark.parametrize("jobs", (0, 3, 5, 8, -1))
+@pytest.mark.parametrize("jobs", (0, 2, 5, 8, -1))
 def test_parallel_threading(jobs: int) -> None:
     """
     Test that recipes can execute in parallel by waiting on a barrier with N=2 from two recipes - the waits will time
