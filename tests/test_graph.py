@@ -158,3 +158,42 @@ def test_parallel_threading(jobs: int) -> None:
         assert thread_idx_a != thread_idx_b
     except threading.BrokenBarrierError:
         pytest.fail("a and b did not execute in parallel")
+
+
+# Barrier used by test_parallel_foreach - has to be global to avoid being captured in checksum (cannot be pickled)
+foreach_barrier = threading.Barrier(parties=10, timeout=1)
+
+
+def test_parallel_foreach() -> None:
+    """
+    Test that execution of ForeachRecipe happens correctly in parallel by requiring N threads to block on the barrier
+    from the bound function
+    """
+    jobs = foreach_barrier.parties
+    AlkymiConfig.get().cache = False
+    foreach_barrier.reset()
+
+    # Run a number of jobs in parallel that matches the barrier wait count
+    input_ids = alk.recipes.arg(list(range(0, jobs)), name="input_ids")
+
+    @alk.foreach(input_ids)
+    def synchronize(input_id: int) -> Tuple[int, int]:
+        thread_idx = threading.current_thread().ident
+        assert thread_idx is not None
+        foreach_barrier.wait()
+        return input_id, thread_idx
+
+    try:
+        # Gather results
+        id_to_thread_map = {
+            result[0]: result[1]  # type: ignore
+            for result in synchronize.brew(jobs=jobs)
+        }
+
+        # Check that all calls happened on unique threads
+        assert len(id_to_thread_map.values()) == len(set(id_to_thread_map.values()))
+
+        # Check that all IDs were processed in the correct order
+        assert list(id_to_thread_map.keys()) == input_ids.brew()
+    except threading.BrokenBarrierError:
+        pytest.fail("ForeachRecipe did not execute bound functions in parallel")
