@@ -1,7 +1,7 @@
 import asyncio
 import concurrent.futures
 import typing
-from asyncio import Future, AbstractEventLoop, Task
+from asyncio import AbstractEventLoop, Task
 from typing import Dict, Tuple, Optional, Any
 
 from . import checksums
@@ -118,9 +118,12 @@ async def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple
     """
     log.debug('Invoking recipe: {}'.format(recipe.name))
     if executor is not None:
-        outputs = await loop.run_in_executor(executor, recipe, *inputs)
+        outputs = await loop.run_in_executor(executor, recipe.bound_fn, *inputs)
     else:
-        outputs = recipe(*inputs)
+        if asyncio.iscoroutinefunction(recipe.bound_fn):
+            outputs = await recipe.bound_fn(*inputs)
+        else:
+            outputs = recipe.bound_fn(*inputs)
     recipe.set_result(outputs, input_checksums)
     return recipe.outputs, recipe.output_checksum
 
@@ -222,22 +225,22 @@ async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
     results: typing.Iterable[Any]
     if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
         if executor is not None:
-            results = [loop.run_in_executor(executor, recipe.__call__, _item, *other_inputs) for _item in not_evaluated]
+            results = [loop.run_in_executor(executor, recipe.bound_fn, _item, *other_inputs) for _item in not_evaluated]
         else:
             results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
         for item, maybe_async_result in zip(not_evaluated, results):
-            result = await maybe_async_result if isinstance(maybe_async_result, Future) else maybe_async_result
+            result = await maybe_async_result if asyncio.iscoroutine(maybe_async_result) else maybe_async_result
             outputs.append(OutputWithValue(result, checksums.checksum(result)))
             evaluated.append(item)
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
     elif isinstance(not_evaluated, dict):
         if executor is not None:
-            results = [loop.run_in_executor(executor, recipe.__call__, _item, *other_inputs) for _item in
+            results = [loop.run_in_executor(executor, recipe.bound_fn, _item, *other_inputs) for _item in
                        not_evaluated.values()]
         else:
             results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
         for (key, item), maybe_async_result in zip(not_evaluated.items(), results):
-            result = await maybe_async_result if isinstance(maybe_async_result, Future) else maybe_async_result
+            result = await maybe_async_result if asyncio.iscoroutine(maybe_async_result) else maybe_async_result
             outputs[key] = OutputWithValue(result, checksums.checksum(result))
             evaluated[key] = item
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)

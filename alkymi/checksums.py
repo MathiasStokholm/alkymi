@@ -98,6 +98,8 @@ class Checksummer(object):
             self.update(obj.co_code)
         elif inspect.isroutine(obj):
             self._update_func(obj)
+        elif inspect.iscoroutine(obj):
+            self._update_coroutine(obj)
         else:
             # Check if any additional checksum generator will work
             generator = additional_checksum_generators.get(type(obj))
@@ -130,6 +132,30 @@ class Checksummer(object):
         if defaults is not None:
             default_values = dict(zip(code.co_varnames[-len(defaults):], defaults))
             self.update(default_values)
+
+        # Hash constants that are referenced by the bytecode but ignore names of lambdas
+        if code.co_consts:
+            for const in code.co_consts:
+                if not isinstance(const, str) or not const.endswith(".<lambda>"):
+                    self.update(const)
+
+        # Handle referenced functions
+        if code.co_freevars:
+            assert len(code.co_freevars) == len(fn.__closure__)
+            referenced_func_names_and_closures = list(
+                zip(code.co_freevars, (c.cell_contents for c in fn.__closure__)))
+            self.update(referenced_func_names_and_closures)
+
+    def _update_coroutine(self, fn) -> None:
+        """
+        Update the current checksum with a coroutine function
+
+        :param fn: The function to update the checksum with
+        """
+        code = fn.cr_code
+
+        # Hash the bytecode
+        self.update(code.co_code)
 
         # Hash constants that are referenced by the bytecode but ignore names of lambdas
         if code.co_consts:

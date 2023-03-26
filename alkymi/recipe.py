@@ -126,6 +126,15 @@ class Recipe(Generic[R]):
                 f.write(json.dumps(self.to_dict(), indent=4))
 
     @property
+    def bound_fn(self) -> Callable[..., R]:
+        """
+        Access the bound function contained in this recipe
+
+        :return: The bound function for this recipe
+        """
+        return self._func
+
+    @property
     def outputs_valid(self) -> bool:
         """
         Check whether an output is still valid - this is currently only used to check files that may have been deleted
