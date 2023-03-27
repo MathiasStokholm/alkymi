@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed a bug where a deadlock could occur when evaluating a number of `ForeachRecipes` with the same number of jobs
 - Fixed a bug where a certain graph configuration could prevent parallelization from happening correctly
+- Fixed a regression where all cached recipe outputs would always be loaded during execution, regardless of whether they
+were needed to produce the requested output.
 
 ## [0.1.0] - 2023-03-07
 ### Added

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import threading
 import time
+from pathlib import Path
 from typing import List, Tuple
 
 import pytest
@@ -197,3 +198,34 @@ def test_parallel_foreach() -> None:
         assert list(id_to_thread_map.keys()) == input_ids.brew()
     except threading.BrokenBarrierError:
         pytest.fail("ForeachRecipe did not execute bound functions in parallel")
+
+
+@pytest.mark.parametrize("jobs", (1, 3))
+def test_lazy_loading(tmp_path: Path, jobs: int) -> None:
+    """
+    Test that alkymi will only load cached results when needed to provide the requested up-to-date output
+    """
+    AlkymiConfig.get().cache = True
+    AlkymiConfig.get().cache_path = tmp_path
+
+    def a_value() -> bytes:
+        return "cached string".encode()
+
+    def capitalized_value(a_value: bytes) -> str:
+        return a_value.decode().upper()
+
+    # Create recipes and evaluate
+    a_value_recipe_1 = alk.recipe()(a_value)
+    capitalized_value_recipe_1 = alk.recipe((a_value_recipe_1,))(capitalized_value)
+    assert capitalized_value_recipe_1.brew(jobs=jobs) == "CACHED STRING"
+    maybe_cached_value_1 = getattr(getattr(a_value_recipe_1, "_outputs"), "_value")
+    assert maybe_cached_value_1 is not None, "Outputs from 'a_value' should not be None after execution"
+
+    # Recreate recipes to force cache load and evaluate
+    a_value_recipe_2 = alk.recipe()(a_value)
+    capitalized_value_recipe_2 = alk.recipe((a_value_recipe_2,))(capitalized_value)
+    assert capitalized_value_recipe_2.brew(jobs=jobs) == "CACHED STRING"
+
+    # The outputs should not have been loaded, since 'capitalized_value' was already cached
+    maybe_cached_value_2 = getattr(getattr(a_value_recipe_2, "_outputs"), "_value")
+    assert maybe_cached_value_2 is None, "Outputs from 'a_value' should not have been loaded unnecessarily"
