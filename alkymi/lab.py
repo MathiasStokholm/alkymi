@@ -1,22 +1,17 @@
 import argparse
 import logging
 import sys
-import networkx as nx
 from typing import Iterable, TextIO
 
 from .core import Status, compute_recipe_status, create_graph, evaluate_recipe
 from .logging import log
+from .progress import FancyProgress
 from .recipe import Recipe
 from .recipes import Arg
 
 from typing import Dict, Union, Any, List, Optional
 
 from rich import console
-from rich.progress import Progress, TaskID, TextColumn, TimeElapsedColumn, BarColumn
-from rich.rule import Rule
-from rich.console import Group
-
-from .types import EvaluateProgress
 
 
 class Lab:
@@ -66,51 +61,13 @@ class Lab:
         self._args[arg.name] = arg
 
     def _call_brew(self, target_recipe: Recipe, *, jobs=1) -> Any:
-        class LabProgress(Progress):
-            """
-            Subclass of Progress used to render progress bars underneath a horizontal divider with a title
-            """
-
-            def get_renderables(self):
-                rule = Rule(title=f"Brewing {target_recipe.name}")
-                yield Group(rule, self.make_tasks_table(self.tasks))
-
-        # Define the columns to use for progress table
-        progress = LabProgress(TextColumn("[deep_sky_blue2]{task.description}"),
-                               BarColumn(),
-                               TextColumn("{task.completed}/{task.total} ({task.percentage}%)"),
-                               TextColumn("•"),
-                               TimeElapsedColumn(),
-                               console=self._console)
-
         # Build the evaluation graph and determine recipe statuses
         graph = create_graph(target_recipe)
         statuses = compute_recipe_status(target_recipe, graph)
 
-        # Build the progress table by adding all required tasks sorted topographically (target recipe at the bottom)
-        tasks: Dict[Recipe, TaskID] = {
-            recipe: progress.add_task(recipe.name, start=False, total=1, completed=0)
-            for recipe in nx.topological_sort(graph)
-        }
-
-        # For all recipes that are already cached (Ok), mark them as completed from the beginning
-        for recipe, task_id in tasks.items():
-            if statuses[recipe] == Status.Ok:
-                progress.update(task_id, description=recipe.name + " [dim cyan](cached)[/dim cyan]", completed=1)
-                progress.stop_task(task_id)
-
-        with progress:
-            def _progress_callback(evaluate_progress: EvaluateProgress, recipe: Recipe, units_total=0, units_done=0):
-                if evaluate_progress == EvaluateProgress.Started:
-                    progress.start_task(tasks[recipe])
-                elif evaluate_progress == EvaluateProgress.InProgress:
-                    progress.update(tasks[recipe], total=units_total, completed=units_done)
-                elif evaluate_progress == EvaluateProgress.Done:
-                    progress.update(tasks[recipe], total=units_total, completed=units_done)
-                    progress.stop_task(tasks[recipe])
-
+        with FancyProgress(graph, statuses, target_recipe, self._console) as progress:
             try:
-                result, _ = evaluate_recipe(target_recipe, graph, statuses, jobs, _progress_callback)
+                result, _ = evaluate_recipe(target_recipe, graph, statuses, jobs, progress)
                 return result
             except KeyboardInterrupt:
                 self._console.print("[bold red]Interrupted by user")
