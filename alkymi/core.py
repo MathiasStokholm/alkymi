@@ -2,7 +2,7 @@ import asyncio
 import concurrent.futures
 import typing
 from asyncio import Future, AbstractEventLoop, Task
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Optional, Any, Coroutine, Union
 
 from . import checksums
 from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
@@ -263,32 +263,42 @@ async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
 
 
 async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.futures.Executor], recipe: Recipe,
-                   status: Status, inputs_and_checksum_futures: Tuple[Task, ...],
+                   status: Status, coros_or_tasks: Dict[Recipe, Union[Coroutine, Task]],
                    progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
     """
     Helper function used to asynchronously await inputs from dependant recipes, and then retrieve the output of the
-    provided recipe (evaluating it if necessary).
+    provided recipe (evaluating it if necessary). Note that inputs will only be awaited if needed (not if cached).
 
     :param loop: The asyncio event loop to use for scheduling the recipe evaluation
     :param executor: An optional executor to use for evaluating bound functions in parallel
     :param recipe: The recipe to evaluate using the executor
     :param status: The status of the recipe being scheduled - used to skip evaluation if unnecessary
-    :param inputs_and_checksum_futures: A tuple of futures to await before providing them to the recipe evaluation
+    :param coros_or_tasks: Dictionary containing coroutines for recipes - used to await ingredient inputs
     :return: A future that will eventually return the output(s) and checksum(s) of the recipe
     """
+
+    # If status is Ok, simply return the result and checksum
+    if status == Status.Ok:
+        return recipe.outputs, recipe.output_checksum
+
+    # Status is not Ok - evaluation needed
+    # Convert needed inputs from coroutines to tasks - this is done to ensure that multiple recipes can await the result
+    input_futures = []
+    for ingredient in recipe.ingredients:
+        coro_or_task = coros_or_tasks[ingredient]
+        if not isinstance(coro_or_task, asyncio.Task):
+            coro_or_task = loop.create_task(coro_or_task)
+            coros_or_tasks[ingredient] = coro_or_task
+        input_futures.append(coro_or_task)
+
     # Block while waiting for inputs to become available
-    inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
-
-    # If status is not Ok, evaluate recipe
-    if status != Status.Ok:
-        _inputs = tuple(inp[0] for inp in inputs_and_checksums)
-        _input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
-        if isinstance(recipe, ForeachRecipe):
-            return await invoke_foreach(recipe, _inputs, _input_checksums, loop, executor, progress_callback)
-        else:
-            return await invoke(recipe, _inputs, _input_checksums, loop, executor, progress_callback)
-
-    return recipe.outputs, recipe.output_checksum
+    inputs_and_checksums = tuple(await asyncio.gather(*input_futures))
+    inputs = tuple(inp[0] for inp in inputs_and_checksums)
+    input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
+    if isinstance(recipe, ForeachRecipe):
+        return await invoke_foreach(recipe, inputs, input_checksums, loop, executor, progress_callback)
+    else:
+        return await invoke(recipe, inputs, input_checksums, loop, executor, progress_callback)
 
 
 def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int,
@@ -318,19 +328,27 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     async def _execute() -> OutputsAndChecksums[R]:
         # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
         # This guarantees that futures only depend on already created futures
-        # FIXME(mathias): This causes retrieval of all recipe outputs, some of which may not be needed - replace this
-        #                 with an approach that only schedules the necessary output loads
         recipes = list(nx.topological_sort(graph))
 
-        # Schedule all recipes to execute as soon as their inputs are available
-        tasks: Dict[Recipe, Task] = {}
+        # Create coroutines to evaluate each recipe - then from the top-down, the coroutines will request inputs that
+        # they need from other coroutines, which will be upgraded to tasks
+        # This approach is used to avoid loading outputs for recipes whose outputs are actually unused, because later
+        # recipes are already cached
+        coros_or_tasks: Dict[Recipe, Union[Coroutine, Task]] = {}
         for _recipe in recipes:
-            input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
-            tasks[_recipe] = loop.create_task(
-                schedule(loop, executor, _recipe, statuses[_recipe], input_futures, progress_callback))
+            # Note that 'schedule()' might mutate 'tasks' once awaited
+            coros_or_tasks[_recipe] = schedule(loop, executor, _recipe, statuses[_recipe], coros_or_tasks,
+                                               progress_callback)
 
         # Wait for future for target recipe to return
-        return await tasks[recipe]
+        result = await coros_or_tasks[recipe]
+
+        # Close coroutines that were not converted to tasks, since they were never needed for the execution
+        for coro_or_task in coros_or_tasks.values():
+            if not isinstance(coro_or_task, asyncio.Task):
+                coro_or_task.close()
+
+        return result
 
     # Return the output and checksum of the final recipe
     output, checksum = loop.run_until_complete(_execute())
