@@ -23,7 +23,7 @@ class FancyProgress(Progress):
                          TextColumn("{task.completed}/{task.total} ({task.percentage}%)"),
                          TextColumn("•"),
                          TimeElapsedColumn(),
-                         console=self._console)
+                         console=self._console, redirect_stdout=True, redirect_stderr=True)
 
         # Build the progress table by adding all required tasks sorted topographically (target recipe at the bottom)
         self._recipe_tasks: Dict[Recipe, TaskID] = {

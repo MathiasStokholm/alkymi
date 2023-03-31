@@ -28,4 +28,5 @@ class EvaluateProgress(enum.Enum):
 if TYPE_CHECKING:
     from .recipe import Recipe
 
+# The status of the evaluation, the recipe for which the progress is to be updated, the total and current units of work
 ProgressCallback = Callable[[EvaluateProgress, "Recipe", int, int], None]

@@ -4,14 +4,16 @@ import typing
 from asyncio import Future, AbstractEventLoop, Task
 from typing import Dict, Tuple, Optional, Any, Coroutine, Union
 
+import networkx as nx
+
 from . import checksums
+from .config import ProgressType, AlkymiConfig
 from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
+from .logging import log
+from .progress import FancyProgress
+from .recipe import Recipe, R
 from .serialization import OutputWithValue
 from .types import Status, ProgressCallback, EvaluateProgress
-from .recipe import Recipe, R
-from .logging import log
-
-import networkx as nx
 
 OutputsAndChecksums = Tuple[R, Optional[str]]
 
@@ -116,17 +118,26 @@ async def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple
     :param input_checksums: The (possibly new) input checksum
     :param loop: The asyncio event loop to use for scheduling the recipe evaluation
     :param executor: An optional executor to use for evaluating bound functions in parallel
+    :param progress_callback: An optional callback to invoke when evaluation progress occurs
+    :return: The output(s) and checksum(s) of the evaluated recipe
     """
     log.debug('Invoking recipe: {}'.format(recipe.name))
+
+    # Signal that work has started on 1 out of 1 unit of work
     if progress_callback is not None:
         progress_callback(EvaluateProgress.Started, recipe, 1, 1)
+
+    # Run code on executor if applicable, otherwise evaluate directly on this thread
     if executor is not None:
         outputs = await loop.run_in_executor(executor, recipe, *inputs)
     else:
         outputs = recipe(*inputs)
     recipe.set_result(outputs, input_checksums)
+
+    # Signal that work has completed on 1 out of 1 unit of work
     if progress_callback is not None:
         progress_callback(EvaluateProgress.Done, recipe, 1, 1)
+
     return recipe.outputs, recipe.output_checksum
 
 
@@ -145,6 +156,8 @@ async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
     :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
     :param loop: The asyncio event loop to use for scheduling the recipe evaluation
     :param executor: An optional executor to use for evaluating bound functions in parallel
+    :param progress_callback: An optional callback to invoke when evaluation progress occurs
+    :return: The output(s) and checksum(s) of the evaluated recipe
     """
     log.debug("Invoking recipe: {}".format(recipe.name))
 
@@ -218,6 +231,7 @@ async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
                             continue
                 not_evaluated[key] = item
 
+    # Signal that work has started on X out of Y units of work
     if progress_callback is not None:
         progress_callback(EvaluateProgress.Started, recipe, len(mapped_inputs), len(evaluated))
 
@@ -240,6 +254,8 @@ async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
             outputs.append(OutputWithValue(result, checksums.checksum(result)))
             evaluated.append(item)
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+
+            # Signal that work has completed on X out of Y units of work
             if progress_callback is not None:
                 progress_callback(EvaluateProgress.InProgress, recipe, len(mapped_inputs), len(evaluated))
     elif isinstance(not_evaluated, dict):
@@ -253,12 +269,17 @@ async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
             outputs[key] = OutputWithValue(result, checksums.checksum(result))
             evaluated[key] = item
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+
+            # Signal that work has completed on X out of Y units of work
             if progress_callback is not None:
                 progress_callback(EvaluateProgress.InProgress, recipe, len(mapped_inputs), len(evaluated))
 
     recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, True)
+
+    # Signal that work has completed on N out of N units of work
     if progress_callback is not None:
         progress_callback(EvaluateProgress.Done, recipe, len(mapped_inputs), len(evaluated))
+
     return recipe.outputs, recipe.output_checksum
 
 
@@ -274,6 +295,7 @@ async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.future
     :param recipe: The recipe to evaluate using the executor
     :param status: The status of the recipe being scheduled - used to skip evaluation if unnecessary
     :param coros_or_tasks: Dictionary containing coroutines for recipes - used to await ingredient inputs
+    :param progress_callback: An optional callback to invoke when evaluation progress occurs
     :return: A future that will eventually return the output(s) and checksum(s) of the recipe
     """
 
@@ -301,8 +323,7 @@ async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.future
         return await invoke(recipe, inputs, input_checksums, loop, executor, progress_callback)
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int,
-                    progress_callback: Optional[ProgressCallback] = None) -> \
+def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int) -> \
         OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
@@ -321,6 +342,10 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     else:
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
 
+    # Determine the progress type to use
+    progress: Optional[FancyProgress] = FancyProgress(graph, statuses, recipe) \
+        if AlkymiConfig.get().progress_type == ProgressType.Fancy else None
+
     # Create the asyncio event loop and set it on the calling thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -338,7 +363,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         for _recipe in recipes:
             # Note that 'schedule()' might mutate 'tasks' once awaited
             coros_or_tasks[_recipe] = schedule(loop, executor, _recipe, statuses[_recipe], coros_or_tasks,
-                                               progress_callback)
+                                               progress)
 
         # Wait for future for target recipe to return
         result = await coros_or_tasks[recipe]
@@ -351,7 +376,11 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         return result
 
     # Return the output and checksum of the final recipe
+    if progress is not None:
+        progress.start()
     output, checksum = loop.run_until_complete(_execute())
+    if progress is not None:
+        progress.stop()
     return output, checksum
 
 

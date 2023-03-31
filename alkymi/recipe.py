@@ -7,7 +7,7 @@ from . import checksums, serialization
 from .config import CacheType, AlkymiConfig
 from .logging import log
 from .serialization import OutputWithValue, CachedOutput, Output
-from .types import Status, ProgressCallback, EvaluateProgress
+from .types import Status
 
 R = TypeVar("R")  # The return type of the bound function
 

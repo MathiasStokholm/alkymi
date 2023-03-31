@@ -3,9 +3,8 @@ import logging
 import sys
 from typing import Iterable, TextIO
 
-from .core import Status, compute_recipe_status, create_graph, evaluate_recipe
+from .core import Status, compute_recipe_status, create_graph
 from .logging import log
-from .progress import FancyProgress
 from .recipe import Recipe
 from .recipes import Arg
 
@@ -60,19 +59,6 @@ class Lab:
         """
         self._args[arg.name] = arg
 
-    def _call_brew(self, target_recipe: Recipe, *, jobs=1) -> Any:
-        # Build the evaluation graph and determine recipe statuses
-        graph = create_graph(target_recipe)
-        statuses = compute_recipe_status(target_recipe, graph)
-
-        with FancyProgress(graph, statuses, target_recipe, self._console) as progress:
-            try:
-                result, _ = evaluate_recipe(target_recipe, graph, statuses, jobs, progress)
-                return result
-            except KeyboardInterrupt:
-                self._console.print("[bold red]Interrupted by user")
-                sys.exit(1)
-
     def brew(self, target_recipe: Union[Recipe, str], *, jobs=1) -> Any:
         """
         Brew (evaluate) a target recipe defined by its reference or name, and return the results
@@ -82,16 +68,25 @@ class Lab:
                      zero or negative values will cause alkymi to use the system's default number of jobs
         :return: The output of the evaluated recipe
         """
+
+        # Helper function to call brew on the matched recipe with CTRL-C handling
+        def _call_brew(_recipe: Recipe):
+            try:
+                return _recipe.brew(jobs=jobs)
+            except KeyboardInterrupt:
+                self._console.print("[bold red]Interrupted by user")
+                sys.exit(1)
+
         if isinstance(target_recipe, str):
             # Try to match name
             for recipe in self._recipes:
                 if recipe.name == target_recipe:
-                    return self._call_brew(recipe, jobs=jobs)
+                    return _call_brew(recipe)
             raise ValueError("Unknown recipe: {}".format(target_recipe))
         else:
             # Match recipe directly
             if target_recipe in self._recipes:
-                return self._call_brew(target_recipe, jobs=jobs)
+                return _call_brew(target_recipe)
             raise ValueError("Unknown recipe: {}".format(target_recipe.name))
 
     @property

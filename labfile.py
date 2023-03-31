@@ -20,6 +20,9 @@ test_files = alk.recipes.glob_files("test_files", Path("tests"), "test_*.py", re
 # Also run linting and type checking on this file itself
 labfile = alk.recipes.file("get_labfile", Path("labfile.py"))
 
+# Turn off fancy progress display since it breaks with many of the below applications
+alk.config.AlkymiConfig.get().progress_type = alk.config.ProgressType.Simple
+
 
 @alk.recipe(transient=True)
 def test(test_files: List[Path]) -> None:
@@ -30,8 +33,8 @@ def test(test_files: List[Path]) -> None:
     """
     # Run pytest in a separate thread to avoid asyncio recursion issues
     from concurrent.futures import ThreadPoolExecutor
-    executor = ThreadPoolExecutor(max_workers=1)
-    result = executor.submit(pytest.main, args=[str(file) for file in test_files]).result()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        result = executor.submit(pytest.main, args=test_files).result()
     if result != pytest.ExitCode.OK:
         exit(1)
 
