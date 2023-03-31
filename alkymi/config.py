@@ -23,6 +23,15 @@ class FileChecksumMethod(enum.Enum):
     ModificationTimestamp = 1  # Use timestamp of last modification
 
 
+@enum.unique
+class ProgressType(enum.Enum):
+    """
+    Supported ways of showing progress
+    """
+    Simple = 0  # Just run functions and log execution to alkymi's log
+    Fancy = 1  # Show progress indicators during recipe evaluation
+
+
 class AlkymiConfig:
     """
     Global singleton config for alkymi
@@ -52,6 +61,7 @@ class AlkymiConfig:
         self._cache_path = None
         self._allow_pickling = True
         self._file_checksum_method = FileChecksumMethod.HashContents
+        self._progress_type = ProgressType.Fancy
 
     @property
     def cache(self) -> bool:
@@ -120,6 +130,22 @@ class AlkymiConfig:
         :param file_checksum_method: The method to use for calculating file checksums (for Path objects)
         """
         self._file_checksum_method = file_checksum_method
+
+    @property
+    def progress_type(self) -> ProgressType:
+        """
+        :return: The currently used type of progress indication
+        """
+        return self._progress_type
+
+    @progress_type.setter
+    def progress_type(self, progress_type: ProgressType) -> None:
+        """
+        Set the type of progress indication to use during recipe evaluation
+
+        :param progress_type: The type of progress indication to use
+        """
+        self._progress_type = progress_type
 
 
 # Force creation of singleton
