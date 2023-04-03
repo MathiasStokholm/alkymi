@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Added `rich` as a runtime dependency
 - Added fancy progress output mode that shows a summary of the execution at the bottom of the console using [Rich](https://rich.readthedocs.io/).
 
 ### Changed

@@ -1,2 +1,2 @@
 networkx>=2.0
-rich==12.1.0
+rich>=10.7
