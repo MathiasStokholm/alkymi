@@ -1,9 +1,9 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Iterable
 
 import networkx as nx
 import rich
 
-from rich.progress import Progress, TaskID, TextColumn, TimeElapsedColumn, BarColumn
+from rich.progress import TaskID, TextColumn, TimeElapsedColumn, BarColumn
 from rich.rule import Rule
 from rich.console import Group
 
@@ -11,9 +11,18 @@ from .recipe import Recipe
 from .types import Status, EvaluateProgress
 
 
-class FancyProgress(Progress):
+class FancyProgress(rich.progress.Progress):
     def __init__(self, graph: nx.DiGraph, statuses: Dict[Recipe, Status], target_recipe: Recipe,
-                 console: Optional[rich.console.Console] = None):
+                 console: Optional[rich.console.Console] = None) -> None:
+        """
+        Prepare a progress object for the provided execution graph and statuses. Once created, call "start()" to begin
+        showing the output, and "stop" to finish the output.
+
+        :param graph: The graph to visualize progress for
+        :param statuses: A dictionary of statuses per recipe
+        :param target_recipe: The recipe that is the final target of the progress (last to run)
+        :param console: An optional console object to use for output
+        """
         self._console = rich.console.Console() if console is None else console
         self._recipe_name = target_recipe.name
 
@@ -37,11 +46,24 @@ class FancyProgress(Progress):
                 self.update(task_id, description=recipe.name + " [dim cyan](cached)[/dim cyan]", completed=1)
                 self.stop_task(task_id)
 
-    def get_renderables(self):
+    def get_renderables(self) -> Iterable[rich.console.RenderableType]:
+        """
+        Helper function used to render a horizontal rule with the target recipe name above the actual progress bars
+        """
         rule = Rule(title=f"Brewing {self._recipe_name}")
         yield Group(rule, self.make_tasks_table(self.tasks))
 
     def __call__(self, evaluate_progress: EvaluateProgress, recipe: Recipe, units_total: int, units_done: int) -> None:
+        """
+        Callable provided to execution engine. Will be called whenever a recipe has started progress, made progress (in
+        the case of a ForeachRecipe) or finished evaluation. Note that this will only be called from a single thread, so
+        we don't have to worry about race conditions.
+
+        :param evaluate_progress: The type of progress being reported
+        :param recipe: The recipe for which the evaluation progress is being reported
+        :param units_total: The total units of work (always 1 for regular recipes)
+        :param units_done: The currently finished units of work
+        """
         if evaluate_progress == EvaluateProgress.Started:
             self.start_task(self._recipe_tasks[recipe])
         elif evaluate_progress == EvaluateProgress.InProgress:
