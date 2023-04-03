@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added fancy progress output mode that shows a summary of the execution at the bottom of the console using [Rich](https://rich.readthedocs.io/).
+
 ### Changed
 - Rewrote parallel execution to only run bound functions in parallel, but use asyncio for the main execution logic
 
