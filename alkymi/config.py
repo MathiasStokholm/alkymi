@@ -1,7 +1,9 @@
 import enum
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Optional
+
+from .types import ProgressType
 
 
 @enum.unique
@@ -21,15 +23,6 @@ class FileChecksumMethod(enum.Enum):
     """
     HashContents = 0  # Hash the contents of the file
     ModificationTimestamp = 1  # Use timestamp of last modification
-
-
-@enum.unique
-class ProgressType(enum.Enum):
-    """
-    Supported ways of showing progress
-    """
-    Simple = 0  # Just run functions and log execution to alkymi's log
-    Fancy = 1  # Show progress indicators during recipe evaluation
 
 
 class AlkymiConfig:

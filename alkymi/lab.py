@@ -1,16 +1,16 @@
 import argparse
 import logging
 import sys
+from typing import Dict, Union, Any, List, Optional
 from typing import Iterable, TextIO
+
+from rich import console
 
 from .core import Status, compute_recipe_status, create_graph
 from .logging import log
 from .recipe import Recipe
 from .recipes import Arg
-
-from typing import Dict, Union, Any, List, Optional
-
-from rich import console
+from .types import ProgressType
 
 
 class Lab:
@@ -29,7 +29,7 @@ class Lab:
         self._name = name
         self._recipes: List[Recipe] = []
         self._args: Dict[str, Arg] = {}
-        self._console = console.Console()
+        self._console = console.Console(stderr=False)  # Default to using stdout for output
 
     def add_recipe(self, recipe: Recipe) -> Recipe:
         """
@@ -59,20 +59,22 @@ class Lab:
         """
         self._args[arg.name] = arg
 
-    def brew(self, target_recipe: Union[Recipe, str], *, jobs=1) -> Any:
+    def brew(self, target_recipe: Union[Recipe, str], *, jobs=1,
+             progress_type: ProgressType = ProgressType.Fancy) -> Any:
         """
         Brew (evaluate) a target recipe defined by its reference or name, and return the results
 
         :param target_recipe: The recipe to evaluate, as a reference ot by name
         :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
                      zero or negative values will cause alkymi to use the system's default number of jobs
+        :param progress_type: The method to use for showing progress
         :return: The output of the evaluated recipe
         """
 
         # Helper function to call brew on the matched recipe with CTRL-C handling
-        def _call_brew(_recipe: Recipe):
+        def _call_brew(_recipe: Recipe) -> Any:
             try:
-                return _recipe.brew(jobs=jobs)
+                return _recipe.brew(jobs=jobs, progress_type=progress_type)
             except KeyboardInterrupt:
                 self._console.print("[bold red]Interrupted by user")
                 sys.exit(1)
@@ -165,7 +167,7 @@ class Lab:
             state += '\n\t[cyan]{} - [{}]{}'.format(recipe.name, color, status_string)
         self._console.print('[bold]{} lab with recipes:[/bold]{}'.format(self.name, state))
 
-    def open(self, args: Optional[List[str]] = None, stream: TextIO = sys.stderr) -> None:
+    def open(self, args: Optional[List[str]] = None, stream: TextIO = sys.stdout) -> None:
         """
         Runs the command line interface for this Lab by parsing command line arguments and carrying out the designated
         command
@@ -204,6 +206,10 @@ class Lab:
             log.setLevel(logging.DEBUG)
         else:
             log.setLevel(logging.INFO)
+
+        # Create a new console object if output needs to go elsewhere
+        if self._console.file != stream:
+            self._console = console.Console(file=stream)
 
         # Set arguments if supplied
         for arg_name, arg in self._args.items():

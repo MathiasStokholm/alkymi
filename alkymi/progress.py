@@ -41,13 +41,6 @@ class FancyProgress(Progress):
         rule = Rule(title=f"Brewing {self._recipe_name}")
         yield Group(rule, self.make_tasks_table(self.tasks))
 
-    def __enter__(self) -> 'FancyProgress':
-        self.start()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stop()
-
     def __call__(self, evaluate_progress: EvaluateProgress, recipe: Recipe, units_total: int, units_done: int) -> None:
         if evaluate_progress == EvaluateProgress.Started:
             self.start_task(self._recipe_tasks[recipe])

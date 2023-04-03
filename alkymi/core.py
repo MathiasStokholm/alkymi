@@ -323,8 +323,8 @@ async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.future
         return await invoke(recipe, inputs, input_checksums, loop, executor, progress_callback)
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int) -> \
-        OutputsAndChecksums[R]:
+def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int,
+                    progress_type: Optional[ProgressType] = None) -> OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
 
@@ -333,6 +333,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
     :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
                  zero or negative values will cause alkymi to use the system's default number of jobs
+    :param progress_type: The method to use for showing progress, if None will default to setting in alkymi's config
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
     # Create the executor to use for evaluating bound functions
@@ -342,9 +343,10 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     else:
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
 
-    # Determine the progress type to use
-    progress: Optional[FancyProgress] = FancyProgress(graph, statuses, recipe) \
-        if AlkymiConfig.get().progress_type == ProgressType.Fancy else None
+    # Determine the progress type to use - if not provided by caller, use current setting in alkymi's global config
+    if progress_type is None:
+        progress_type = AlkymiConfig.get().progress_type
+    progress = FancyProgress(graph, statuses, recipe) if progress_type == ProgressType.Fancy else None
 
     # Create the asyncio event loop and set it on the calling thread
     loop = asyncio.new_event_loop()
@@ -419,7 +421,7 @@ def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) 
     return Status.Ok
 
 
-def brew(recipe: Recipe[R], *, jobs: int) -> R:
+def brew(recipe: Recipe[R], *, jobs: int, progress_type: Optional[ProgressType]) -> R:
     """
     Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
     dependencies to produce the outputs of the input Recipe
@@ -427,9 +429,10 @@ def brew(recipe: Recipe[R], *, jobs: int) -> R:
     :param recipe: The Recipe to evaluate
     :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
                  zero or negative values will cause alkymi to use the system's default number of jobs
+    :param progress_type: The method to use for showing progress, if None will default to setting in alkymi's config
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     graph = create_graph(recipe)
     statuses = compute_recipe_status(recipe, graph)
-    result, _ = evaluate_recipe(recipe, graph, statuses, jobs)
+    result, _ = evaluate_recipe(recipe, graph, statuses, jobs, progress_type)
     return result

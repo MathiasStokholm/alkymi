@@ -20,9 +20,6 @@ test_files = alk.recipes.glob_files("test_files", Path("tests"), "test_*.py", re
 # Also run linting and type checking on this file itself
 labfile = alk.recipes.file("get_labfile", Path("labfile.py"))
 
-# Turn off fancy progress display since it breaks with many of the below applications
-alk.config.AlkymiConfig.get().progress_type = alk.config.ProgressType.Simple
-
 
 @alk.recipe(transient=True)
 def test(test_files: List[Path]) -> None:

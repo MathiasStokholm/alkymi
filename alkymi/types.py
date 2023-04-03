@@ -19,6 +19,15 @@ class Status(enum.Enum):
 
 
 @enum.unique
+class ProgressType(enum.Enum):
+    """
+    Supported ways of showing progress
+    """
+    NoProgress = 0  # Just run functions and log execution to alkymi's log
+    Fancy = 1  # Show progress indicators during recipe evaluation
+
+
+@enum.unique
 class EvaluateProgress(enum.Enum):
     Started = 0
     InProgress = 1
