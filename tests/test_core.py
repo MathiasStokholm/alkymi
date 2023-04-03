@@ -9,7 +9,7 @@ import pytest
 
 import alkymi as alk
 from alkymi import AlkymiConfig
-from alkymi.config import FileChecksumMethod
+from alkymi.config import FileChecksumMethod, ProgressType
 from alkymi.foreach_recipe import ForeachRecipe
 from alkymi.recipe import Recipe
 
@@ -101,11 +101,13 @@ copied_file_global = Path()
 
 
 @pytest.mark.parametrize("file_checksum_method", FileChecksumMethod)
-def test_execution(caplog, tmpdir, file_checksum_method: FileChecksumMethod):
+@pytest.mark.parametrize("progress_type", ProgressType)
+def test_execution(caplog, tmpdir, file_checksum_method: FileChecksumMethod, progress_type: ProgressType) -> None:
     tmpdir = Path(str(tmpdir))
     caplog.set_level(logging.DEBUG)
     AlkymiConfig.get().cache = False
     AlkymiConfig.get().file_checksum_method = file_checksum_method
+    AlkymiConfig.get().progress_type = progress_type
 
     global execution_counts, build_dir_global, file_global, copied_file_global
     execution_counts = dict(

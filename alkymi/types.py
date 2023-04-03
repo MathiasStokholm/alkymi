@@ -1,4 +1,5 @@
 import enum
+from typing import Callable, TYPE_CHECKING
 
 
 @enum.unique
@@ -15,3 +16,26 @@ class Status(enum.Enum):
     OutputsInvalid = 4  # One or more outputs of the recipe have been changed externally
     BoundFunctionChanged = 5  # The function referenced by the recipe has changed
     CustomDirty = 6  # The recipe has been marked dirty through a custom cleanliness function
+
+
+@enum.unique
+class ProgressType(enum.Enum):
+    """
+    Supported ways of showing progress
+    """
+    NoProgress = 0  # Just run functions and log execution to alkymi's log
+    Fancy = 1  # Show progress indicators during recipe evaluation
+
+
+@enum.unique
+class EvaluateProgress(enum.Enum):
+    Started = 0
+    InProgress = 1
+    Done = 2
+
+
+if TYPE_CHECKING:
+    from .recipe import Recipe
+
+# The status of the evaluation, the recipe for which the progress is to be updated, the total and current units of work
+ProgressCallback = Callable[[EvaluateProgress, "Recipe", int, int], None]

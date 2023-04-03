@@ -47,7 +47,8 @@ setuptools.setup(
     },
     python_requires=">=3.6",
     install_requires=[
-        "networkx>=2.0"
+        "networkx>=2.0",
+        "rich>=10.7"
     ],
     extras_require={
         "xxhash": ["xxhash>=2.0.0"]
