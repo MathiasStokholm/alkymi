@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2023-04-03
+## [0.2.0] - 2023-04-10
 ### Added
 - Added `rich` as a runtime dependency
 - Added fancy progress output mode that shows a summary of the execution at the bottom of the console using [Rich](https://rich.readthedocs.io/).
@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug where a certain graph configuration could prevent parallelization from happening correctly
 - Fixed a regression where all cached recipe outputs would always be loaded during execution, regardless of whether they
 were needed to produce the requested output.
+
+### Removed
+- Dropped support for Python 3.6
+
 
 ## [0.1.0] - 2023-03-07
 ### Added
