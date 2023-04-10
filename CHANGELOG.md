@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Rewrote parallel execution to only run bound functions in parallel, but use asyncio for the main execution logic
+- Bumped `mypy` version to `1.2.0` (only used for development)
+- Bumped `coverage` version to `6.4.2` (only used for development)
 
 ### Fixed
 - Fixed a bug where a deadlock could occur when evaluating a number of `ForeachRecipes` with the same number of jobs

@@ -1,6 +1,6 @@
 -r requirements.txt
 pytest==7.0.0
-mypy==0.942
+mypy==1.2.0
 flake8==4.0.1
 sphinx==4.3.0
 sphinx_rtd_theme==1.0.0
