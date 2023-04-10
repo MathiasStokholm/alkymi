@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `rich` as a runtime dependency
 - Added fancy progress output mode that shows a summary of the execution at the bottom of the console using [Rich](https://rich.readthedocs.io/).
+- Added support for Python 3.11
 
 ### Changed
 - Rewrote parallel execution to only run bound functions in parallel, but use asyncio for the main execution logic
