@@ -218,6 +218,7 @@ class ForeachRecipe(Recipe[R]):
             mapped_type="dict" if self.mapped_inputs_type == dict else "list"
         )
 
+
     def restore_from_dict(self, old_state: Dict) -> None:
         """
         Restores the state of this ForeachRecipe from a previously cached state

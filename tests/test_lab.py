@@ -90,8 +90,8 @@ def test_lab_open() -> None:
     assert lab.name in status_msg
     assert a_string.name in status_msg
     assert another_string.name in status_msg
-    assert str(alk.Status.NotEvaluatedYet) in status_msg
-    assert str(alk.Status.Ok) not in status_msg
+    assert str(alk.Status.NotEvaluatedYet).replace("Status.", "") in status_msg
+    assert str(alk.Status.Ok).replace("Status.", "") not in status_msg
 
     # Use open to brew one of the recipes and check that status has changed
     stream.seek(0)
@@ -101,7 +101,7 @@ def test_lab_open() -> None:
     lab.open(["--verbose", "status"], stream=stream)
     stream.seek(0)
     status_msg = stream.read()
-    assert str(alk.Status.Ok) in status_msg
+    assert str(alk.Status.Ok).replace("Status.", "") in status_msg
 
 
 @pytest.mark.parametrize("arg_name", ("an_arg", "an-arg"))

@@ -1,16 +1,19 @@
 import asyncio
 import concurrent.futures
-from asyncio import Future, AbstractEventLoop
-from typing import Dict, Tuple, Optional, Awaitable, Any
-
-from . import checksums
-from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
-from .serialization import OutputWithValue
-from .types import Status
-from .recipe import Recipe, R
-from .logging import log
+import typing
+from asyncio import Future, AbstractEventLoop, Task
+from typing import Dict, Tuple, Optional, Any, Coroutine, Union
 
 import networkx as nx
+
+from . import checksums
+from .config import ProgressType, AlkymiConfig
+from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
+from .logging import log
+from .progress import FancyProgress
+from .recipe import Recipe, R
+from .serialization import OutputWithValue
+from .types import Status, ProgressCallback, EvaluateProgress
 
 OutputsAndChecksums = Tuple[R, Optional[str]]
 
@@ -104,23 +107,45 @@ def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, 
     return statuses
 
 
-def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...]) -> OutputsAndChecksums:
+async def invoke(recipe: Recipe, inputs: Tuple[Any, ...], input_checksums: Tuple[Optional[str], ...],
+                 loop: AbstractEventLoop, executor: Optional[concurrent.futures.Executor],
+                 progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
     """
     Evaluate the Recipe using the provided inputs. This will call the bound function on the inputs.
 
     :param recipe: The recipe to evaluate given the provided inputs
     :param inputs: The inputs provided by the ingredients (dependencies) of the Recipe
     :param input_checksums: The (possibly new) input checksum
+    :param loop: The asyncio event loop to use for scheduling the recipe evaluation
+    :param executor: An optional executor to use for evaluating bound functions in parallel
+    :param progress_callback: An optional callback to invoke when evaluation progress occurs
+    :return: The output(s) and checksum(s) of the evaluated recipe
     """
     log.debug('Invoking recipe: {}'.format(recipe.name))
-    outputs = recipe(*inputs)
+
+    # Signal that work has started on 1 out of 1 unit of work
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Started, recipe, 1, 1)
+
+    # Run code on executor if applicable, otherwise evaluate directly on this thread
+    if executor is not None:
+        outputs = await loop.run_in_executor(executor, recipe, *inputs)
+    else:
+        outputs = recipe(*inputs)
     recipe.set_result(outputs, input_checksums)
+
+    # Signal that work has completed on 1 out of 1 unit of work
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Done, recipe, 1, 1)
+
     return recipe.outputs, recipe.output_checksum
 
 
-def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
-                   input_checksums: Tuple[Optional[str], ...],
-                   executor: Optional[concurrent.futures.Executor]) -> OutputsAndChecksums:
+async def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
+                         input_checksums: Tuple[Optional[str], ...],
+                         loop: AbstractEventLoop,
+                         executor: Optional[concurrent.futures.Executor],
+                         progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
     """
     Evaluate the ForeachRecipe using the provided inputs. This will apply the bound function to each item in the
     "mapped_inputs". If the result for any item is already cached, that result will be used instead (the checksum
@@ -129,7 +154,10 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
     :param recipe: The ForeachRecipe to evaluate given the provided inputs
     :param inputs: The inputs provided by the ingredients (dependencies) of the ForeachRecipe
     :param input_checksums: The (possibly new) input checksum to use for checking cleanliness
-    :param executor: The executor to use for calling the bound function in parallel
+    :param loop: The asyncio event loop to use for scheduling the recipe evaluation
+    :param executor: An optional executor to use for evaluating bound functions in parallel
+    :param progress_callback: An optional callback to invoke when evaluation progress occurs
+    :return: The output(s) and checksum(s) of the evaluated recipe
     """
     log.debug("Invoking recipe: {}".format(recipe.name))
 
@@ -203,6 +231,10 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
                             continue
                 not_evaluated[key] = item
 
+    # Signal that work has started on X out of Y units of work
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Started, recipe, len(mapped_inputs), len(evaluated))
+
     log.debug("Num already cached results: {}/{}".format(len(evaluated), len(mapped_inputs)))
     if len(evaluated) == len(mapped_inputs):
         log.debug("Returning early since all items were already cached")
@@ -210,74 +242,89 @@ def invoke_foreach(recipe: ForeachRecipe, inputs: Tuple[Any, ...],
         return recipe.outputs, recipe.output_checksum
 
     # Perform remaining work - store state every time an evaluation is successful
+    results: typing.Iterable[Any]
     if isinstance(not_evaluated, list) and isinstance(outputs, list) and isinstance(evaluated, list):
         if executor is not None:
-            results = executor.map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
+            results = [loop.run_in_executor(executor, recipe.__call__, _item, *other_inputs) for _item in
+                       not_evaluated]
         else:
             results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated)
-        for item, result in zip(not_evaluated, results):
+        for item, maybe_async_result in zip(not_evaluated, results):
+            result = await maybe_async_result if isinstance(maybe_async_result, Future) else maybe_async_result
             outputs.append(OutputWithValue(result, checksums.checksum(result)))
             evaluated.append(item)
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
+
+            # Signal that work has completed on X out of Y units of work
+            if progress_callback is not None:
+                progress_callback(EvaluateProgress.InProgress, recipe, len(mapped_inputs), len(evaluated))
     elif isinstance(not_evaluated, dict):
         if executor is not None:
-            results = executor.map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
+            results = [loop.run_in_executor(executor, recipe.__call__, _item, *other_inputs) for _item in
+                       not_evaluated.values()]
         else:
             results = map(lambda _item: recipe(_item, *other_inputs), not_evaluated.values())
-        for (key, item), result in zip(not_evaluated.items(), results):
+        for (key, item), maybe_async_result in zip(not_evaluated.items(), results):
+            result = await maybe_async_result if isinstance(maybe_async_result, Future) else maybe_async_result
             outputs[key] = OutputWithValue(result, checksums.checksum(result))
             evaluated[key] = item
             recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, False)
 
+            # Signal that work has completed on X out of Y units of work
+            if progress_callback is not None:
+                progress_callback(EvaluateProgress.InProgress, recipe, len(mapped_inputs), len(evaluated))
+
     recipe.set_current_result(evaluated, outputs, mapped_inputs_checksum, other_input_checksums, True)
+
+    # Signal that work has completed on N out of N units of work
+    if progress_callback is not None:
+        progress_callback(EvaluateProgress.Done, recipe, len(mapped_inputs), len(evaluated))
+
     return recipe.outputs, recipe.output_checksum
 
 
-def retrieve_recipe_outputs(foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe, status: Status,
-                            inputs_and_checksums: Tuple[OutputsAndChecksums, ...] = ()) -> OutputsAndChecksums:
+async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.futures.Executor], recipe: Recipe,
+                   status: Status, coros_or_tasks: Dict[Recipe, Union[Coroutine, Task]],
+                   progress_callback: Optional[ProgressCallback] = None) -> OutputsAndChecksums:
     """
-    Helper function to delegate recipe invocation calls
-
-    :param foreach_executor: The executor (if any) that should be used for evaluating ForeachRecipes in parallel
-    :param recipe: The recipe to evaluate using the executor
-    :param status: The status of the recipe - used to skip evaluation if unnecessary
-    :param inputs_and_checksums: The inputs and checksums of these to provide to the recipe for evaluation
-    :return: The output(s) and checksum(s) of the recipe
-    """
-    # If status is not Ok, call invoke to run recipe
-    if status != Status.Ok:
-        _inputs = tuple(inp[0] for inp in inputs_and_checksums)
-        _input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
-        if isinstance(recipe, ForeachRecipe):
-            return invoke_foreach(recipe, _inputs, _input_checksums, foreach_executor)
-        else:
-            return invoke(recipe, _inputs, _input_checksums)
-    return recipe.outputs, recipe.output_checksum
-
-
-async def schedule(loop: AbstractEventLoop, graph_executor: concurrent.futures.Executor,
-                   foreach_executor: Optional[concurrent.futures.Executor], recipe: Recipe,
-                   statuses: Dict[Recipe, Status],
-                   inputs_and_checksum_futures: Tuple[Awaitable[OutputsAndChecksums], ...]) -> Future:
-    """
-    Helper function used to asynchronously await inputs from dependant recipe futures, and then retrieve the output of
-    the provided recipe using the provided executor (evaluating it if necessary)
+    Helper function used to asynchronously await inputs from dependant recipes, and then retrieve the output of the
+    provided recipe (evaluating it if necessary). Note that inputs will only be awaited if needed (not if cached).
 
     :param loop: The asyncio event loop to use for scheduling the recipe evaluation
-    :param graph_executor: The executor that is being used to evaluate the graph
-    :param foreach_executor: The executor (if any) that should be used for evaluating ForeachRecipes in parallel
+    :param executor: An optional executor to use for evaluating bound functions in parallel
     :param recipe: The recipe to evaluate using the executor
-    :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
-    :param inputs_and_checksum_futures: A tuple of futures to await before providing them to the recipe evaluation
+    :param status: The status of the recipe being scheduled - used to skip evaluation if unnecessary
+    :param coros_or_tasks: Dictionary containing coroutines for recipes - used to await ingredient inputs
+    :param progress_callback: An optional callback to invoke when evaluation progress occurs
     :return: A future that will eventually return the output(s) and checksum(s) of the recipe
     """
-    inputs_and_checksums = tuple([await inp for inp in inputs_and_checksum_futures])
-    return loop.run_in_executor(graph_executor, retrieve_recipe_outputs, foreach_executor, recipe, statuses[recipe],
-                                inputs_and_checksums)
+
+    # If status is Ok, simply return the result and checksum
+    if status == Status.Ok:
+        return recipe.outputs, recipe.output_checksum
+
+    # Status is not Ok - evaluation needed
+    # Convert needed inputs from coroutines to tasks - this is done to ensure that multiple recipes can await the result
+    input_futures = []
+    for ingredient in recipe.ingredients:
+        coro_or_task = coros_or_tasks[ingredient]
+        if not isinstance(coro_or_task, asyncio.Task):
+            coro_or_task = loop.create_task(coro_or_task)
+            coros_or_tasks[ingredient] = coro_or_task
+        input_futures.append(coro_or_task)
+
+    # Block while waiting for inputs to become available
+    inputs_and_checksums = tuple(await asyncio.gather(*input_futures))
+    inputs = tuple(inp[0] for inp in inputs_and_checksums)
+    input_checksums = tuple(inp[1] for inp in inputs_and_checksums)
+    if isinstance(recipe, ForeachRecipe):
+        return await invoke_foreach(recipe, inputs, input_checksums, loop, executor, progress_callback)
+    else:
+        return await invoke(recipe, inputs, input_checksums, loop, executor, progress_callback)
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int) -> \
-        OutputsAndChecksums[R]:
+def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int,
+                    progress_type: Optional[ProgressType] = None) -> OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
 
@@ -286,13 +333,20 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
     :param statuses: The statuses of the recipes contained in the graph - used to skip evaluation if unnecessary
     :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
                  zero or negative values will cause alkymi to use the system's default number of jobs
+    :param progress_type: The method to use for showing progress, if None will default to setting in alkymi's config
     :return: The output(s) and checksum(s) of the evaluated recipe
     """
-    # Create the executor to use for evaluating recipes
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
+    # Create the executor to use for evaluating bound functions
+    executor: Optional[concurrent.futures.Executor]
+    if jobs == 1:
+        executor = None
+    else:
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=jobs if jobs > 0 else None)
 
-    # If we have more than 1 job (threads) available, also use the executor for running ForeachRecipes in parallel
-    foreach_executor = executor if jobs > 1 else None
+    # Determine the progress type to use - if not provided by caller, use current setting in alkymi's global config
+    if progress_type is None:
+        progress_type = AlkymiConfig.get().progress_type
+    progress = FancyProgress(graph, statuses, recipe) if progress_type == ProgressType.Fancy else None
 
     # Create the asyncio event loop and set it on the calling thread
     loop = asyncio.new_event_loop()
@@ -303,17 +357,32 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         # This guarantees that futures only depend on already created futures
         recipes = list(nx.topological_sort(graph))
 
-        # Schedule all recipes to execute as soon as their inputs are available
-        tasks: Dict[Recipe, Future] = {}
+        # Create coroutines to evaluate each recipe - then from the top-down, the coroutines will request inputs that
+        # they need from other coroutines, which will be upgraded to tasks
+        # This approach is used to avoid loading outputs for recipes whose outputs are actually unused, because later
+        # recipes are already cached
+        coros_or_tasks: Dict[Recipe, Union[Coroutine, Task]] = {}
         for _recipe in recipes:
-            input_futures = tuple(tasks[ingredient] for ingredient in _recipe.ingredients)
-            tasks[_recipe] = await schedule(loop, executor, foreach_executor, _recipe, statuses, input_futures)
+            # Note that 'schedule()' might mutate 'tasks' once awaited
+            coros_or_tasks[_recipe] = schedule(loop, executor, _recipe, statuses[_recipe], coros_or_tasks,
+                                               progress)
 
         # Wait for future for target recipe to return
-        return await tasks[recipe]
+        result = await coros_or_tasks[recipe]
+
+        # Close coroutines that were not converted to tasks, since they were never needed for the execution
+        for coro_or_task in coros_or_tasks.values():
+            if not isinstance(coro_or_task, asyncio.Task):
+                coro_or_task.close()
+
+        return result
 
     # Return the output and checksum of the final recipe
+    if progress is not None:
+        progress.start()
     output, checksum = loop.run_until_complete(_execute())
+    if progress is not None:
+        progress.stop()
     return output, checksum
 
 
@@ -352,7 +421,7 @@ def is_clean(recipe: Recipe[R], new_input_checksums: Tuple[Optional[str], ...]) 
     return Status.Ok
 
 
-def brew(recipe: Recipe[R], *, jobs: int) -> R:
+def brew(recipe: Recipe[R], *, jobs: int, progress_type: Optional[ProgressType]) -> R:
     """
     Evaluate a Recipe and all dependent inputs - this will build the computational graph and execute any needed
     dependencies to produce the outputs of the input Recipe
@@ -360,9 +429,10 @@ def brew(recipe: Recipe[R], *, jobs: int) -> R:
     :param recipe: The Recipe to evaluate
     :param jobs: The number of jobs to use for evaluating the recipe in parallel, 1 job corresponds to no parallelism,
                  zero or negative values will cause alkymi to use the system's default number of jobs
+    :param progress_type: The method to use for showing progress, if None will default to setting in alkymi's config
     :return: The outputs of the Recipe (which correspond to the outputs of the bound function)
     """
     graph = create_graph(recipe)
     statuses = compute_recipe_status(recipe, graph)
-    result, _ = evaluate_recipe(recipe, graph, statuses, jobs)
+    result, _ = evaluate_recipe(recipe, graph, statuses, jobs, progress_type)
     return result

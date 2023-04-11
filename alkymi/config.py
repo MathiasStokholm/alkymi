@@ -1,7 +1,9 @@
 import enum
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Optional
+
+from .types import ProgressType
 
 
 @enum.unique
@@ -52,6 +54,7 @@ class AlkymiConfig:
         self._cache_path = None
         self._allow_pickling = True
         self._file_checksum_method = FileChecksumMethod.HashContents
+        self._progress_type = ProgressType.Fancy
 
     @property
     def cache(self) -> bool:
@@ -120,6 +123,22 @@ class AlkymiConfig:
         :param file_checksum_method: The method to use for calculating file checksums (for Path objects)
         """
         self._file_checksum_method = file_checksum_method
+
+    @property
+    def progress_type(self) -> ProgressType:
+        """
+        :return: The currently used type of progress indication
+        """
+        return self._progress_type
+
+    @progress_type.setter
+    def progress_type(self, progress_type: ProgressType) -> None:
+        """
+        Set the type of progress indication to use during recipe evaluation
+
+        :param progress_type: The type of progress indication to use
+        """
+        self._progress_type = progress_type
 
 
 # Force creation of singleton
