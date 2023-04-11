@@ -25,11 +25,11 @@ setuptools.setup(
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: Science/Research",
@@ -45,7 +45,7 @@ setuptools.setup(
         "Tracker": "https://github.com/MathiasStokholm/alkymi/issues",
         "Documentation": "https://alkymi.readthedocs.io/en/latest/",
     },
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     install_requires=[
         "networkx>=2.0",
         "rich>=10.7"

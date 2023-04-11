@@ -259,7 +259,7 @@ class Output(Generic[T], metaclass=ABCMeta):
         pass
 
 
-class OutputWithValue(Output):
+class OutputWithValue(Output[T]):
     """
     An Output that is guaranteed to have an in-memory value - all outputs start out as this before being cached
     """
@@ -285,7 +285,7 @@ class OutputWithValue(Output):
         return self._value
 
 
-class CachedOutput(Output):
+class CachedOutput(Output[T]):
     """
     An Output that has been cached - may or may not have it's associated value in-memory
     """

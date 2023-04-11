@@ -23,8 +23,11 @@ class ProgressType(enum.Enum):
     """
     Supported ways of showing progress
     """
-    NoProgress = 0  # Just run functions and log execution to alkymi's log
-    Fancy = 1  # Show progress indicators during recipe evaluation
+    NoProgress = "none"  # Just run functions and log execution to alkymi's log
+    Fancy = "fancy"  # Show progress indicators during recipe evaluation
+
+    def __str__(self):
+        return self.value
 
 
 @enum.unique

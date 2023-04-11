@@ -60,14 +60,14 @@ class Lab:
         self._args[arg.name] = arg
 
     def brew(self, target_recipe: Union[Recipe, str], *, jobs=1,
-             progress_type: ProgressType = ProgressType.Fancy) -> Any:
+             progress_type: Optional[ProgressType] = ProgressType.Fancy) -> Any:
         """
         Brew (evaluate) a target recipe defined by its reference or name, and return the results
 
         :param target_recipe: The recipe to evaluate, as a reference ot by name
         :param jobs: The number of jobs to use for evaluating this recipe in parallel, defaults to 1 (no parallelism),
                      zero or negative values will cause alkymi to use the system's default number of jobs
-        :param progress_type: The method to use for showing progress
+        :param progress_type: The method to use for showing progress, if None will default to setting in alkymi's config
         :return: The output of the evaluated recipe
         """
 
@@ -198,6 +198,8 @@ class Lab:
                                  help='Recipe(s) to brew')
         brew_parser.add_argument("-j", "--jobs", type=int, default=1,
                                  help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
+        brew_parser.add_argument("--progress", type=ProgressType, default=ProgressType.Fancy,
+                                 choices=list(ProgressType), help="The type of progress indication to use")
         self._add_user_args_(brew_parser)
 
         parsed_args = parser.parse_args(args)
@@ -221,7 +223,7 @@ class Lab:
             self.print_status()
         elif parsed_args.subparser_name == 'brew':
             for recipe in parsed_args.recipe:
-                self.brew(recipe, jobs=parsed_args.jobs)
+                self.brew(recipe, jobs=parsed_args.jobs, progress_type=parsed_args.progress)
         else:
             # No recognized command provided - print help
             parser.print_help(file=stream)

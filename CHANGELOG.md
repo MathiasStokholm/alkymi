@@ -5,18 +5,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.0] - 2023-04-10
 ### Added
 - Added `rich` as a runtime dependency
 - Added fancy progress output mode that shows a summary of the execution at the bottom of the console using [Rich](https://rich.readthedocs.io/).
+- Added support for Python 3.11
 
 ### Changed
 - Rewrote parallel execution to only run bound functions in parallel, but use asyncio for the main execution logic
+- Bumped `mypy` version to `1.2.0` (only used for development)
+- Bumped `coverage` version to `6.4.2` (only used for development)
 
 ### Fixed
 - Fixed a bug where a deadlock could occur when evaluating a number of `ForeachRecipes` with the same number of jobs
 - Fixed a bug where a certain graph configuration could prevent parallelization from happening correctly
 - Fixed a regression where all cached recipe outputs would always be loaded during execution, regardless of whether they
 were needed to produce the requested output.
+
+### Removed
+- Dropped support for Python 3.6
+
 
 ## [0.1.0] - 2023-03-07
 ### Added
@@ -168,7 +177,8 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.0...HEAD
+[0.1.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...v0.0.6
