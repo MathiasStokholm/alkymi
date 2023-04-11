@@ -31,7 +31,7 @@ def test(test_files: List[Path]) -> None:
     # Run pytest in a separate thread to avoid asyncio recursion issues
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=1) as executor:
-        result = executor.submit(pytest.main, args=test_files).result()
+        result = executor.submit(pytest.main, args=[str(f) for f in test_files]).result()
     if result != pytest.ExitCode.OK:
         exit(1)
 

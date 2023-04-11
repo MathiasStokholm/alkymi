@@ -192,11 +192,11 @@ def test_invalid_foreach_outputs(caplog, tmpdir):
         return f
 
     # Initial evaluation should create all files
-    files: List[Path] = files_with_values.brew()
+    files = files_with_values.brew()
     assert all([file.is_file() for file in files])
 
     # If one of output files is deleted, a subsequent brew() should recreate it
     files[0].unlink()
     assert files_with_values.status() == Status.OutputsInvalid
-    files: List[Path] = files_with_values.brew()
+    files = files_with_values.brew()
     assert all([file.is_file() for file in files])
