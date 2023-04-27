@@ -2,7 +2,6 @@ import asyncio
 import concurrent.futures
 import typing
 from asyncio import Future, AbstractEventLoop, Task
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Tuple, Optional, Any, Coroutine, Union
 
 import networkx as nx

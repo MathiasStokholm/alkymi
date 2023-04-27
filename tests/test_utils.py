@@ -4,7 +4,6 @@ import io
 import subprocess
 import threading
 import time
-from typing import Optional
 
 import pytest
 
