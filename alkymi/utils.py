@@ -1,6 +1,8 @@
+import asyncio
 import subprocess
 import sys
-from typing import List, TextIO, Optional
+import threading
+from typing import List, TextIO, Optional, TypeVar, Callable
 
 from .logging import log
 
@@ -61,3 +63,49 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, proc.args, stdout, stderr)
     return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+
+T = TypeVar('T')
+
+
+def run_on_thread(func: Callable[..., T]) -> T:
+    """
+    Execute a function on a new thread and return the result - exceptions will be propagated by re-raising
+    :param func: The function to run on the new thread
+    :return: The result of the function call
+    """
+
+    # Mutable object used to store result
+    result: List[T] = []
+    ex = []
+
+    def _call_and_set_result():
+        nonlocal result
+        try:
+            result.append(func())
+        except Exception as e:
+            ex.append(e)
+
+    t = threading.Thread(target=_call_and_set_result)
+    t.start()
+    t.join()
+
+    # Check if an exception occurred, and reraise
+    if len(ex) != 0:
+        raise ex[0]
+
+    # Ensure that result has been set, and return it
+    assert len(result) == 1, "Function call should have stored return value in result variable"
+    return result[0]
+
+
+def check_current_thread_has_running_event_loop():
+    """
+    Check if the calling thread has an associated running event loop
+    :return: True if the calling thread has a running event loop associated with it
+    """
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False

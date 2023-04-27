@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import asyncio
 import threading
 import time
 from pathlib import Path
@@ -229,3 +230,19 @@ def test_lazy_loading(tmp_path: Path, jobs: int) -> None:
     # The outputs should not have been loaded, since 'capitalized_value' was already cached
     maybe_cached_value_2 = getattr(getattr(a_value_recipe_2, "_outputs"), "_value")
     assert maybe_cached_value_2 is None, "Outputs from 'a_value' should not have been loaded unnecessarily"
+
+
+def test_brew_running_event_loop() -> None:
+    """
+    Test that brew() can be safely called from a thread that has an already running event loop
+    """
+
+    @alk.recipe()
+    def the_answer() -> int:
+        return 42
+
+    async def _call() -> int:
+        return the_answer.brew()
+
+    # The "run" call here will set up and run and event loop, which will then call "_call"
+    assert alk.utils.run_on_thread(lambda: asyncio.run(_call())) == 42

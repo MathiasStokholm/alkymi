@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2023-04-27
+### Fixed
+- Fixed a bug where execution would crash if called from a thread that had an already running event loop [#39](https://github.com/MathiasStokholm/alkymi/issues/39)
+- Fixed a bug where execution would crash by erroneously trying to cancel an `_asyncio.Task` instead of only unused
+coroutines [#38](https://github.com/MathiasStokholm/alkymi/issues/38)
+
+
 ## [0.2.0] - 2023-04-10
 ### Added
 - Added `rich` as a runtime dependency
@@ -177,8 +184,9 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.0...HEAD
-[0.1.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...v0.2.0
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.5...v0.0.6
