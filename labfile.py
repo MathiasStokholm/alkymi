@@ -28,10 +28,8 @@ def test(test_files: List[Path]) -> None:
 
     :param test_files: The pytest files to execute
     """
-    # Run pytest in a separate thread to avoid asyncio recursion issues
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        result = executor.submit(pytest.main, args=[str(f) for f in test_files]).result()
+    # Run the tests on a separate thread to avoid asyncio event-loop issues (simulates normal pytest execution)
+    result = alk.utils.run_on_thread(lambda: pytest.main([str(f) for f in test_files]))
     if result != pytest.ExitCode.OK:
         exit(1)
 
