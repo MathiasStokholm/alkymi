@@ -6,9 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2023-04-27
 ### Fixed
-- Fixed a bug where execution would crash if called from a thread that had an already running event loop [issue #39](https://github.com/MathiasStokholm/alkymi/issues/39)
-- Fixed a bug where execution would crash by erroneously trying to cancel an `_asyncio.Task` instead of only coroutines 
+- Fixed a bug where execution would crash if called from a thread that had an already running event loop [#39](https://github.com/MathiasStokholm/alkymi/issues/39)
+- Fixed a bug where execution would crash by erroneously trying to cancel an `_asyncio.Task` instead of only unused
+coroutines [#38](https://github.com/MathiasStokholm/alkymi/issues/38)
 
 
 ## [0.2.0] - 2023-04-10
