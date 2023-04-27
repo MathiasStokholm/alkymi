@@ -6,7 +6,7 @@ from typing import Dict, Tuple, Optional, Any, Coroutine, Union
 
 import networkx as nx
 
-from . import checksums
+from . import checksums, utils
 from .config import ProgressType, AlkymiConfig
 from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
 from .logging import log
@@ -348,39 +348,47 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         progress_type = AlkymiConfig.get().progress_type
     progress = FancyProgress(graph, statuses, recipe) if progress_type == ProgressType.Fancy else None
 
-    # Create the asyncio event loop and set it on the calling thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # Define function that can be called from current or new thread to setup and perform execution
+    def _setup_and_execute() -> OutputsAndChecksums[R]:
+        # Create the asyncio event loop and set it on the calling thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-    async def _execute() -> OutputsAndChecksums[R]:
-        # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
-        # This guarantees that futures only depend on already created futures
-        recipes = list(nx.topological_sort(graph))
+        async def _execute() -> OutputsAndChecksums[R]:
+            # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
+            # This guarantees that futures only depend on already created futures
+            recipes = list(nx.topological_sort(graph))
 
-        # Create coroutines to evaluate each recipe - then from the top-down, the coroutines will request inputs that
-        # they need from other coroutines, which will be upgraded to tasks
-        # This approach is used to avoid loading outputs for recipes whose outputs are actually unused, because later
-        # recipes are already cached
-        coros_or_tasks: Dict[Recipe, Union[Coroutine, Task]] = {}
-        for _recipe in recipes:
-            # Note that 'schedule()' might mutate 'tasks' once awaited
-            coros_or_tasks[_recipe] = schedule(loop, executor, _recipe, statuses[_recipe], coros_or_tasks,
-                                               progress)
+            # Create coroutines to evaluate each recipe - then from the top-down, the coroutines will request inputs
+            # that they need from other coroutines, which will be upgraded to tasks. This approach is used to avoid
+            # loading outputs for recipes whose outputs are actually unused, because later recipes are already cached
+            coros_or_tasks: Dict[Recipe, Union[Coroutine, Task]] = {}
+            for _recipe in recipes:
+                # Note that 'schedule()' might mutate 'tasks' once awaited
+                coros_or_tasks[_recipe] = schedule(loop, executor, _recipe, statuses[_recipe], coros_or_tasks,
+                                                   progress)
 
-        # Wait for future for target recipe to return
-        result = await coros_or_tasks[recipe]
+            # Wait for future for target recipe to return
+            result = await coros_or_tasks[recipe]
 
-        # Close coroutines that were not converted to tasks, since they were never needed for the execution
-        for coro_or_task in coros_or_tasks.values():
-            if not isinstance(coro_or_task, asyncio.Task):
-                coro_or_task.close()
+            # Close coroutines that were not converted to tasks, since they were never needed for the execution
+            for coro_or_task in coros_or_tasks.values():
+                if asyncio.iscoroutine(coro_or_task):
+                    coro_or_task.close()
 
-        return result
+            return result
+
+        return loop.run_until_complete(_execute())
 
     # Return the output and checksum of the final recipe
     if progress is not None:
         progress.start()
-    output, checksum = loop.run_until_complete(_execute())
+
+    # Check if the event loop is already running - if this is the case, execution must be pushed to a new thread to
+    # avoid crashing due to the already running event loop
+    output, checksum = utils.run_on_thread(_setup_and_execute) if utils.check_current_thread_has_running_event_loop() \
+        else _setup_and_execute()
+
     if progress is not None:
         progress.stop()
     return output, checksum

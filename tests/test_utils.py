@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import asyncio
 import io
 import subprocess
 import threading
@@ -84,3 +85,63 @@ for i in range({}):
     # Each output should have been generated at a different time than the previous one
     for i in range(len(times) - 1):
         assert times[i] < times[i + 1]
+
+
+def test_run_on_thread():
+    """
+    Test that the run_on_thread function runs the provided callable in a different thread
+    """
+    current_thread_idx = threading.current_thread().ident
+    assert current_thread_idx is not None
+
+    def _call() -> int:
+        thread_id = threading.current_thread().ident
+        assert thread_id is not None
+        return thread_id
+
+    # Running "call" on main thread should result in same ID
+    assert _call() == current_thread_idx
+
+    # Running "call" on a different thread should result in another ID
+    assert alkymi.utils.run_on_thread(_call) != current_thread_idx
+
+
+def test_run_on_thread_none():
+    """
+    Test that the run_on_thread function supports functions that don't return anything
+    """
+
+    def _call() -> None:
+        pass
+
+    alkymi.utils.run_on_thread(_call)
+
+
+def test_run_on_thread_exception():
+    """
+    Test that the run_on_thread function propagates exceptions by rethrowing them
+    """
+
+    def _fail() -> int:
+        raise TypeError("Failure!")
+
+    # Running "call" on a different thread should result in another ID
+    with pytest.raises(TypeError):
+        alkymi.utils.run_on_thread(_fail)
+
+
+def test_check_current_thread_has_running_event_loop():
+    # Running in a new thread should cause the check to return false due to no running event loop in the new thread
+    assert not alkymi.utils.run_on_thread(lambda: alkymi.utils.check_current_thread_has_running_event_loop())
+
+    def _call_async() -> bool:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def _wrap() -> bool:
+            return alkymi.utils.check_current_thread_has_running_event_loop()
+
+        return loop.run_until_complete(_wrap())
+
+    # Running in a new thread with a new event loop should cause the function to return true
+    assert alkymi.utils.run_on_thread(_call_async)
