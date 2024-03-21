@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
+import alkymi.checksums
 from alkymi import checksums
+from alkymi.checksums import checksum
 from alkymi.config import FileChecksumMethod, AlkymiConfig
 
 
@@ -127,3 +129,17 @@ def test_path_checksum(tmpdir, file_checksum_method: FileChecksumMethod):
     shutil.rmtree(str(tmpdir))
     tmpdir_checksum_non_existent = checksums.checksum(tmpdir)
     assert tmpdir_checksum != tmpdir_checksum_non_existent
+
+
+def test_recursive_checksum():
+    def _func_1() -> str:
+        return checksums.checksum("test")
+
+    def _func_2() -> str:
+        return checksum("test")
+
+    def _func_3() -> str:
+        return alkymi.checksums.checksum("test")
+
+    assert checksums.checksum(_func_1) == checksums.checksum(_func_2)
+    assert checksums.checksum(_func_1) == checksums.checksum(_func_3)

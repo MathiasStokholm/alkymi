@@ -1,5 +1,8 @@
+import dis
+import importlib
 from pathlib import Path
-from typing import Any, Sequence, Dict, Callable
+from types import ModuleType
+from typing import Any, Sequence, Dict, Callable, List
 import pickle
 import alkymi.config
 
@@ -137,12 +140,90 @@ class Checksummer(object):
                 if not isinstance(const, str) or not const.endswith(".<lambda>"):
                     self.update(const)
 
-        # Handle referenced functions
+        # Handle referenced local functions (e.g. lambdas)
         if code.co_freevars:
             assert len(code.co_freevars) == len(fn.__closure__)
             referenced_func_names_and_closures = list(
                 zip(code.co_freevars, (c.cell_contents for c in fn.__closure__)))
             self.update(referenced_func_names_and_closures)
+
+        # Handle referenced global functions
+        refs_0 = inspect.getclosurevars(fn).globals
+        # print("\n")
+        # print(refs_0)
+        for ref in refs_0.values():
+            if not isinstance(ref, ModuleType):
+                self.update(ref)
+
+        # refs_1 = self.get_referenced_objects(code, fn.__globals__, None)
+        # for ref in refs_1:
+        #     self.update(ref)
+
+    def get_referenced_objects(self, code, globalz, cells) -> List[Any]:
+        # Top of the stack
+        tos: Any = None
+        lineno = None
+        refs: List[Any] = []
+
+        def set_tos(t):
+            nonlocal tos
+            if tos is not None:
+                # Hash tos so we support reading multiple objects
+                refs.append(tos)
+            tos = t
+
+        # Our goal is to find referenced objects. The problem is that co_names
+        # does not have full qualified names in it. So if you access `foo.bar`,
+        # co_names has `foo` and `bar` in it but it doesn't tell us that the
+        # code reads `bar` of `foo`. We are going over the bytecode to resolve
+        # from which object an attribute is requested.
+        # Read more about bytecode at https://docs.python.org/3/library/dis.html
+
+        for op in dis.get_instructions(code):
+            try:
+                # Sometimes starts_line is None, in which case let's just remember the
+                # previous start_line (if any). This way when there's an exception we at
+                # least can point users somewhat near the line where the error stems from.
+                if op.starts_line is not None:
+                    lineno = op.starts_line
+
+                if op.opname in ["LOAD_GLOBAL", "LOAD_NAME"]:
+                    if op.argval in globalz:
+                        set_tos(globalz[op.argval])
+                    else:
+                        set_tos(op.argval)
+                elif op.opname in ["LOAD_DEREF", "LOAD_CLOSURE"]:
+                    print("Lookup of cells.values[op.argval]")
+                    set_tos(cells.values[op.argval])
+                elif op.opname == "IMPORT_NAME":
+                    try:
+                        set_tos(importlib.import_module(op.argval))
+                    except ImportError:
+                        set_tos(op.argval)
+                elif op.opname in ["LOAD_METHOD", "LOAD_ATTR", "IMPORT_FROM"]:
+                    if tos is None:
+                        refs.append(op.argval)
+                    elif isinstance(tos, str):
+                        tos += "." + op.argval
+                    else:
+                        tos = getattr(tos, op.argval)
+                elif op.opname == "DELETE_FAST" and tos:
+                    # del context.varnames[op.argval]
+                    tos = None
+                elif op.opname == "STORE_FAST" and tos:
+                    # context.varnames[op.argval] = tos
+                    tos = None
+                # elif op.opname == "LOAD_FAST" and op.argval in context.varnames:
+                #     set_tos(context.varnames[op.argval])
+                else:
+                    # For all other instructions, hash the current TOS.
+                    if tos is not None:
+                        refs.append(tos)
+                        tos = None
+            except Exception as e:
+                raise Exception(f"Error in line {lineno}: {e}")
+
+        return refs
 
     def _update_path(self, path: Path) -> None:
         """
