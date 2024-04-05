@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- `stderr` is now streamed by default when using the `utils.call()` utility function [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
+
 ### Fixed
 - Remove unnecessary decimal points in fancy progress output [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
 - Fixed a bug where the terminal cursor would disappear if an exception was thrown during execution
