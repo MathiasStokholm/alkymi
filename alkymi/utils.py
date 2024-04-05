@@ -7,14 +7,11 @@ import threading
 import time
 from typing import List, TextIO, Optional, TypeVar, Callable
 
-from .logging import log
-
 
 def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
          echo_output_to_stream: Optional[TextIO] = sys.stdout) -> subprocess.CompletedProcess:
     """
-    Utility command to run a system command and return the result (stdout and stderr will also be printed to the debug
-    log)
+    Utility command to run a system command and return the result
 
     :param args: The arguments representing the command to run, e.g. ["echo", "test"]
     :param echo_error_to_stream: A stream to which to echo the call's stderr while the command is executing
@@ -69,17 +66,15 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
 
         # Program has finished executing, check if any part of stdout or stderr still needs to be piped
         if live_stdout:
-            line = proc.stdout.readline()
-            if line:
+            while line := proc.stdout.readline():
                 echo_output_to_stream.write(line)
                 stdout += line
-        # if live_stderr:
-        #     line = proc.stderr.readline()
-        #     if line:
-        #         echo_error_to_stream.write(line)
-        #         stderr += line
+        if live_stderr:
+            while line := proc.stderr.readline():
+                echo_error_to_stream.write(line)
+                stderr += line
     else:
-        # Otherwise, simply wait for the command to finish and then grab stdout
+        # Otherwise, simply wait for the command to finish and then grab stdout and/or stderr
         proc.wait()
 
     # If not running live, read everything in one go
@@ -87,10 +82,6 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
         stdout = proc.stdout.read()
     if not live_stderr:
         stderr = proc.stderr.read()
-
-    # Send to alkymi log
-    log.debug(stdout)
-    log.debug(stderr)
 
     # Raise an error on failure
     if proc.returncode != 0:
