@@ -1,11 +1,9 @@
 import asyncio
-import os
+import concurrent.futures
 import subprocess
 import sys
 import threading
-import time
-import platform
-from typing import List, TextIO, Optional, TypeVar, Callable
+from typing import List, TextIO, Optional, TypeVar, Callable, IO
 
 
 def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
@@ -39,58 +37,64 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     assert proc.stdout is not None
     assert proc.stderr is not None
 
-    # If running either stdout or stderr live, set the streams to non-blocking mode to ensure that we don't block
-    # when trying to read from either of them
-    if platform.system() != "Windows":
-        if live_stdout:
-            os.set_blocking(proc.stdout.fileno(), False)
-        if live_stderr:
-            os.set_blocking(proc.stderr.fileno(), False)
-
+    # Variables that will hold the read stdout and stderr
     stdout: str = ""
     stderr: str = ""
-    if live_stdout or live_stderr:
-        # Print each line to the stream as it arrives
-        while proc.poll() is None:
-            if echo_output_to_stream is not None:
-                line = proc.stdout.readline()
-                echo_output_to_stream.write(line)
-                stdout += line
-            if echo_error_to_stream is not None:
-                line = proc.stderr.readline()
-                echo_error_to_stream.write(line)
-                stderr += line
 
-            # Sleep for a tiny bit to ensure that the non-blocking calls don't eat a ton of CPU
-            time.sleep(0.001)
-
-        # Program has finished executing, check if any part of stdout or stderr still needs to be piped
-        if echo_output_to_stream is not None:
-            line = " "
-            while line:
-                line = proc.stdout.readline()
-                echo_output_to_stream.write(line)
-                stdout += line
-        if echo_error_to_stream is not None:
-            line = " "
-            while line:
-                line = proc.stderr.readline()
-                echo_error_to_stream.write(line)
-                stderr += line
+    # If reading both stdout and stderr, use threads to avoid blocking
+    if live_stdout and live_stderr:
+        assert echo_output_to_stream is not None
+        assert echo_error_to_stream is not None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            stdout_fut = executor.submit(_tee_pipe, proc, proc.stdout, echo_output_to_stream)
+            stderr_fut = executor.submit(_tee_pipe, proc, proc.stderr, echo_error_to_stream)
+            stdout = stdout_fut.result()
+            stderr = stderr_fut.result()
+    elif live_stdout:
+        assert echo_output_to_stream is not None
+        stdout = _tee_pipe(proc, proc.stdout, echo_output_to_stream)
+    elif live_stderr:
+        assert echo_error_to_stream is not None
+        stderr = _tee_pipe(proc, proc.stderr, echo_error_to_stream)
     else:
         # Otherwise, simply wait for the command to finish and then grab stdout and/or stderr
         proc.wait()
-
-    # If not running live, read everything in one go
-    if not live_stdout:
         stdout = proc.stdout.read()
-    if not live_stderr:
         stderr = proc.stderr.read()
 
     # Raise an error on failure
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, proc.args, stdout, stderr)
     return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+
+def _tee_pipe(proc: subprocess.Popen, input_stream: IO[str], output_stream: TextIO) -> str:
+    """
+    Reads the content of an input stream while the provided process is running, and echoes it to the provided output
+    stream in real time, while also collecting everything read into a string that is returned once the process has
+    finished executing and all output has been read
+
+    :param proc: The process that produces the output
+    :param input_stream: The stream to read from (should be `proc.stdout` or `proc.stderr`)
+    :param output_stream: The stream to write output to
+    :return: Everything that was read
+    """
+    content: str = ""
+
+    # Program is executing, echo lines as they come in
+    while proc.poll() is None:
+        line = input_stream.readline()
+        output_stream.write(line)
+        content += line
+
+    # Program has finished executing, check if any part of stdout or stderr still needs to be piped
+    line = " "
+    while line:
+        line = input_stream.readline()
+        output_stream.write(line)
+        content += line
+
+    return content
 
 
 T = TypeVar('T')
