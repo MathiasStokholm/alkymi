@@ -34,7 +34,8 @@ def test_call_error():
     assert error_str in stream.read()
 
 
-def test_call_updates():
+@pytest.mark.parametrize("stream_to_forward", ("stdout", "stderr"))
+def test_call_updates(stream_to_forward: str):
     """
     Test that the utils.call() function can correctly return stdout line-by-line while a command is executing (to enable
     live output).
@@ -64,16 +65,20 @@ def test_call_updates():
     stream_monitor.start()
 
     # Script to execute - simply prints a number of numbers, each on a separate line followed by a sleep
-    program = """
+    program = f"""
 import time
+import sys
 
-for i in range({}):
-    print(i)
+for i in range({num_outputs}):
+    print(i, file=sys.{stream_to_forward})
     time.sleep(0.1)
-    """.format(num_outputs)
+    """
 
     # Pass '-u' to avoid buffering inside the subprocess itself
-    alkymi.utils.call(["python3", "-u", "-c", program], echo_output_to_stream=stream)
+    if stream_to_forward == "stdout":
+        alkymi.utils.call(["python3", "-u", "-c", program], echo_output_to_stream=stream)
+    elif stream_to_forward == "stderr":
+        alkymi.utils.call(["python3", "-u", "-c", program], echo_error_to_stream=stream)
 
     # Stop reader thread
     process_stream = False

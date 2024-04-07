@@ -386,11 +386,14 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
 
     # Check if the event loop is already running - if this is the case, execution must be pushed to a new thread to
     # avoid crashing due to the already running event loop
-    output, checksum = utils.run_on_thread(_setup_and_execute) if utils.check_current_thread_has_running_event_loop() \
-        else _setup_and_execute()
+    try:
+        output, checksum = utils.run_on_thread(
+            _setup_and_execute) if utils.check_current_thread_has_running_event_loop() else _setup_and_execute()
+    finally:
+        # Ensure that the progress is always stopped (to return the cursor correctly to the terminal)
+        if progress is not None:
+            progress.stop()
 
-    if progress is not None:
-        progress.stop()
     return output, checksum
 
 

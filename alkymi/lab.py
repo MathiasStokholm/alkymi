@@ -5,6 +5,7 @@ from typing import Dict, Union, Any, List, Optional
 from typing import Iterable, TextIO
 
 from rich import console
+from rich.control import Control
 
 from .core import Status, compute_recipe_status, create_graph
 from .logging import log
@@ -76,7 +77,9 @@ class Lab:
             try:
                 return _recipe.brew(jobs=jobs, progress_type=progress_type)
             except KeyboardInterrupt:
-                self._console.print("[bold red]Interrupted by user")
+                # Signal that execution was interrupted by the user and return cursor to normal state
+                self._console.print("\n[bold red]Interrupted by user")
+                self._console.control(Control.show_cursor(True))
                 sys.exit(1)
 
         if isinstance(target_recipe, str):
