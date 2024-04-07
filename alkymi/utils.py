@@ -1,5 +1,4 @@
 import asyncio
-import fcntl
 import os
 import subprocess
 import sys
@@ -42,11 +41,9 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     # If running either stdout or stderr live, set the streams to non-blocking mode to ensure that we don't block
     # when trying to read from either of them
     if live_stdout:
-        fl = fcntl.fcntl(proc.stdout, fcntl.F_GETFL)
-        fcntl.fcntl(proc.stdout, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        os.set_blocking(proc.stdout.fileno(), False)
     if live_stderr:
-        fl = fcntl.fcntl(proc.stderr, fcntl.F_GETFL)
-        fcntl.fcntl(proc.stderr, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        os.set_blocking(proc.stderr.fileno(), False)
 
     stdout: str = ""
     stderr: str = ""
