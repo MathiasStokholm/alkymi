@@ -26,6 +26,7 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     if echo_error_to_stream is not None and getattr(echo_error_to_stream, "name", None) == sys.stderr.name:
         echo_error_to_stream = sys.stderr
 
+    # Use shorthands - note that the full check is still used in some places below to satisfy mypy
     live_stdout = echo_output_to_stream is not None
     live_stderr = echo_error_to_stream is not None
 
@@ -33,6 +34,10 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     buffer_size = 1 if (live_stdout or live_stderr) else -1
     proc = subprocess.Popen(args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             bufsize=buffer_size)
+
+    # Since we set these to PIPE, these should never be None
+    assert proc.stdout is not None
+    assert proc.stderr is not None
 
     # If running either stdout or stderr live, set the streams to non-blocking mode to ensure that we don't block
     # when trying to read from either of them
@@ -43,20 +48,16 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
         fl = fcntl.fcntl(proc.stderr, fcntl.F_GETFL)
         fcntl.fcntl(proc.stderr, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-    # Since we set these to PIPE, these should never be None
-    assert proc.stdout is not None
-    assert proc.stderr is not None
-
     stdout: str = ""
     stderr: str = ""
     if live_stdout or live_stderr:
         # Print each line to the stream as it arrives
         while proc.poll() is None:
-            if live_stdout:
+            if echo_output_to_stream is not None:
                 line = proc.stdout.readline()
                 echo_output_to_stream.write(line)
                 stdout += line
-            if live_stderr:
+            if echo_error_to_stream is not None:
                 line = proc.stderr.readline()
                 echo_error_to_stream.write(line)
                 stderr += line
@@ -65,12 +66,16 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
             time.sleep(0.001)
 
         # Program has finished executing, check if any part of stdout or stderr still needs to be piped
-        if live_stdout:
-            while line := proc.stdout.readline():
+        if echo_output_to_stream is not None:
+            line = " "
+            while line:
+                line = proc.stdout.readline()
                 echo_output_to_stream.write(line)
                 stdout += line
-        if live_stderr:
-            while line := proc.stderr.readline():
+        if echo_error_to_stream is not None:
+            line = " "
+            while line:
+                line = proc.stderr.readline()
                 echo_error_to_stream.write(line)
                 stderr += line
     else:
