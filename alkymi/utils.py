@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 import time
+import platform
 from typing import List, TextIO, Optional, TypeVar, Callable
 
 
@@ -40,10 +41,11 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
 
     # If running either stdout or stderr live, set the streams to non-blocking mode to ensure that we don't block
     # when trying to read from either of them
-    if live_stdout:
-        os.set_blocking(proc.stdout.fileno(), False)
-    if live_stderr:
-        os.set_blocking(proc.stderr.fileno(), False)
+    if platform.system() != "Windows":
+        if live_stdout:
+            os.set_blocking(proc.stdout.fileno(), False)
+        if live_stderr:
+            os.set_blocking(proc.stderr.fileno(), False)
 
     stdout: str = ""
     stderr: str = ""
@@ -103,10 +105,10 @@ def run_on_thread(func: Callable[..., T]) -> T:
 
     # Mutable object used to store result
     result: List[T] = []
-    ex = []
+    ex: List[Exception] = []
 
     def _call_and_set_result():
-        nonlocal result
+        nonlocal result, ex
         try:
             result.append(func())
         except Exception as e:
