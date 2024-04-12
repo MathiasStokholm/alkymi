@@ -246,10 +246,8 @@ class Recipe(Generic[R]):
         :param old_state: The old cached state to restore
         """
         log.debug("Restoring {} from dict".format(self._name))
-        if old_state["input_checksums"] is not None:
-            self._input_checksums = tuple(old_state["input_checksums"])
-        if old_state["outputs"] is not None and old_state["output_checksum"] is not None:
-            self._outputs = CachedOutput(None, old_state["output_checksum"], old_state["outputs"])
+        self._input_checksums = tuple(old_state["input_checksums"])
+        self._outputs = CachedOutput(None, old_state["output_checksum"], old_state["outputs"])
         self._last_function_hash = cast(str, old_state["last_function_hash"])
 
     def __repr__(self) -> str:

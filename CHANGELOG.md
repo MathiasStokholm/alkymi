@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove unnecessary decimal points in fancy progress output [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
 - Fixed a bug where the terminal cursor would disappear if an exception was thrown during execution
 - Fixed a bug where the terminal cursor would disappear if a `Lab` call to `brew` was terminated using ctrl-c
+- Fixed a bug where recipes returning `None` (no return value) would not be correctly cached on subsequent runs
 
 ## [0.2.1] - 2023-04-27
 ### Fixed
