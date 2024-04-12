@@ -49,15 +49,20 @@ def test_caching_no_return_value(caplog, tmpdir):
     AlkymiConfig.get().cache = True
     AlkymiConfig.get().cache_path = tmpdir
 
-    @alk.recipe()
-    def no_return_value() -> None:
+    def no_return_value_func() -> None:
         some_state = "This is a debug statement from test_caching_no_return_value()"
         alk.log.debug(some_state)  # Simulate non-pure function
 
+    # Check that brewing the recipe results in an Ok status (cached in-memory)
+    no_return_value = alk.recipe()(no_return_value_func)
     assert no_return_value.status() == Status.NotEvaluatedYet
     no_return_value.brew()
     assert no_return_value.status() == Status.Ok
-    assert (tmpdir / Recipe.CACHE_DIRECTORY_NAME / "tests" / "no_return_value").is_dir()
+    assert (tmpdir / Recipe.CACHE_DIRECTORY_NAME / "tests" / "no_return_value_func").is_dir()
+
+    # Re-create recipe to check that disk caching also results in an Ok status
+    no_return_value_2 = alk.recipe()(no_return_value_func)
+    assert no_return_value_2.status() == Status.Ok
 
 
 # We use these globals to avoid altering the hashes of bound functions when these change
