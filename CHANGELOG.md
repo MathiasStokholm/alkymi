@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - `stderr` is now streamed by default when using the `utils.call()` utility function [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
+- When utilizing the `Lab` CLI interface, alkymi will now omit alkymi internals from tracebacks resulting from
+exceptions raised by user code (recipes) 
 
 ### Fixed
 - Remove unnecessary decimal points in fancy progress output [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
