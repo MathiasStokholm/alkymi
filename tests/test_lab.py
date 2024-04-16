@@ -157,3 +157,56 @@ def test_lab_arg_string_list() -> None:
 
     lab.open(["brew", arg_joined.name, "--{}".format(arg.name), "first", "second", "third"])
     assert output == "firstsecondthird"
+
+
+def test_lab_keyboard_interrupt(capsys: pytest.CaptureFixture) -> None:
+    """
+    Test that a Lab will correctly handle user interruption through a keyboard interrupt (CTRL-C)
+    """
+
+    # Create a lab containing a single recipe that will raise a KeyboardInterrupt (simulating user input)
+    @alk.recipe()
+    def interrupt() -> None:
+        raise KeyboardInterrupt()
+
+    lab = alk.Lab("interrupt lab")
+    lab.add_recipe(interrupt)
+
+    # Brew the interrupt recipe through the lab - this should result in an attempted system exit with error code 1
+    with pytest.raises(SystemExit) as exc_info:
+        lab.brew(interrupt)
+    assert exc_info.value.code == 1
+
+    # Check that the appropriate traceback was printed to stderr
+    assert "Interrupted by user" in capsys.readouterr().out
+
+
+def test_lab_omits_alkymi_internals_in_traceback(capsys: pytest.CaptureFixture) -> None:
+    """
+    Test that a Lab will remove alkymi internal lines from the traceback upon an exception in user code (recipe)
+    """
+
+    # Create a lab containing a single recipe that will raise on execution
+    @alk.recipe()
+    def fail() -> None:
+        raise RuntimeError("Failure")
+
+    lab = alk.Lab("failure lab")
+    lab.add_recipe(fail)
+
+    # Brew the failing recipe through the lab - this should result in an attempted system exit with error code 2
+    with pytest.raises(SystemExit) as exc_info:
+        lab.brew(fail)
+    assert exc_info.value.code == 2
+
+    # Check that the appropriate traceback was printed to stderr
+    printed_error = capsys.readouterr().err
+
+    # The traceback should contain the following:
+    assert 'lab.brew(fail)' in printed_error  # The lab invocation that led to the failure
+    assert '<alkymi internals omitted...>' in printed_error  # A statement that alkymi internals were omitted
+    assert 'in fail' in printed_error  # The recipe (function) that failed
+    assert 'raise RuntimeError("Failure")' in printed_error  # The line that failed
+
+    # The traceback should not contain the following:
+    assert 'alkymi/core.py' not in printed_error  # Any line related to the internal execution engine of alkymi
