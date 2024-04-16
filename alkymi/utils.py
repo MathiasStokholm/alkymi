@@ -2,7 +2,7 @@ import asyncio
 import subprocess
 import sys
 import threading
-from typing import List, TextIO, Optional, TypeVar, Callable, IO
+from typing import List, TextIO, Optional, TypeVar, Callable, IO, Any
 
 
 def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
@@ -44,8 +44,8 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     if live_stdout and live_stderr:
         assert echo_output_to_stream is not None
         assert echo_error_to_stream is not None
-        stdout_fut = run_on_thread(lambda: _tee_pipe(proc, proc.stdout, echo_output_to_stream))
-        stderr_fut = run_on_thread(lambda: _tee_pipe(proc, proc.stderr, echo_error_to_stream))
+        stdout_fut = run_on_thread(_tee_pipe, proc, proc.stdout, echo_output_to_stream)
+        stderr_fut = run_on_thread(_tee_pipe, proc, proc.stderr, echo_error_to_stream)
         stdout = stdout_fut()
         stderr = stderr_fut()
     elif live_stdout:
@@ -98,12 +98,13 @@ def _tee_pipe(proc: subprocess.Popen, input_stream: IO[str], output_stream: Text
 T = TypeVar('T')
 
 
-def run_on_thread(func: Callable[[], T]) -> Callable[[], T]:
+def run_on_thread(func: Callable[..., T], *args: Any) -> Callable[[], T]:
     """
     Execute a function on a new thread and return a function that can be used to wait for the result - exceptions will
     be propagated by re-raising once the result is waited for
 
     :param func: The function to run on the new thread
+    :param args: The arguments to pass to the function
     :return: A function (future) that can be called to block and return the value of the function call
     """
 
@@ -114,7 +115,7 @@ def run_on_thread(func: Callable[[], T]) -> Callable[[], T]:
     def _call_and_set_result():
         nonlocal result, ex
         try:
-            result.append(func())
+            result.append(func(*args))
         except Exception as e:
             ex.append(e)
 
