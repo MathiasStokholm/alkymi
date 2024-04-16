@@ -108,7 +108,7 @@ def test_run_on_thread():
     assert _call() == current_thread_idx
 
     # Running "call" on a different thread should result in another ID
-    assert alkymi.utils.run_on_thread(_call) != current_thread_idx
+    assert alkymi.utils.run_on_thread(_call)() != current_thread_idx
 
 
 def test_run_on_thread_none():
@@ -119,7 +119,7 @@ def test_run_on_thread_none():
     def _call() -> None:
         pass
 
-    alkymi.utils.run_on_thread(_call)
+    alkymi.utils.run_on_thread(_call)()
 
 
 def test_run_on_thread_exception():
@@ -132,12 +132,12 @@ def test_run_on_thread_exception():
 
     # Running "call" on a different thread should result in another ID
     with pytest.raises(TypeError):
-        alkymi.utils.run_on_thread(_fail)
+        alkymi.utils.run_on_thread(_fail)()
 
 
 def test_check_current_thread_has_running_event_loop():
     # Running in a new thread should cause the check to return false due to no running event loop in the new thread
-    assert not alkymi.utils.run_on_thread(lambda: alkymi.utils.check_current_thread_has_running_event_loop())
+    assert not alkymi.utils.run_on_thread(lambda: alkymi.utils.check_current_thread_has_running_event_loop())()
 
     def _call_async() -> bool:
         loop = asyncio.new_event_loop()
@@ -149,4 +149,4 @@ def test_check_current_thread_has_running_event_loop():
         return loop.run_until_complete(_wrap())
 
     # Running in a new thread with a new event loop should cause the function to return true
-    assert alkymi.utils.run_on_thread(_call_async)
+    assert alkymi.utils.run_on_thread(_call_async)()

@@ -1,9 +1,8 @@
 import asyncio
-import concurrent.futures
 import subprocess
 import sys
 import threading
-from typing import List, TextIO, Optional, TypeVar, Callable, IO
+from typing import List, TextIO, Optional, TypeVar, Callable, IO, Any
 
 
 def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
@@ -45,11 +44,10 @@ def call(args: List[str], echo_error_to_stream: Optional[TextIO] = sys.stderr,
     if live_stdout and live_stderr:
         assert echo_output_to_stream is not None
         assert echo_error_to_stream is not None
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            stdout_fut = executor.submit(_tee_pipe, proc, proc.stdout, echo_output_to_stream)
-            stderr_fut = executor.submit(_tee_pipe, proc, proc.stderr, echo_error_to_stream)
-            stdout = stdout_fut.result()
-            stderr = stderr_fut.result()
+        stdout_fut = run_on_thread(_tee_pipe, proc, proc.stdout, echo_output_to_stream)
+        stderr_fut = run_on_thread(_tee_pipe, proc, proc.stderr, echo_error_to_stream)
+        stdout = stdout_fut()
+        stderr = stderr_fut()
     elif live_stdout:
         assert echo_output_to_stream is not None
         stdout = _tee_pipe(proc, proc.stdout, echo_output_to_stream)
@@ -100,11 +98,14 @@ def _tee_pipe(proc: subprocess.Popen, input_stream: IO[str], output_stream: Text
 T = TypeVar('T')
 
 
-def run_on_thread(func: Callable[..., T]) -> T:
+def run_on_thread(func: Callable[..., T], *args: Any) -> Callable[[], T]:
     """
-    Execute a function on a new thread and return the result - exceptions will be propagated by re-raising
+    Execute a function on a new thread and return a function that can be used to wait for the result - exceptions will
+    be propagated by re-raising once the result is waited for
+
     :param func: The function to run on the new thread
-    :return: The result of the function call
+    :param args: The arguments to pass to the function
+    :return: A function (future) that can be called to block and return the value of the function call
     """
 
     # Mutable object used to store result
@@ -114,26 +115,32 @@ def run_on_thread(func: Callable[..., T]) -> T:
     def _call_and_set_result():
         nonlocal result, ex
         try:
-            result.append(func())
+            result.append(func(*args))
         except Exception as e:
             ex.append(e)
 
     t = threading.Thread(target=_call_and_set_result)
     t.start()
-    t.join()
 
-    # Check if an exception occurred, and reraise
-    if len(ex) != 0:
-        raise ex[0]
+    def get_result() -> T:
+        # Wait for thread to finish executing
+        t.join()
 
-    # Ensure that result has been set, and return it
-    assert len(result) == 1, "Function call should have stored return value in result variable"
-    return result[0]
+        # Check if an exception occurred, and reraise
+        if len(ex) != 0:
+            raise ex[0]
+
+        # Ensure that result has been set, and return it
+        assert len(result) == 1, "Function call should have stored return value in result variable"
+        return result[0]
+
+    return get_result
 
 
 def check_current_thread_has_running_event_loop():
     """
     Check if the calling thread has an associated running event loop
+
     :return: True if the calling thread has a running event loop associated with it
     """
     try:
