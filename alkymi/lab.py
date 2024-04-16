@@ -1,6 +1,8 @@
 import argparse
 import logging
+import os
 import sys
+import traceback
 from typing import Dict, Union, Any, List, Optional
 from typing import Iterable, TextIO
 
@@ -81,6 +83,11 @@ class Lab:
                 self._console.print("\n[bold red]Interrupted by user")
                 self._console.control(Control.show_cursor(True))
                 sys.exit(1)
+            except Exception as e:  # noqa: Catch-all to fix traceback
+                # Omit the '_call_brew' stack frame, this exception handler stack frame and the
+                # '_remove_alkymi_internals_from_traceback' call from traceback
+                sys.stderr.write(Lab._remove_alkymi_internals_from_traceback(e, num_stack_frames_to_omit=3))
+                sys.exit(2)
 
         if isinstance(target_recipe, str):
             # Try to match name
@@ -140,6 +147,42 @@ class Lab:
                 parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*", dest=arg_name)
             else:
                 parser.add_argument("--{}".format(arg_name), type=arg.type, dest=arg_name)
+
+    @staticmethod
+    def _remove_alkymi_internals_from_traceback(e: Exception, num_stack_frames_to_omit: int) -> str:
+        """
+
+
+        :param e: The exception to load the traceback from
+        :param num_stack_frames_to_omit: A number of stack frames to omit - can be used to e.g. ignore this call on the
+                                         stack
+        :return: A string representing the created traceback without alkymi internals
+        """
+
+        # Search from the beginning until the first item containing Recipe.__call__
+        # This denotes the first time alkymi has handed over control to user code
+        frames = traceback.extract_tb(e.__traceback__)
+        idx = 0
+        for i, frame in enumerate(frames):
+            if frame.name == "__call__" and "alkymi/recipe.py" in frame.filename:
+                idx = i + 1
+                break
+        filtered_frames = frames[idx:]
+
+        # Next, find the call stack up to the beginning of the traceback frame
+        stack = traceback.StackSummary.extract(traceback.walk_stack(None))
+
+        # Remove the most recent frames if requested
+        if num_stack_frames_to_omit > 0:
+            del stack[0:num_stack_frames_to_omit]
+
+        # Reverse stack to get the expected output order
+        stack.reverse()
+
+        # Finally, combine the stack with an "omitted" statement and the filtered traceback
+        return "".join(stack.format()) + \
+            "    <alkymi internals omitted...>\n" + \
+            "".join(traceback.StackSummary.from_list(filtered_frames).format())
 
     def __repr__(self) -> str:
         """
