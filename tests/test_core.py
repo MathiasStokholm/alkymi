@@ -54,7 +54,7 @@ def test_parse_docstring_from_func() -> None:
     # Test that a lambda with a preceding comment works
 
     # Square the provided value
-    square_lambda = lambda x: x ** 2
+    square_lambda = lambda x: x ** 2  # NOQA: Testing only
     assert alk.decorators._parse_docstring_from_func(square_lambda) == "Square the provided value"
 
     # Test that a single-line docstring works

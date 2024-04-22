@@ -2,7 +2,6 @@ import argparse
 import logging
 import sys
 import traceback
-import inspect
 from typing import Dict, Union, Any, List, Optional
 from typing import Iterable, TextIO
 
