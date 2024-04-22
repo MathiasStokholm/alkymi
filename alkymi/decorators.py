@@ -8,8 +8,22 @@ from .recipe import Recipe
 R = TypeVar("R")  # The return type of the bound function
 
 
-def recipe(ingredients=(), name: Optional[str] = None, transient: bool = False, cache: CacheType = CacheType.Auto) -> \
-        Callable[[Callable[..., R]], Recipe[R]]:
+def parse_docstring_from_func(func: Callable) -> str:
+    # Otherwise fall back to parsing docstring of bound function
+    maybe_doc = inspect.getdoc(func)
+    if not maybe_doc:
+        return ""
+
+    num_lines = maybe_doc.splitlines()
+    if num_lines == 1:
+        return maybe_doc
+
+    description = maybe_doc.split("\n\n")[0]
+    return description
+
+
+def recipe(ingredients=(), name: Optional[str] = None, transient: bool = False, doc: Optional[str] = None,
+           cache: CacheType = CacheType.Auto) -> Callable[[Callable[..., R]], Recipe[R]]:
     """
     Convert a function into an alkymi Recipe to enable caching and conditional evaluation
 
@@ -18,6 +32,7 @@ def recipe(ingredients=(), name: Optional[str] = None, transient: bool = False, 
                         provided directly, alkymi will look up recipes that match the name of arguments automatically
     :param name: The name to assign to the created recipe - if not provided, the bound function's name will be used
     :param transient: Whether to always (re)evaluate the created Recipe
+    :param doc: Documentation string for this recipe - if not provided, the bound function docstring will be used
     :param cache: The type of caching to use for this Recipe
     :return: A callable that will yield the Recipe created from the bound function
     """
@@ -45,13 +60,14 @@ def recipe(ingredients=(), name: Optional[str] = None, transient: bool = False, 
             ingredients.append(arg)
 
         recipe_name = func.__name__ if name is None else name
-        return Recipe(func, ingredients, recipe_name, transient, cache)
+        parsed_doc = parse_docstring_from_func(func) if doc is None else doc
+        return Recipe(func, ingredients, recipe_name, transient, parsed_doc, cache)
 
     return _decorator
 
 
 def foreach(mapped_inputs: Recipe, ingredients=(), name: Optional[str] = None, transient: bool = False,
-            cache: CacheType = CacheType.Auto) -> \
+            doc: Optional[str] = None, cache: CacheType = CacheType.Auto) -> \
         Callable[[Callable[..., R]], ForeachRecipe[R]]:
     """
     Convert a function into an alkymi Recipe to enable caching and conditional evaluation
@@ -63,6 +79,7 @@ def foreach(mapped_inputs: Recipe, ingredients=(), name: Optional[str] = None, t
                         provided directly, alkymi will look up recipes that match the name of arguments automatically
     :param name: The name to assign to the created recipe - if not provided, the bound function's name will be used
     :param transient: Whether to always (re)evaluate the created Recipe
+    :param doc: Documentation string for this recipe - if not provided, the bound function docstring will be used
     :param cache: The type of caching to use for this Recipe
     :return: A callable that will yield the Recipe created from the bound function
     """
@@ -90,6 +107,7 @@ def foreach(mapped_inputs: Recipe, ingredients=(), name: Optional[str] = None, t
             ingredients.append(arg)
 
         recipe_name = func.__name__ if name is None else name
-        return ForeachRecipe(mapped_inputs, ingredients, func, recipe_name, transient, cache)
+        parsed_doc = parse_docstring_from_func(func) if doc is None else doc
+        return ForeachRecipe(mapped_inputs, ingredients, func, recipe_name, transient, parsed_doc, cache)
 
     return _decorator

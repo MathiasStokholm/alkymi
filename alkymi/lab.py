@@ -233,7 +233,7 @@ class Lab:
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         parser.add_argument("-v", "--verbose", action="store_true", help="Turn on verbose logging")
 
-        subparsers = parser.add_subparsers(help='Available commands', dest='subparser_name')
+        subparsers = parser.add_subparsers(dest='subparser_name', metavar="")
 
         # Create the parser for the "status" command
         status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab')
@@ -245,12 +245,11 @@ class Lab:
                                  help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         brew_parser.add_argument("--progress", type=ProgressType, default=ProgressType.Fancy,
                                  choices=list(ProgressType), help="The type of progress indication to use")
-        brew_subparsers = brew_parser.add_subparsers(help="Available recipes")
+        brew_subparsers = brew_parser.add_subparsers(metavar="")
 
         # Create a parser (command) for each recipe that can be brewed
         for recipe in self._recipes:
-            description = inspect.getdoc(recipe._func).split("\n\n")[0]
-            recipe_parser = brew_subparsers.add_parser(recipe.name, help=description, description=description,
+            recipe_parser = brew_subparsers.add_parser(recipe.name, help=recipe.doc, description=recipe.doc,
                                                        formatter_class=argparse.MetavarTypeHelpFormatter)
             recipe_parser.set_defaults(recipe=recipe.name)
 
