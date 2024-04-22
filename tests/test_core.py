@@ -42,6 +42,15 @@ def test_parse_docstring_from_func() -> None:
     """
     Test the '_parse_docstring_from_func' function is able to parse function descriptions from various docstring formats
     """
+    # Test that an empty docstring doesn't blow up
+
+    assert alk.decorators._parse_docstring_from_func(lambda x: x ** 2) == ""
+
+    def square(x: float) -> float:
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(square) == ""
+
     # Test that a lambda with a preceding comment works
 
     # Square the provided value

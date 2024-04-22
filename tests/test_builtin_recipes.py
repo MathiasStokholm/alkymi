@@ -24,6 +24,7 @@ def test_builtin_glob(tmpdir, file_checksum_method: FileChecksumMethod):
     assert len(glob_recipe.ingredients) == 0
     assert glob_recipe.brew() == [test_file]
     assert glob_recipe.status() == Status.Ok
+    assert len(glob_recipe.doc) > 0
 
     # Altering the file should mark the recipe dirty
     # If using timestamps, ensure that writes doesn't happen at the exact same time
@@ -56,6 +57,7 @@ def test_builtin_file(tmpdir, file_checksum_method: FileChecksumMethod):
     assert len(file_recipe.ingredients) == 0
     assert file_recipe.brew() == test_file
     assert file_recipe.status() == Status.Ok
+    assert len(file_recipe.doc) > 0
 
     # Altering the file should mark the recipe dirty
     # If using timestamps, ensure that writes doesn't happen at the exact same time
@@ -139,6 +141,7 @@ def test_zip_results():
         return ["zero", "one", "two", "three"]
 
     zipped = alkymi.recipes.zip_results("zip_lists", (numbers, strings, spelled))
+    assert len(zipped.doc) > 0
     results = zipped.brew()
     assert isinstance(results, list)
     assert all(isinstance(result, tuple) for result in results)
