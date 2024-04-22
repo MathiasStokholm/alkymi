@@ -5,16 +5,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added a new `doc` property to recipes that provides a documentation string for the recipe. If not provided upon
+creation of a recipe, alkymi will try to infer the documentation string by parsing the bound function's docstring
+- Added a new optional `doc` argument to the `arg` recipe that provides a documentation string for the argument
+
 ### Changed
 - `stderr` is now streamed by default when using the `utils.call()` utility function [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
-- When utilizing the `Lab` CLI interface, alkymi will now omit alkymi internals from tracebacks resulting from
+- When utilizing the `Lab` command line interface, alkymi will now omit alkymi internals from tracebacks resulting from
 exceptions raised by user code (recipes) 
+- Refactored the `Lab` command line interface to provide rich information by making use of the new `doc` property on
+`Recipe` and `arg` instances
+- Changed the allowed arguments to `brew X` to only contain arguments that affect recipe `X`
 
 ### Fixed
 - Remove unnecessary decimal points in fancy progress output [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
 - Fixed a bug where the terminal cursor would disappear if an exception was thrown during execution
 - Fixed a bug where the terminal cursor would disappear if a `Lab` call to `brew` was terminated using ctrl-c
 - Fixed a bug where recipes returning `None` (no return value) would not be correctly cached on subsequent runs
+
+### Removed
+- Removed the ability to brew multiple recipes from a `Lab` by listing them in succession
+
 
 ## [0.2.1] - 2023-04-27
 ### Fixed
