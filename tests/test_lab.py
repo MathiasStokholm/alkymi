@@ -210,3 +210,9 @@ def test_lab_omits_alkymi_internals_in_traceback(capsys: pytest.CaptureFixture) 
 
     # The traceback should not contain the following:
     assert 'alkymi/core.py' not in printed_error  # Any line related to the internal execution engine of alkymi
+
+
+def test_recipe_docstring_parse() -> None:
+    # Test no docstring (None)
+    # Test 'brew' but with no recipe prints help
+    pass

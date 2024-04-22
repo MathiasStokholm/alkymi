@@ -119,17 +119,19 @@ class Arg(Recipe[T]):
     dirty and cause reevaluation of downstream recipe(s)
     """
 
-    def __init__(self, arg: T, name: str, cache=CacheType.Auto):
+    def __init__(self, arg: T, name: str, doc: str = "", cache=CacheType.Auto):
         """
         Create a new Arg instance with initial argument value
 
         :param arg: The initial argument value
         :param name: The name to give the created Recipe
+        :param doc: Documentation string for this argument - will be used in alkymi's Lab command line interface
         :param cache: The type of caching to use for this Recipe
         """
         self._arg = arg
         self._type = type(arg)
         self._subtype = next((type(val) for val in arg), None) if isinstance(arg, Iterable) else None
+        self._doc = doc
         super().__init__(self._produce_arg, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
 
     @property
@@ -146,6 +148,13 @@ class Arg(Recipe[T]):
                  types
         """
         return self._subtype
+
+    @property
+    def doc(self) -> str:
+        """
+        :return: Documentation string for this argument
+        """
+        return self._doc
 
     def _produce_arg(self) -> T:
         """
@@ -173,13 +182,14 @@ class Arg(Recipe[T]):
         self._arg = _arg
 
 
-def arg(_arg: T, name: str, cache=CacheType.Auto) -> Arg[T]:
+def arg(_arg: T, name: str, doc: str, cache=CacheType.Auto) -> Arg[T]:
     """
     Shorthand for creating an ``Arg`` instance
 
     :param _arg: The initial argument to use
     :param name: The name to give the created Recipe
+    :param doc: Documentation string for this argument - will be used in alkymi's Lab command line interface
     :param cache: The type of caching to use for this Recipe
     :return: The created ``Arg`` instance
     """
-    return Arg(_arg, name=name, cache=cache)
+    return Arg(_arg, name=name, doc=doc, cache=cache)

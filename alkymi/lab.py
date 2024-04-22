@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import traceback
+import inspect
 from typing import Dict, Union, Any, List, Optional
 from typing import Iterable, TextIO
 
@@ -143,9 +144,9 @@ class Lab:
             # For iterables (e.g. lists), the "type" keyword is actually the type of elements in the iterable
             if issubclass(arg.type, Iterable) and not arg.type == str:
                 subtype = arg.subtype if arg.subtype is not None else str
-                parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*", dest=arg_name)
+                parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*", dest=arg_name, help=arg.doc)
             else:
-                parser.add_argument("--{}".format(arg_name), type=arg.type, dest=arg_name)
+                parser.add_argument("--{}".format(arg_name), type=arg.type, dest=arg_name, help=arg.doc)
 
     @staticmethod
     def _remove_alkymi_internals_from_traceback(e: Exception, num_stack_frames_to_omit: int) -> str:
@@ -231,21 +232,27 @@ class Lab:
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         parser.add_argument("-v", "--verbose", action="store_true", help="Turn on verbose logging")
 
-        subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
+        subparsers = parser.add_subparsers(help='Available commands', dest='subparser_name')
 
         # Create the parser for the "status" command
         status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab')
         self._add_user_args_(status_parser)
 
-        # Create the parser for the "brew" command
+        # Create the parser for the "brew" command along with brew-specific arguments
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
-        brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
-                                 help='Recipe(s) to brew')
         brew_parser.add_argument("-j", "--jobs", type=int, default=1,
                                  help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         brew_parser.add_argument("--progress", type=ProgressType, default=ProgressType.Fancy,
                                  choices=list(ProgressType), help="The type of progress indication to use")
-        self._add_user_args_(brew_parser)
+        brew_subparsers = brew_parser.add_subparsers(help="Available recipes")
+
+        # Create a parser (command) for each recipe that can be brewed
+        for recipe in self._recipes:
+            # TODO: Generate graph to figure out which args are connected to this recipe and only add those
+            description = inspect.getdoc(recipe._func).split("\n\n")[0]
+            recipe_parser = brew_subparsers.add_parser(recipe.name, help=description, description=description, formatter_class=argparse.MetavarTypeHelpFormatter)
+            recipe_parser.set_defaults(recipe=recipe.name)
+            self._add_user_args_(recipe_parser)
 
         parsed_args = parser.parse_args(args)
         log.addHandler(logging.StreamHandler(stream))
@@ -265,10 +272,14 @@ class Lab:
                 arg.set(provided_val)
 
         if parsed_args.subparser_name == 'status':
+            # TODO: Allow setting all arguments for 'status' call?
             self.print_status()
         elif parsed_args.subparser_name == 'brew':
-            for recipe in parsed_args.recipe:
-                self.brew(recipe, jobs=parsed_args.jobs, progress_type=parsed_args.progress)
+            # If not recipe was provided to brew, just print help
+            if "recipe" not in parsed_args:
+                brew_parser.print_help()
+                return
+            self.brew(parsed_args.recipe, jobs=parsed_args.jobs, progress_type=parsed_args.progress)
         else:
             # No recognized command provided - print help
             parser.print_help(file=stream)
