@@ -136,6 +136,42 @@ def test_parse_docstring_from_func() -> None:
     assert alk.decorators._parse_docstring_from_func(square_numpydoc) == "Square the provided value"
 
 
+def test_docstrings() -> None:
+    """
+    Test that the decorators parse docstrings correctly, but prefers user-provided values
+    """
+
+    @alk.recipe(doc="This is overridden")
+    def func_with_overridden_doc() -> None:
+        pass
+
+    assert func_with_overridden_doc.doc == "This is overridden"
+
+    @alk.recipe()
+    def func() -> None:
+        """
+        A proper docstring for this function
+        """
+        pass
+
+    assert func.doc == "A proper docstring for this function"
+
+    @alk.foreach(func, doc="This is overridden")
+    def foreach_with_overridden_doc() -> None:
+        pass
+
+    assert foreach_with_overridden_doc.doc == "This is overridden"
+
+    @alk.foreach(func)
+    def foreach() -> None:
+        """
+        A proper docstring for this function
+        """
+        pass
+
+    assert foreach.doc == "A proper docstring for this function"
+
+
 def test_brew():
     AlkymiConfig.get().cache = False
 

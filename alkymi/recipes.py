@@ -40,7 +40,7 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
             return False
         return _glob_recipe() == last_outputs
 
-    doc = f"Find and return files in {directory} with pattern '{pattern}'" + " recursively" if recursive else ""
+    doc = f"Find and return files in {directory} with pattern '{pattern}'" + (" recursively" if recursive else "")
     return Recipe(_glob_recipe, [], name, transient=False, doc=doc, cache=cache, cleanliness_func=_check_clean)
 
 
