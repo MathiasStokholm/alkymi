@@ -19,7 +19,8 @@ in some cases, custom cleanliness functions - see :ref:`custom_cleanliness`). Th
 * ``arg``: Creates a recipe that outputs a value. The recipe has a special ``set()``
   function that allows the user to later change the argument, potentially resulting in a need for re-evaluation. The
   ``Arg`` type can also be used to accept user input using alkymi's Lab functionality (see
-  :ref:`command_line_interface`)
+  :ref:`command_line_interface`). An optional `doc` argument can be passed to provide a documentation string for the
+  argument - this will automatically be used by alkymi's `Lab` type to create a more detailed CLI.
 
 .. note::
     All built-in recipes are described in detail in the :ref:`Built-in Recipes API reference <built_in_recipes_api>`
