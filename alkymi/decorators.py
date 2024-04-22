@@ -8,18 +8,38 @@ from .recipe import Recipe
 R = TypeVar("R")  # The return type of the bound function
 
 
-def parse_docstring_from_func(func: Callable) -> str:
-    # Otherwise fall back to parsing docstring of bound function
+def _parse_docstring_from_func(func: Callable) -> str:
+    """
+    Attempt to parse a useful recipe docstring from a bound function
+
+    :param func: The function to parse the docstring from
+    :return: The parsed docstring, or an empty string of no valid docstring could be found
+    """
+    # Try to read the docstring of the function itself
     maybe_doc = inspect.getdoc(func)
     if not maybe_doc:
-        return ""
+        # Try to read a leading comment (e.g. for a lambda)
+        maybe_doc = inspect.getcomments(func)
+        if not maybe_doc:
+            # Give up and return an empty string
+            return ""
+        else:
+            # Comment string contains something - remove any leading comment signs and ending newlines
+            maybe_doc = maybe_doc.lstrip("#").strip()
 
-    num_lines = maybe_doc.splitlines()
+    # If only one line exists, just return that
+    num_lines = len(maybe_doc.splitlines())
     if num_lines == 1:
         return maybe_doc
 
-    description = maybe_doc.split("\n\n")[0]
-    return description
+    # Attempt to find the first double line return (signalling the end of a possibly multi-line function description)
+    double_line_splits = maybe_doc.split("\n\n")
+    if len(double_line_splits) == 1:
+        # No double line return found, fall back to first line
+        return maybe_doc.splitlines()[0]
+
+    # Convert possible multi-line to a single string
+    return double_line_splits[0].replace("\n", " ")
 
 
 def recipe(ingredients=(), name: Optional[str] = None, transient: bool = False, doc: Optional[str] = None,
@@ -60,7 +80,7 @@ def recipe(ingredients=(), name: Optional[str] = None, transient: bool = False, 
             ingredients.append(arg)
 
         recipe_name = func.__name__ if name is None else name
-        parsed_doc = parse_docstring_from_func(func) if doc is None else doc
+        parsed_doc = _parse_docstring_from_func(func) if doc is None else doc
         return Recipe(func, ingredients, recipe_name, transient, parsed_doc, cache)
 
     return _decorator
@@ -107,7 +127,7 @@ def foreach(mapped_inputs: Recipe, ingredients=(), name: Optional[str] = None, t
             ingredients.append(arg)
 
         recipe_name = func.__name__ if name is None else name
-        parsed_doc = parse_docstring_from_func(func) if doc is None else doc
+        parsed_doc = _parse_docstring_from_func(func) if doc is None else doc
         return ForeachRecipe(mapped_inputs, ingredients, func, recipe_name, transient, parsed_doc, cache)
 
     return _decorator

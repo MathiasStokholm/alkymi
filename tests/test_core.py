@@ -38,6 +38,95 @@ def test_decorators():
     assert should_be_a_foreach_recipe.transient is False
 
 
+def test_parse_docstring_from_func() -> None:
+    """
+    Test the '_parse_docstring_from_func' function is able to parse function descriptions from various docstring formats
+    """
+    # Test that a lambda with a preceding comment works
+
+    # Square the provided value
+    square_lambda = lambda x: x ** 2
+    assert alk.decorators._parse_docstring_from_func(square_lambda) == "Square the provided value"
+
+    # Test that a single-line docstring works
+    def square_single_line(x: float) -> float:
+        """Square the provided value"""
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(square_single_line) == "Square the provided value"
+
+    # Test that a reST docstring works
+    def square_rest(x: float) -> float:
+        """
+        Square the provided value
+
+        :param x: The value to square
+        :return: The squared value
+        """
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(square_rest) == "Square the provided value"
+
+    # Test that a multiline reST docstring works
+    def square_rest_multiline(x: float) -> float:
+        """
+        Square the provided value
+        and return the result
+
+        :param x: The value to square
+        :return: The squared value
+        """
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(
+        square_rest_multiline) == "Square the provided value and return the result"
+
+    # Test that a reST docstring works, even without a blank newline between description and params
+    def square_rest_no_newline(x: float) -> float:
+        """
+        Square the provided value
+        :param x: The value to square
+        :return: The squared value
+        """
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(square_rest_no_newline) == "Square the provided value"
+
+    # Test that a google docstring works
+    def square_google(x: float) -> float:
+        """
+        Square the provided value
+
+        Args:
+            x: The value to square.
+
+        Returns:
+            The squared value
+        """
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(square_google) == "Square the provided value"
+
+    # Test that a numpydoc docstring works
+    def square_numpydoc(x: float) -> float:
+        """
+        Square the provided value
+
+        Parameters
+        ----------
+        x : float
+            The value to square
+
+        Returns
+        -------
+        float
+            The squared value
+        """
+        return x ** 2
+
+    assert alk.decorators._parse_docstring_from_func(square_numpydoc) == "Square the provided value"
+
+
 def test_brew():
     AlkymiConfig.get().cache = False
 
