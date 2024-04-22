@@ -236,7 +236,8 @@ class Lab:
         subparsers = parser.add_subparsers(dest='subparser_name', metavar="")
 
         # Create the parser for the "status" command
-        status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab')
+        status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab',
+                                              formatter_class=argparse.MetavarTypeHelpFormatter)
         self._add_user_args_(status_parser, self._args)
 
         # Create the parser for the "brew" command along with brew-specific arguments
@@ -276,7 +277,6 @@ class Lab:
                 arg.set(provided_val)
 
         if parsed_args.subparser_name == 'status':
-            # TODO: Allow setting all arguments for 'status' call?
             self.print_status()
         elif parsed_args.subparser_name == 'brew':
             # If not recipe was provided to brew, just print help
