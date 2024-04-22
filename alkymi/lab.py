@@ -134,13 +134,14 @@ class Lab:
             status.update(compute_recipe_status(recipe, graph))
         return status
 
-    def _add_user_args_(self, parser: argparse.ArgumentParser) -> None:
+    def _add_user_args_(self, parser: argparse.ArgumentParser, args: Dict[str, Arg]) -> None:
         """
         Adds user provided arguments to an ArgumentParser instance
 
         :param parser: The parser to add the user-provided arguments to
+        :param args: The arguments to add
         """
-        for arg_name, arg in self._args.items():
+        for arg_name, arg in args.items():
             # For iterables (e.g. lists), the "type" keyword is actually the type of elements in the iterable
             if issubclass(arg.type, Iterable) and not arg.type == str:
                 subtype = arg.subtype if arg.subtype is not None else str
@@ -236,11 +237,11 @@ class Lab:
 
         # Create the parser for the "status" command
         status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab')
-        self._add_user_args_(status_parser)
+        self._add_user_args_(status_parser, self._args)
 
         # Create the parser for the "brew" command along with brew-specific arguments
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
-        brew_parser.add_argument("-j", "--jobs", type=int, default=1,
+        brew_parser.add_argument("-j", "--jobs", type=int, default=1, metavar="N",
                                  help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         brew_parser.add_argument("--progress", type=ProgressType, default=ProgressType.Fancy,
                                  choices=list(ProgressType), help="The type of progress indication to use")
@@ -248,11 +249,15 @@ class Lab:
 
         # Create a parser (command) for each recipe that can be brewed
         for recipe in self._recipes:
-            # TODO: Generate graph to figure out which args are connected to this recipe and only add those
             description = inspect.getdoc(recipe._func).split("\n\n")[0]
-            recipe_parser = brew_subparsers.add_parser(recipe.name, help=description, description=description, formatter_class=argparse.MetavarTypeHelpFormatter)
+            recipe_parser = brew_subparsers.add_parser(recipe.name, help=description, description=description,
+                                                       formatter_class=argparse.MetavarTypeHelpFormatter)
             recipe_parser.set_defaults(recipe=recipe.name)
-            self._add_user_args_(recipe_parser)
+
+            # Use graph to only expose args that are connected to this recipe
+            graph = create_graph(recipe)
+            applicable_args = {arg_name: arg for arg_name, arg in self._args.items() if arg in graph}
+            self._add_user_args_(recipe_parser, applicable_args)
 
         parsed_args = parser.parse_args(args)
         log.addHandler(logging.StreamHandler(stream))

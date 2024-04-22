@@ -18,9 +18,20 @@ def sleep_and_print(time_to_sleep_s: int, messages: str) -> None:
         print(message)
 
 
+@alk.recipe()
+def print_only(messages: str) -> None:
+    """
+    Prints one or more messages
+
+    :param messages: The messages to print
+    """
+    for message in messages:
+        print(message)
+
+
 def main():
     lab = alk.Lab("cli")
-    lab.add_recipe(sleep_and_print)
+    lab.add_recipes(sleep_and_print, print_only)
     lab.register_arg(time_to_sleep_s)
     lab.register_arg(messages)
     lab.open()

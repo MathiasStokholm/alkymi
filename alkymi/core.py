@@ -21,7 +21,7 @@ OutputsAndChecksums = Tuple[R, Optional[str]]
 def create_graph(recipe: Recipe[R]) -> nx.DiGraph:
     """
     Create a Directed Acyclic Graph (DAG) based on the provided recipe
-    Each node in the graph represents a recipe, and has an associated "status" attribute
+    Each node in the graph represents a recipe
 
     :param recipe: The recipe to construct a graph for
     :return: The constructed graph
