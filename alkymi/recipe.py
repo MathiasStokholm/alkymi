@@ -24,7 +24,7 @@ class Recipe(Generic[R]):
 
     CACHE_DIRECTORY_NAME = ".alkymi_cache"
 
-    def __init__(self, func: Callable[..., R], ingredients: Iterable['Recipe'], name: str, transient: bool,
+    def __init__(self, func: Callable[..., R], ingredients: Iterable['Recipe'], name: str, transient: bool, doc: str,
                  cache: CacheType, cleanliness_func: Optional[CleanlinessFunc[R]] = None):
         """
         Create a new Recipe
@@ -34,6 +34,7 @@ class Recipe(Generic[R]):
         :param func: The function to bind to this recipe
         :param name: The name of this Recipe
         :param transient: Whether to always (re)evaluate the created Recipe
+        :param doc: Documentation string for this recipe
         :param cache: The type of caching to use for this Recipe
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
@@ -41,6 +42,7 @@ class Recipe(Generic[R]):
         self._ingredients = list(ingredients)
         self._name = name
         self._transient = transient
+        self._doc = doc
         self._cleanliness_func = cleanliness_func
 
         # Set cache type based on default value (in AlkymiConfig)
@@ -169,6 +171,13 @@ class Recipe(Generic[R]):
         return self._transient
 
     @property
+    def doc(self) -> str:
+        """
+        :return: The documentation string for this recipe
+        """
+        return self._doc
+
+    @property
     def cache(self) -> CacheType:
         """
         :return: The type of caching to use for this Recipe
@@ -246,10 +255,8 @@ class Recipe(Generic[R]):
         :param old_state: The old cached state to restore
         """
         log.debug("Restoring {} from dict".format(self._name))
-        if old_state["input_checksums"] is not None:
-            self._input_checksums = tuple(old_state["input_checksums"])
-        if old_state["outputs"] is not None and old_state["output_checksum"] is not None:
-            self._outputs = CachedOutput(None, old_state["output_checksum"], old_state["outputs"])
+        self._input_checksums = tuple(old_state["input_checksums"])
+        self._outputs = CachedOutput(None, old_state["output_checksum"], old_state["outputs"])
         self._last_function_hash = cast(str, old_state["last_function_hash"])
 
     def __repr__(self) -> str:

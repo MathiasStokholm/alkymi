@@ -40,7 +40,8 @@ def glob_files(name: str, directory: Path, pattern: str, recursive: bool, cache=
             return False
         return _glob_recipe() == last_outputs
 
-    return Recipe(_glob_recipe, [], name, transient=False, cache=cache, cleanliness_func=_check_clean)
+    doc = f"Find and return files in {directory} with pattern '{pattern}'" + (" recursively" if recursive else "")
+    return Recipe(_glob_recipe, [], name, transient=False, doc=doc, cache=cache, cleanliness_func=_check_clean)
 
 
 def file(name: str, path: Path, cache=CacheType.Auto) -> Recipe[Path]:
@@ -58,7 +59,8 @@ def file(name: str, path: Path, cache=CacheType.Auto) -> Recipe[Path]:
     def _file_recipe() -> Path:
         return Path(path_as_str)
 
-    return Recipe(_file_recipe, [], name, transient=False, cache=cache)
+    doc = f"Return {path}"
+    return Recipe(_file_recipe, [], name, transient=False, doc=doc, cache=cache)
 
 
 def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) \
@@ -104,7 +106,8 @@ def zip_results(name: str, recipes: Iterable[Recipe], cache=CacheType.Auto) \
         else:
             raise ValueError("Type: {} not supported in _zip_results()".format(type(first_iterable)))
 
-    return Recipe(_zip_results, recipes, name, transient=False, cache=cache)
+    doc = f"Zip together results from {[r.name for r in recipes]}"
+    return Recipe(_zip_results, recipes, name, transient=False, doc=doc, cache=cache)
 
 
 T = TypeVar('T')
@@ -119,18 +122,21 @@ class Arg(Recipe[T]):
     dirty and cause reevaluation of downstream recipe(s)
     """
 
-    def __init__(self, arg: T, name: str, cache=CacheType.Auto):
+    def __init__(self, arg: T, name: str, doc: str, cache=CacheType.Auto):
         """
         Create a new Arg instance with initial argument value
 
         :param arg: The initial argument value
         :param name: The name to give the created Recipe
+        :param doc: Documentation string for this argument - will be used in alkymi's Lab command line interface
         :param cache: The type of caching to use for this Recipe
         """
         self._arg = arg
         self._type = type(arg)
         self._subtype = next((type(val) for val in arg), None) if isinstance(arg, Iterable) else None
-        super().__init__(self._produce_arg, [], name, transient=False, cache=cache, cleanliness_func=self._clean)
+        self._doc = doc
+        super().__init__(self._produce_arg, [], name, transient=False, doc=doc, cache=cache,
+                         cleanliness_func=self._clean)
 
     @property
     def type(self) -> Type[T]:
@@ -173,13 +179,14 @@ class Arg(Recipe[T]):
         self._arg = _arg
 
 
-def arg(_arg: T, name: str, cache=CacheType.Auto) -> Arg[T]:
+def arg(_arg: T, name: str, doc: str = "", cache=CacheType.Auto) -> Arg[T]:
     """
     Shorthand for creating an ``Arg`` instance
 
     :param _arg: The initial argument to use
     :param name: The name to give the created Recipe
+    :param doc: Documentation string for this argument - will be used in alkymi's Lab command line interface
     :param cache: The type of caching to use for this Recipe
     :return: The created ``Arg`` instance
     """
-    return Arg(_arg, name=name, cache=cache)
+    return Arg(_arg, name=name, doc=doc, cache=cache)

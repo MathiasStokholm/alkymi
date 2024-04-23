@@ -245,4 +245,4 @@ def test_brew_running_event_loop() -> None:
         return the_answer.brew()
 
     # The "run" call here will set up and run and event loop, which will then call "_call"
-    assert alk.utils.run_on_thread(lambda: asyncio.run(_call())) == 42
+    assert alk.utils.run_on_thread(lambda: asyncio.run(_call()))() == 42

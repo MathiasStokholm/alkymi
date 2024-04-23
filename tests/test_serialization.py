@@ -41,7 +41,7 @@ def test_serialize_deserialize_items(tmpdir):
     tmpdir = Path(str(tmpdir))
 
     json_str = "{'test': 13 []''{}!!"
-    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5}, json_str)
+    items = (Path("test"), "test2", 42, 1337.0, [1, 2, 3], {"key": "value", "key2": 5}, json_str, None)
     cache_path_generator = (tmpdir / str(i) for i in range(5))
     serialized_items = serialization.serialize_item(items, cache_path_generator)
     assert serialized_items is not None
@@ -54,6 +54,7 @@ def test_serialize_deserialize_items(tmpdir):
     assert len(serialized_items[4]) == len(items[4])
     assert isinstance(serialized_items[5], dict)
     assert isinstance(serialized_items[6], str)
+    assert serialized_items[7] is None
 
     # Pass through JSON serialization to ensure we can save/load correctly
     serialized_items = json.loads(json.dumps(serialized_items, indent=4))

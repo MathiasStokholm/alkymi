@@ -24,7 +24,7 @@ class ForeachRecipe(Recipe[R]):
     """
 
     def __init__(self, mapped_recipe: Recipe, ingredients: Iterable[Recipe], func: Callable[..., R], name: str,
-                 transient: bool, cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
+                 transient: bool, doc: str, cache: CacheType, cleanliness_func: Optional[CleanlinessFunc] = None):
         """
         Create a new ForeachRecipe
 
@@ -35,6 +35,7 @@ class ForeachRecipe(Recipe[R]):
         :param func: The function to bind to this recipe
         :param name: The name of this Recipe
         :param transient: Whether to always (re)evaluate the created Recipe
+        :param doc: Documentation string for this recipe
         :param cache: The type of caching to use for this Recipe
         :param cleanliness_func: A function to allow a custom cleanliness check
         """
@@ -44,7 +45,7 @@ class ForeachRecipe(Recipe[R]):
         self._mapped_inputs_checksum: Optional[str] = None
         self._mapped_outputs: Optional[MappedOutputs] = None
         self._mapped_outputs_checksum: Optional[str] = None
-        super().__init__(func, chain([mapped_recipe], ingredients), name, transient, cache, cleanliness_func)
+        super().__init__(func, chain([mapped_recipe], ingredients), name, transient, doc, cache, cleanliness_func)
 
     @property
     def mapped_inputs_type(self) -> Optional[type]:
@@ -217,7 +218,6 @@ class ForeachRecipe(Recipe[R]):
             mapped_inputs_checksum=self.mapped_inputs_checksum,
             mapped_type="dict" if self.mapped_inputs_type == dict else "list"
         )
-
 
     def restore_from_dict(self, old_state: Dict) -> None:
         """

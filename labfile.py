@@ -29,7 +29,7 @@ def test(test_files: List[Path]) -> None:
     :param test_files: The pytest files to execute
     """
     # Run the tests on a separate thread to avoid asyncio event-loop issues (simulates normal pytest execution)
-    result = alk.utils.run_on_thread(lambda: pytest.main([str(f) for f in test_files]))
+    result = alk.utils.run_on_thread(lambda: pytest.main([str(f) for f in test_files]))()
     if result != pytest.ExitCode.OK:
         exit(1)
 

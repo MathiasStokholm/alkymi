@@ -6,6 +6,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.3.0] - 2024-04-23
+### Added
+- Added a new `doc` property to recipes that provides a documentation string for the recipe. If not provided upon
+creation of a recipe, alkymi will try to infer the documentation string by parsing the bound function's docstring
+- Added a new optional `doc` argument to the `arg` recipe that provides a documentation string for the argument
+
+### Changed
+- `stderr` is now streamed by default when using the `utils.call()` utility function [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
+- When utilizing the `Lab` command line interface, alkymi will now omit alkymi internals from tracebacks resulting from
+exceptions raised by user code (recipes) 
+- Refactored the `Lab` command line interface to provide rich information by making use of the new `doc` property on
+`Recipe` and `arg` instances
+- Changed the allowed arguments to `brew X` to only contain arguments that affect recipe `X`
+
+### Fixed
+- Remove unnecessary decimal points in fancy progress output [#42](https://github.com/MathiasStokholm/alkymi/issues/42)
+- Fixed a bug where the terminal cursor would disappear if an exception was thrown during execution
+- Fixed a bug where the terminal cursor would disappear if a `Lab` call to `brew` was terminated using ctrl-c
+- Fixed a bug where recipes returning `None` (no return value) would not be correctly cached on subsequent runs
+- Fixed CI pipeline integration with codecov.io (test coverage)
+- Fixed CI pipeline execution on MacOS agents
+
+### Removed
+- Removed the ability to brew multiple recipes from a `Lab` by listing them in succession
+
+
 ## [0.2.1] - 2023-04-27
 ### Fixed
 - Fixed a bug where execution would crash if called from a thread that had an already running event loop [#39](https://github.com/MathiasStokholm/alkymi/issues/39)
@@ -184,7 +211,8 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.0.7...v0.1.0

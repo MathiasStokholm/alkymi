@@ -1,10 +1,12 @@
 import argparse
 import logging
 import sys
+import traceback
 from typing import Dict, Union, Any, List, Optional
 from typing import Iterable, TextIO
 
 from rich import console
+from rich.control import Control
 
 from .core import Status, compute_recipe_status, create_graph
 from .logging import log
@@ -76,8 +78,15 @@ class Lab:
             try:
                 return _recipe.brew(jobs=jobs, progress_type=progress_type)
             except KeyboardInterrupt:
-                self._console.print("[bold red]Interrupted by user")
+                # Signal that execution was interrupted by the user and return cursor to normal state
+                self._console.print("\n[bold red]Interrupted by user")
+                self._console.control(Control.show_cursor(True))
                 sys.exit(1)
+            except Exception as e:  # noqa: Catch-all to fix traceback
+                # Omit the '_call_brew' stack frame, this exception handler stack frame and the
+                # '_remove_alkymi_internals_from_traceback' call from traceback
+                sys.stderr.write(Lab._remove_alkymi_internals_from_traceback(e, num_stack_frames_to_omit=3))
+                sys.exit(2)
 
         if isinstance(target_recipe, str):
             # Try to match name
@@ -124,19 +133,56 @@ class Lab:
             status.update(compute_recipe_status(recipe, graph))
         return status
 
-    def _add_user_args_(self, parser: argparse.ArgumentParser) -> None:
+    def _add_user_args_(self, parser: argparse.ArgumentParser, args: Dict[str, Arg]) -> None:
         """
         Adds user provided arguments to an ArgumentParser instance
 
         :param parser: The parser to add the user-provided arguments to
+        :param args: The arguments to add
         """
-        for arg_name, arg in self._args.items():
+        for arg_name, arg in args.items():
             # For iterables (e.g. lists), the "type" keyword is actually the type of elements in the iterable
             if issubclass(arg.type, Iterable) and not arg.type == str:
                 subtype = arg.subtype if arg.subtype is not None else str
-                parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*", dest=arg_name)
+                parser.add_argument("--{}".format(arg_name), type=subtype, nargs="*", dest=arg_name, help=arg.doc)
             else:
-                parser.add_argument("--{}".format(arg_name), type=arg.type, dest=arg_name)
+                parser.add_argument("--{}".format(arg_name), type=arg.type, dest=arg_name, help=arg.doc)
+
+    @staticmethod
+    def _remove_alkymi_internals_from_traceback(e: Exception, num_stack_frames_to_omit: int) -> str:
+        """
+
+
+        :param e: The exception to load the traceback from
+        :param num_stack_frames_to_omit: A number of stack frames to omit - can be used to e.g. ignore this call on the
+                                         stack
+        :return: A string representing the created traceback without alkymi internals
+        """
+
+        # Search from the beginning until the first item containing Recipe.__call__
+        # This denotes the first time alkymi has handed over control to user code
+        frames = traceback.extract_tb(e.__traceback__)
+        idx = 0
+        for i, frame in enumerate(frames):
+            if frame.name == "__call__" and "alkymi/recipe.py" in frame.filename:
+                idx = i + 1
+                break
+        filtered_frames = frames[idx:]
+
+        # Next, find the call stack up to the beginning of the traceback frame
+        stack = traceback.StackSummary.extract(traceback.walk_stack(None))
+
+        # Remove the most recent frames if requested
+        if num_stack_frames_to_omit > 0:
+            del stack[0:num_stack_frames_to_omit]
+
+        # Reverse stack to get the expected output order
+        stack.reverse()
+
+        # Finally, combine the stack with an "omitted" statement and the filtered traceback
+        return "".join(stack.format()) + \
+            "    <alkymi internals omitted...>\n" + \
+            "".join(traceback.StackSummary.from_list(filtered_frames).format())
 
     def __repr__(self) -> str:
         """
@@ -186,21 +232,31 @@ class Lab:
         parser = argparse.ArgumentParser('CLI for {}'.format(self._name))
         parser.add_argument("-v", "--verbose", action="store_true", help="Turn on verbose logging")
 
-        subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
+        subparsers = parser.add_subparsers(dest='subparser_name', metavar="")
 
         # Create the parser for the "status" command
-        status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab')
-        self._add_user_args_(status_parser)
+        status_parser = subparsers.add_parser('status', help='Prints the detailed status of the lab',
+                                              formatter_class=argparse.MetavarTypeHelpFormatter)
+        self._add_user_args_(status_parser, self._args)
 
-        # Create the parser for the "brew" command
+        # Create the parser for the "brew" command along with brew-specific arguments
         brew_parser = subparsers.add_parser('brew', help='Brew the selected recipe')
-        brew_parser.add_argument('recipe', choices=[recipe.name for recipe in self._recipes], nargs="+",
-                                 help='Recipe(s) to brew')
-        brew_parser.add_argument("-j", "--jobs", type=int, default=1,
+        brew_parser.add_argument("-j", "--jobs", type=int, default=1, metavar="N",
                                  help="Use N jobs to evaluate the recipe, more than 1 job will parallelize evaluation")
         brew_parser.add_argument("--progress", type=ProgressType, default=ProgressType.Fancy,
                                  choices=list(ProgressType), help="The type of progress indication to use")
-        self._add_user_args_(brew_parser)
+        brew_subparsers = brew_parser.add_subparsers(metavar="")
+
+        # Create a parser (command) for each recipe that can be brewed
+        for recipe in self._recipes:
+            recipe_parser = brew_subparsers.add_parser(recipe.name, help=recipe.doc, description=recipe.doc,
+                                                       formatter_class=argparse.MetavarTypeHelpFormatter)
+            recipe_parser.set_defaults(recipe=recipe.name)
+
+            # Use graph to only expose args that are connected to this recipe
+            graph = create_graph(recipe)
+            applicable_args = {arg_name: arg for arg_name, arg in self._args.items() if arg in graph}
+            self._add_user_args_(recipe_parser, applicable_args)
 
         parsed_args = parser.parse_args(args)
         log.addHandler(logging.StreamHandler(stream))
@@ -222,8 +278,11 @@ class Lab:
         if parsed_args.subparser_name == 'status':
             self.print_status()
         elif parsed_args.subparser_name == 'brew':
-            for recipe in parsed_args.recipe:
-                self.brew(recipe, jobs=parsed_args.jobs, progress_type=parsed_args.progress)
+            # If not recipe was provided to brew, just print help
+            if "recipe" not in parsed_args:
+                brew_parser.print_help()
+                return
+            self.brew(parsed_args.recipe, jobs=parsed_args.jobs, progress_type=parsed_args.progress)
         else:
             # No recognized command provided - print help
             parser.print_help(file=stream)

@@ -29,7 +29,7 @@ class FancyProgress(rich.progress.Progress):
         # Define the columns to use for progress table
         super().__init__(TextColumn("[deep_sky_blue2]{task.description}"),
                          BarColumn(),
-                         TextColumn("{task.completed}/{task.total} ({task.percentage}%)"),
+                         TextColumn("{task.completed}/{task.total} ({task.percentage:>3.0f}%)"),
                          TextColumn("•"),
                          TimeElapsedColumn(),
                          console=self._console, redirect_stdout=True, redirect_stderr=True)
