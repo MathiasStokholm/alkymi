@@ -23,6 +23,8 @@ exceptions raised by user code (recipes)
 - Fixed a bug where the terminal cursor would disappear if an exception was thrown during execution
 - Fixed a bug where the terminal cursor would disappear if a `Lab` call to `brew` was terminated using ctrl-c
 - Fixed a bug where recipes returning `None` (no return value) would not be correctly cached on subsequent runs
+- Fixed CI pipeline integration with codecov.io (test coverage)
+- Fixed CI pipeline execution on MacOS agents
 
 ### Removed
 - Removed the ability to brew multiple recipes from a `Lab` by listing them in succession
