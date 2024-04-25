@@ -14,14 +14,16 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../.'))
-from alkymi import __version__
+
+# Load the __version__ attribute without importing all of alkymi
+with open("../.././alkymi/version.py") as version_file:
+    exec(version_file.read())
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'alkymi'
-copyright = '2023, Mathias Bøgh Stokholm'
+copyright = '2024, Mathias Bøgh Stokholm'
 author = 'Mathias Bøgh Stokholm'
 
 # The short X.Y version
