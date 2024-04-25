@@ -23,7 +23,7 @@ with open("../.././alkymi/version.py") as version_file:
 # -- Project information -----------------------------------------------------
 
 project = 'alkymi'
-copyright = '2023, Mathias Bøgh Stokholm'
+copyright = '2024, Mathias Bøgh Stokholm'
 author = 'Mathias Bøgh Stokholm'
 
 # The short X.Y version
