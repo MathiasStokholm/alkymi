@@ -98,7 +98,7 @@ def type_check(source_files: List[Path], example_files: List[Path], test_files: 
         exit(return_code)
 
 
-@alk.recipe()
+@alk.recipe(transient=True)
 def docs() -> None:
     """
     Build the documentation in docs/source using Sphinx and stores it in docs/build/index.html
