@@ -246,3 +246,18 @@ def test_brew_running_event_loop() -> None:
 
     # The "run" call here will set up and run and event loop, which will then call "_call"
     assert alk.utils.run_on_thread(lambda: asyncio.run(_call()))() == 42
+
+
+def test_parallel_exception(capsys: pytest.CaptureFixture) -> None:
+    """
+    Test that multiple exceptions raising in parallel will just raise the first exception without any warnings
+    """
+
+    values = alk.arg([1, 2, 3, 4, 5], name="values")
+
+    @alk.foreach(values)
+    def fail_on_each(value: int) -> None:
+        raise RuntimeError(value)
+
+    with pytest.raises(RuntimeError):
+        fail_on_each.brew(jobs=5)
