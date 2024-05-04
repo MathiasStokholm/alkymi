@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import io
+import time
 from typing import List
 
 import pytest
@@ -187,9 +188,11 @@ def test_lab_omits_alkymi_internals_in_traceback(capsys: pytest.CaptureFixture) 
     """
 
     # Create a lab containing a single recipe that will raise on execution
+    expected_error_message = f"Failure @ {time.time()}"
+
     @alk.recipe()
     def fail() -> None:
-        raise RuntimeError("Failure")
+        raise RuntimeError(expected_error_message)
 
     lab = alk.Lab("failure lab")
     lab.add_recipe(fail)
@@ -206,7 +209,8 @@ def test_lab_omits_alkymi_internals_in_traceback(capsys: pytest.CaptureFixture) 
     assert 'lab.brew(fail)' in printed_error  # The lab invocation that led to the failure
     assert '<alkymi internals omitted...>' in printed_error  # A statement that alkymi internals were omitted
     assert 'in fail' in printed_error  # The recipe (function) that failed
-    assert 'raise RuntimeError("Failure")' in printed_error  # The line that failed
+    assert 'RuntimeError(expected_error_message)' in printed_error  # The line that failed
+    assert f"RuntimeError: {expected_error_message}" in printed_error  # The actual error message
 
     # The traceback should not contain the following:
     assert 'alkymi/core.py' not in printed_error  # Any line related to the internal execution engine of alkymi
