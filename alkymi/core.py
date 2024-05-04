@@ -357,8 +357,11 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         if jobs > 1:
             # Set a noop exception handler to avoid warnings about exceptions that were not retrieved. Only the first
             # exception will be raised by alkymi to the caller
-            def _exception_handler(_, __):
-                pass
+            def _exception_handler(_, context: Dict[str, Any]):
+                # context["message"] will always be there; but context["exception"] may not
+                msg = context.get("exception", context["message"])
+                log.debug(f"Exception during parallel execution: '{msg}'")
+
             loop.set_exception_handler(_exception_handler)
 
         async def _execute() -> OutputsAndChecksums[R]:
