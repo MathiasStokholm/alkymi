@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed readthedocs.org documentation build now requiring a .readthedocs.yaml config file
+- Fixed a bug where the actual error message from an exception happening during execution through a `Lab` instance would
+be omitted
 
 
 ## [0.3.0] - 2024-04-23

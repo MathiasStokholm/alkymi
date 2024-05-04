@@ -151,7 +151,9 @@ class Lab:
     @staticmethod
     def _remove_alkymi_internals_from_traceback(e: Exception, num_stack_frames_to_omit: int) -> str:
         """
-
+        Remove parts of the stack trace internal to alkymi to create a shorter and less noisy error message. Will
+        prepend the current call stack to accurately present the whole exception as though it had bubbled all the way
+        up to the caller
 
         :param e: The exception to load the traceback from
         :param num_stack_frames_to_omit: A number of stack frames to omit - can be used to e.g. ignore this call on the
@@ -182,7 +184,8 @@ class Lab:
         # Finally, combine the stack with an "omitted" statement and the filtered traceback
         return "".join(stack.format()) + \
             "    <alkymi internals omitted...>\n" + \
-            "".join(traceback.StackSummary.from_list(filtered_frames).format())
+            "".join(traceback.StackSummary.from_list(filtered_frames).format()) + \
+            "".join(traceback.format_exception_only(type(e), value=e))
 
     def __repr__(self) -> str:
         """
