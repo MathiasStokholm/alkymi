@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed readthedocs.org documentation build now requiring a .readthedocs.yaml config file
 - Fixed a bug where the actual error message from an exception happening during execution through a `Lab` instance would
 be omitted
+- Fixed an issue where exceptions in recipes could cause asyncio to print warning information about the `_schedule`
+coroutine never being awaited
+- Fixed an issue where asyncio would warn about exceptions not having been retrieved from futures when more than one
+exception was raised during parallel execution. Alkymi will now just raise the first exception it encounters. 
 
 
 ## [0.3.0] - 2024-04-23
