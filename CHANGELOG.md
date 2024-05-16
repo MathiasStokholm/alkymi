@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.3.1] - 2024-05-16
+### Fixed
+- Fixed readthedocs.org documentation build now requiring a .readthedocs.yaml config file
+- Fixed a bug where the actual error message from an exception happening during execution through a `Lab` instance would
+be omitted
+- Fixed an issue where exceptions in recipes could cause asyncio to print warning information about the `_schedule`
+coroutine never being awaited
+- Fixed an issue where asyncio would warn about exceptions not having been retrieved from futures when more than one
+exception was raised during parallel execution. Alkymi will now just raise the first exception it encounters. 
+
+
 ## [0.3.0] - 2024-04-23
 ### Added
 - Added a new `doc` property to recipes that provides a documentation string for the recipe. If not provided upon
@@ -211,7 +222,8 @@ from cache
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/MathiasStokholm/alkymi/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/MathiasStokholm/alkymi/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MathiasStokholm/alkymi/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MathiasStokholm/alkymi/compare/v0.1.0...v0.2.0

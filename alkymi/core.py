@@ -354,6 +354,16 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
+        if jobs > 1:
+            # Set a noop exception handler to avoid warnings about exceptions that were not retrieved. Only the first
+            # exception will be raised by alkymi to the caller
+            def _exception_handler(_, context: Dict[str, Any]):
+                # context["message"] will always be there; but context["exception"] may not
+                msg = context.get("exception", context["message"])
+                log.debug(f"Exception during parallel execution: '{msg}'")
+
+            loop.set_exception_handler(_exception_handler)
+
         async def _execute() -> OutputsAndChecksums[R]:
             # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
             # This guarantees that futures only depend on already created futures
@@ -369,12 +379,13 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
                                                    progress)
 
             # Wait for future for target recipe to return
-            result = await coros_or_tasks[recipe]
-
-            # Close coroutines that were not converted to tasks, since they were never needed for the execution
-            for coro_or_task in coros_or_tasks.values():
-                if asyncio.iscoroutine(coro_or_task):
-                    coro_or_task.close()
+            try:
+                result = await coros_or_tasks[recipe]
+            finally:
+                # Close coroutines that were not converted to tasks, since they were never needed for the execution
+                for coro_or_task in coros_or_tasks.values():
+                    if asyncio.iscoroutine(coro_or_task):
+                        coro_or_task.close()
 
             return result
 
