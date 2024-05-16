@@ -1,3 +1,4 @@
+import dataclasses
 import pickle
 import re
 from abc import ABCMeta, abstractmethod
@@ -34,6 +35,7 @@ def create_token(name) -> str:
 PATH_TOKEN = create_token("path")
 PICKLE_TOKEN = create_token("pickle")
 BYTES_TOKEN = create_token("bytes")
+DATACLASS_TOKEN = create_token("data_class")
 
 S = TypeVar("S")  # The type that a Serializer subclass acts on
 
@@ -128,6 +130,9 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Seria
         keys = serialize_item(list(item.keys()), cache_path_generator)
         values = serialize_item(list(item.values()), cache_path_generator)
         return dict(keys=keys, values=values)
+    elif dataclasses.is_dataclass(item):
+        return "{}{}:{}".format(DATACLASS_TOKEN, item.__class__.__qualname__,
+                                serialize_item(dataclasses.asdict(item), cache_path_generator))
     else:
         # As a last resort, try to dump as pickle
         if not AlkymiConfig.get().allow_pickling:
@@ -167,6 +172,13 @@ def deserialize_item(item: SerializableRepresentation) -> Any:
                 # Bytes dumped to file
                 with open(item[len(BYTES_TOKEN):], "rb") as f:
                     return f.read()
+            elif item.startswith(DATACLASS_TOKEN):
+                # Dataclass type encoded as string, e.g. "!#dataclass#!DATACLASS_TYPE:DATACLASS_AS_DICT"
+                non_token_part = item[len(DATACLASS_TOKEN):]
+                dataclass_type, dict_repr = non_token_part.split(":", maxsplit=1)
+                # deserialize_item(dict_repr)
+                from importlib import import_module
+                pass
             elif item.startswith(PICKLE_TOKEN):
                 # Arbitrary object encoded as pickle
                 if not AlkymiConfig.get().allow_pickling:

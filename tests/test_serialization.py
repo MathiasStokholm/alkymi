@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import copy
+import dataclasses
 import json
 import time
 from pathlib import Path
@@ -214,3 +215,20 @@ def test_enable_disable_pickling(tmpdir):
 
     # Return to default state
     AlkymiConfig.get().allow_pickling = True
+
+
+def test_dataclass_serialization(tmp_path: Path) -> None:
+    # Inline classes can't be pickled, so this will only work if dataclass serialization works as expected
+    @dataclasses.dataclass
+    class Data:
+        a_string: str
+        a_number: int
+
+    instance = Data(a_string="test", a_number=42)
+    cache_path_generator = (tmp_path / str(i) for i in range(5))
+    serialized = serialization.serialize_item(instance, cache_path_generator)
+
+    # Pass through JSON serialization to ensure we can save/load correctly
+    json_encoded = json.loads(json.dumps(serialized, indent=4))
+    deserialized = serialization.deserialize_item(json_encoded)
+    assert deserialized == instance
