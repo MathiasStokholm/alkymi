@@ -1,5 +1,7 @@
 import dataclasses
+import json
 import pickle
+import pydoc
 import re
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
@@ -131,8 +133,10 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Seria
         values = serialize_item(list(item.values()), cache_path_generator)
         return dict(keys=keys, values=values)
     elif dataclasses.is_dataclass(item):
-        return "{}{}:{}".format(DATACLASS_TOKEN, item.__class__.__qualname__,
-                                serialize_item(dataclasses.asdict(item), cache_path_generator))
+        output_file = next(cache_path_generator)
+        with output_file.open("w") as f:
+            json.dump(serialize_item(dataclasses.asdict(item), cache_path_generator), f)
+        return "{}{}:{}".format(DATACLASS_TOKEN, item.__module__ + '.' + item.__class__.__name__, output_file)
     else:
         # As a last resort, try to dump as pickle
         if not AlkymiConfig.get().allow_pickling:
@@ -173,12 +177,15 @@ def deserialize_item(item: SerializableRepresentation) -> Any:
                 with open(item[len(BYTES_TOKEN):], "rb") as f:
                     return f.read()
             elif item.startswith(DATACLASS_TOKEN):
-                # Dataclass type encoded as string, e.g. "!#dataclass#!DATACLASS_TYPE:DATACLASS_AS_DICT"
+                # Dataclass type encoded as string, e.g. "!#dataclass#!DATACLASS_TYPE:DATACLASS_AS_JSON_PATH"
                 non_token_part = item[len(DATACLASS_TOKEN):]
-                dataclass_type, dict_repr = non_token_part.split(":", maxsplit=1)
-                # deserialize_item(dict_repr)
-                from importlib import import_module
-                pass
+                dataclass_type, json_path = non_token_part.split(":", maxsplit=1)
+                with open(json_path, "r") as f:
+                    dict_repr = json.load(f)
+
+                import pydoc
+                clazz = pydoc.locate(dataclass_type)
+                return clazz(**deserialize_item(dict_repr))
             elif item.startswith(PICKLE_TOKEN):
                 # Arbitrary object encoded as pickle
                 if not AlkymiConfig.get().allow_pickling:

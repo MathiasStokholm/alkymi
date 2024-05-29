@@ -217,12 +217,14 @@ def test_enable_disable_pickling(tmpdir):
     AlkymiConfig.get().allow_pickling = True
 
 
+@dataclasses.dataclass
+class Data:
+    a_string: str
+    a_number: int
+
+
 def test_dataclass_serialization(tmp_path: Path) -> None:
-    # Inline classes can't be pickled, so this will only work if dataclass serialization works as expected
-    @dataclasses.dataclass
-    class Data:
-        a_string: str
-        a_number: int
+    AlkymiConfig.get().allow_pickling = False
 
     instance = Data(a_string="test", a_number=42)
     cache_path_generator = (tmp_path / str(i) for i in range(5))
@@ -232,3 +234,6 @@ def test_dataclass_serialization(tmp_path: Path) -> None:
     json_encoded = json.loads(json.dumps(serialized, indent=4))
     deserialized = serialization.deserialize_item(json_encoded)
     assert deserialized == instance
+
+    # Return to default state
+    AlkymiConfig.get().allow_pickling = True
