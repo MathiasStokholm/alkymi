@@ -218,15 +218,23 @@ def test_enable_disable_pickling(tmpdir):
 
 
 @dataclasses.dataclass
+class NestedData:
+    a_float: float
+
+
+@dataclasses.dataclass(frozen=True)
 class Data:
     a_string: str
     a_number: int
+    more_data: List[NestedData]
 
 
 def test_dataclass_serialization(tmp_path: Path) -> None:
+    # Disallow pickling to ensure that dataclass serialization is really used
     AlkymiConfig.get().allow_pickling = False
 
-    instance = Data(a_string="test", a_number=42)
+    # Create a nested dataclass instance to check the serialization/deserialization process
+    instance = Data(a_string="test", a_number=42, more_data=[NestedData(a_float=12.283), NestedData(a_float=18.5)])
     cache_path_generator = (tmp_path / str(i) for i in range(5))
     serialized = serialization.serialize_item(instance, cache_path_generator)
 

@@ -131,12 +131,10 @@ def serialize_item(item: Any, cache_path_generator: CachePathGenerator) -> Seria
     elif isinstance(item, dict):
         keys = serialize_item(list(item.keys()), cache_path_generator)
         values = serialize_item(list(item.values()), cache_path_generator)
-        return dict(keys=keys, values=values)
+        return dict(__alkymi_type__="plain_dict", keys=keys, values=values)
     elif dataclasses.is_dataclass(item):
-        output_file = next(cache_path_generator)
-        with output_file.open("w") as f:
-            json.dump(serialize_item(dataclasses.asdict(item), cache_path_generator), f)
-        return "{}{}:{}".format(DATACLASS_TOKEN, item.__module__ + '.' + item.__class__.__name__, output_file)
+        return dict(__alkymi_type__="dataclass", type=item.__module__ + '.' + item.__class__.__name__,
+                    data=serialize_item(item.__dict__, cache_path_generator))
     else:
         # As a last resort, try to dump as pickle
         if not AlkymiConfig.get().allow_pickling:
@@ -176,16 +174,6 @@ def deserialize_item(item: SerializableRepresentation) -> Any:
                 # Bytes dumped to file
                 with open(item[len(BYTES_TOKEN):], "rb") as f:
                     return f.read()
-            elif item.startswith(DATACLASS_TOKEN):
-                # Dataclass type encoded as string, e.g. "!#dataclass#!DATACLASS_TYPE:DATACLASS_AS_JSON_PATH"
-                non_token_part = item[len(DATACLASS_TOKEN):]
-                dataclass_type, json_path = non_token_part.split(":", maxsplit=1)
-                with open(json_path, "r") as f:
-                    dict_repr = json.load(f)
-
-                import pydoc
-                clazz = pydoc.locate(dataclass_type)
-                return clazz(**deserialize_item(dict_repr))
             elif item.startswith(PICKLE_TOKEN):
                 # Arbitrary object encoded as pickle
                 if not AlkymiConfig.get().allow_pickling:
@@ -204,15 +192,24 @@ def deserialize_item(item: SerializableRepresentation) -> Any:
     elif isinstance(item, Sequence):
         return list(deserialize_item(subitem) for subitem in item)
     elif isinstance(item, dict):
-        # These should never be triggered, because we always store keys and values as lists in serialize_item(), but
-        # this makes the type-checker happy
-        if not isinstance(item["keys"], Iterable):
-            raise ValueError("'keys' entry must be a list")
-        if not isinstance(item["values"], Iterable):
-            raise ValueError("'values' entry must be a list")
-        keys = list(deserialize_item(key) for key in item["keys"])
-        values = list(deserialize_item(val) for val in item["values"])
-        return {key: value for key, value in zip(keys, values)}
+        # Use the "__alkymi_type__" field to determine the subtype of the data stored in the dict
+        subtype = item["__alkymi_type__"]
+        if subtype == "plain_dict":
+            # These should never be triggered, because we always store keys and values as lists in serialize_item(), but
+            # this makes the type-checker happy
+            if not isinstance(item["keys"], Iterable):
+                raise ValueError("'keys' entry must be a list")
+            if not isinstance(item["values"], Iterable):
+                raise ValueError("'values' entry must be a list")
+            keys = list(deserialize_item(key) for key in item["keys"])
+            values = list(deserialize_item(val) for val in item["values"])
+            return {key: value for key, value in zip(keys, values)}
+        elif subtype == "dataclass":
+            clazz = pydoc.locate(item["type"])
+            data = deserialize_item(item["data"])
+            return clazz(**data)
+        else:
+            raise KeyError("Unknown type for serialized dict: '{}'".format(subtype))
     else:
         raise Exception("Cannot deserialize item of type: {}".format(type(item)))
 
