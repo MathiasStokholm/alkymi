@@ -2,7 +2,7 @@
 
 ## Overview
 
-Alkymi is a pure Python (3.7+) library for describing and executing data processing pipelines with built-in caching
+Alkymi is a pure Python (3.8+) library for describing and executing data processing pipelines with built-in caching
 and conditional evaluation based on checksums. It allows users to write pipelines as decorated Python functions that
 are automatically cached to disk. On subsequent runs, only the parts of the pipeline whose inputs have changed are
 re-executed.
@@ -244,7 +244,7 @@ Configuration files:
 |---------|----------------|---------|
 | `networkx` | 2.0 | DAG construction and topological ordering |
 | `rich` | 10.7 | Fancy terminal progress bars |
-| `markdown-it-py` | <3.0.0 | Docstring rendering in CLI help text (locked below 3.0 to retain Python 3.7 support) |
+| `markdown-it-py` | – | Docstring rendering in CLI help text |
 
 Optional (automatically detected at runtime):
 - `xxhash` ≥ 2.0.0 – faster checksums (falls back to MD5 when absent).
@@ -256,7 +256,7 @@ Optional (automatically detected at runtime):
 ## CI / Continuous Integration
 
 GitHub Actions workflows live in `.github/workflows/`. The `build` workflow triggers on pushes and pull requests to
-`master` and `develop`. It runs a matrix of Python 3.7–3.11 on Ubuntu, macOS, and Windows and executes:
+`master` and `develop`. It runs a matrix of Python 3.8–3.11 on Ubuntu, macOS, and Windows and executes:
 
 1. `python labfile.py brew --progress=none lint`
 2. `python labfile.py brew --progress=none coverage`
@@ -274,5 +274,5 @@ Coverage results are uploaded to Codecov after every run.
 | Author | Mathias Bøgh Stokholm |
 | PyPI package | `alkymi` |
 | Documentation | https://alkymi.readthedocs.io/ |
-| Python versions | 3.7, 3.8, 3.9, 3.10, 3.11+ |
+| Python versions | 3.8, 3.9, 3.10, 3.11+ |
 | Development status | Beta (latest: see `alkymi/version.py`) |
