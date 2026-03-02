@@ -62,9 +62,8 @@ examples/                   # Standalone runnable examples
   notebook/                 # Jupyter notebook example
 
 labfile.py                  # Alkymi's own build/test/lint recipes (self-hosting)
-setup.py                    # Package metadata and dependencies
+pyproject.toml              # Package metadata, dependencies, and dev dependency groups
 requirements.txt            # Runtime dependencies: networkx, rich, markdown-it-py
-dev-requirements.txt        # Dev dependencies: pytest, mypy, flake8, sphinx, coverage, …
 mypy.ini                    # Mypy configuration
 ```
 
@@ -173,22 +172,22 @@ All developer tasks are defined as alkymi recipes in `labfile.py`. Run them with
 
 ```shell
 # Run the full unit test suite
-python3 labfile.py brew test
+uv run python labfile.py brew test
 
 # Run tests with code coverage (outputs coverage.xml + terminal report)
-python3 labfile.py brew coverage
+uv run python labfile.py brew coverage
 
 # Lint all source, example, and test files with flake8 (max line length 120)
-python3 labfile.py brew lint
+uv run python labfile.py brew lint
 
 # Type-check all files with mypy
-python3 labfile.py brew type_check
+uv run python labfile.py brew type_check
 
 # Build Sphinx HTML documentation into docs/build/
-python3 labfile.py brew docs
+uv run python labfile.py brew docs
 
 # Build source and wheel distributions into dist/
-python3 labfile.py brew build
+uv run python labfile.py brew build
 ```
 
 You can also run pytest directly:
@@ -200,7 +199,7 @@ pytest tests/test_caching.py -v
 
 Configuration files:
 - `mypy.ini` – mypy settings (strict mode is not enabled by default).
-- `dev-requirements.txt` – install all dev tools with `pip install -r dev-requirements.txt`.
+- `pyproject.toml` – install all dev tools with `uv sync --dev`.
 
 ---
 

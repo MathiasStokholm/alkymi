@@ -8,12 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `AGENTS.md` – a comprehensive repository guide for AI agents describing
   the layout, core concepts, key classes, and development workflows
+- Added `pyproject.toml` to replace `setup.py` and `dev-requirements.txt`, using
+  setuptools as the build backend with `[dependency-groups]` for dev dependencies
 
 ### Changed
 - Dropped Python 3.7 support; minimum supported Python version is now **3.8**
 - Updated CI macOS runner from `macos-13` (deprecated) to `macos-latest`
 - Updated CI Python version specifiers to minor-version ranges (`3.10`, `3.11`) so that arm64 macOS runners can resolve available patch releases
 - Updated CI Linux runner from `ubuntu-20.04` to `ubuntu-latest`
+- Migrated CI to use `astral-sh/setup-uv` action; dependencies are now installed
+  via `uv sync --dev` and commands run via `uv run`
+- Updated `actions/checkout` in CI from `v2` to `v4`
+- Migrated build recipe in `labfile.py` from `python setup.py sdist bdist_wheel`
+  to `uv build`
+- Migrated release recipes in `labfile.py` from `twine upload` to `uv publish`
+
+### Removed
+- Removed `setup.py` (superseded by `pyproject.toml`)
+- Removed `dev-requirements.txt` (superseded by `[dependency-groups]` in `pyproject.toml`)
 
 
 ## [0.3.1] - 2024-05-16
