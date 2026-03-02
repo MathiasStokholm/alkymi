@@ -57,4 +57,5 @@ dev = [
     "mypy==1.2.0",
     "flake8==4.0.1",
     "coverage==6.4.2",
+    "setuptools<80",
 ]
