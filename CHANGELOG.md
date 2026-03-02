@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dropped Python 3.7 support; minimum supported Python version is now **3.8**
 - Updated CI macOS runner from `macos-13` (deprecated) to `macos-latest`
 - Updated CI Python version specifiers to minor-version ranges (`3.10`, `3.11`) so that arm64 macOS runners can resolve available patch releases
+- Updated CI Linux runner from `ubuntu-20.04` to `ubuntu-latest`
 
 
 ## [0.3.1] - 2024-05-16
