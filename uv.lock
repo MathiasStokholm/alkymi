@@ -38,8 +38,6 @@ wheels = [
 name = "alkymi"
 source = { editable = "." }
 dependencies = [
-    { name = "markdown-it-py", version = "3.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "markdown-it-py", version = "4.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "networkx", version = "3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "networkx", version = "3.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
@@ -64,7 +62,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "markdown-it-py" },
     { name = "networkx", specifier = ">=2.0" },
     { name = "rich", specifier = ">=10.7" },
     { name = "xxhash", marker = "extra == 'xxhash'", specifier = ">=2.0.0" },

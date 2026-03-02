@@ -15,7 +15,6 @@ requires-python = ">=3.8"
 dependencies = [
     "networkx>=2.0",
     "rich>=10.7",
-    "markdown-it-py",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
