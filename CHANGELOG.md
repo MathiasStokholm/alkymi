@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added `AGENTS.md` – a comprehensive repository guide for AI agents describing
+  the layout, core concepts, key classes, and development workflows
+
+### Changed
+- Dropped Python 3.7 support; minimum supported Python version is now **3.8**
+- Removed the `markdown-it-py<3.0.0` version cap in `requirements.txt` (the
+  cap existed solely to keep the Python 3.7 mypy check passing)
+- Updated `mypy.ini` to use `python_version = 3.8`
+- Removed Python 3.7 from the CI build matrix in `.github/workflows/build.yml`
 
 
 ## [0.3.1] - 2024-05-16

@@ -253,6 +253,22 @@ Optional (automatically detected at runtime):
 
 ---
 
+## Changelog
+
+The project keeps a `CHANGELOG.md` in the repository root. It follows the
+[Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format and
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+**Every change made to the repository must be recorded in `CHANGELOG.md`.**
+Add your entries under the `## [Unreleased]` section at the top of the file,
+grouped under one of: `Added`, `Changed`, `Fixed`, or `Removed`.
+
+When a new version is released the `[Unreleased]` block is renamed to
+`[X.Y.Z] - YYYY-MM-DD` and a fresh empty `[Unreleased]` block is added above
+it.
+
+---
+
 ## CI / Continuous Integration
 
 GitHub Actions workflows live in `.github/workflows/`. The `build` workflow triggers on pushes and pull requests to
