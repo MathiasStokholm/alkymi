@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "alkymi"
+description = "alkymi - Pythonic task automation"
+dynamic = ["version"]
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Mathias Bøgh Stokholm", email = "mathias.stokholm@gmail.com" },
+]
+requires-python = ">=3.8"
+dependencies = [
+    "networkx>=2.0",
+    "rich>=10.7",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Scientific/Engineering",
+]
+keywords = ["automation", "pipeline", "validation", "preprocessing", "make", "build", "task"]
+
+[project.optional-dependencies]
+xxhash = ["xxhash>=2.0.0"]
+
+[project.urls]
+Source = "https://github.com/MathiasStokholm/alkymi/"
+Tracker = "https://github.com/MathiasStokholm/alkymi/issues"
+Documentation = "https://alkymi.readthedocs.io/en/latest/"
+
+[tool.hatch.version]
+path = "alkymi/version.py"
+
+[dependency-groups]
+dev = [
+    "sphinx==4.3.0",
+    "pytest==7.0.0",
+    "mypy==1.2.0",
+    "flake8==4.0.1",
+    "coverage==6.4.2",
+    "setuptools<80",
+]

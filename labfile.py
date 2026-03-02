@@ -116,7 +116,7 @@ def docs() -> None:
 @alk.recipe(transient=True)
 def build() -> Path:
     """
-    Builds the distributions (source + wheel) for alkymi
+    Builds the distributions (source + wheel) for alkymi using uv
 
     :return: The directory holding the outputs
     """
@@ -124,9 +124,8 @@ def build() -> Path:
     dist_dir = Path("dist")
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
-    dist_dir.mkdir(exist_ok=False)
 
-    alk.utils.call(["python3", "setup.py", "sdist", "bdist_wheel"])
+    alk.utils.call(["uv", "build"])
     return dist_dir
 
 
@@ -137,7 +136,7 @@ def release_test(build: Path) -> None:
 
     :param build: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call(["python3", "-m", "twine", "upload", "--repository", "testpypi", "{}/*".format(build)])
+    alk.utils.call(["uv", "publish", "--publish-url", "https://test.pypi.org/legacy/", "{}/*".format(build)])
 
 
 @alk.recipe(transient=True)
@@ -147,7 +146,7 @@ def release(build: Path) -> None:
 
     :param build: The build directory containing alkymi distributions to upload
     """
-    alk.utils.call(["python3", "-m", "twine", "upload", "{}/*".format(build)])
+    alk.utils.call(["uv", "publish", "{}/*".format(build)])
 
 
 def main():
