@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "alkymi"
@@ -47,15 +47,8 @@ Source = "https://github.com/MathiasStokholm/alkymi/"
 Tracker = "https://github.com/MathiasStokholm/alkymi/issues"
 Documentation = "https://alkymi.readthedocs.io/en/latest/"
 
-[tool.setuptools.dynamic]
-version = { attr = "alkymi.version.__version__" }
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["alkymi*"]
-
-[tool.setuptools.package-data]
-alkymi = ["py.typed"]
+[tool.hatch.version]
+path = "alkymi/version.py"
 
 [dependency-groups]
 dev = [

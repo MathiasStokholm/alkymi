@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `AGENTS.md` – a comprehensive repository guide for AI agents describing
   the layout, core concepts, key classes, and development workflows
 - Added `pyproject.toml` to replace `setup.py` and `dev-requirements.txt`, using
-  setuptools as the build backend with `[dependency-groups]` for dev dependencies
+  hatchling as the build backend with `[dependency-groups]` for dev dependencies
 
 ### Changed
 - Dropped Python 3.7 support; minimum supported Python version is now **3.8**
@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated CI to use `astral-sh/setup-uv` action; dependencies are now installed
   via `uv sync --dev` and commands run via `uv run`
 - Updated `actions/checkout` in CI from `v2` to `v4`
-- Migrated build recipe in `labfile.py` from `python setup.py sdist bdist_wheel`
-  to `uv build`
+- Migrated build backend from `setuptools` to `hatchling` to fix editable installs via `uv sync --dev`
+- Updated `alkymi/version.py` to use a static `__version__` string (required by hatchling's path-based version source)
+- Migrated build recipe in `labfile.py` from `python setup.py sdist bdist_wheel` to `uv build`
 - Migrated release recipes in `labfile.py` from `twine upload` to `uv publish`
 
 ### Removed
