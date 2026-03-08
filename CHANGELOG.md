@@ -20,14 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI Linux runner from `ubuntu-20.04` to `ubuntu-latest`
 - Migrated CI to use `astral-sh/setup-uv` action; dependencies are now installed
   via `uv sync --dev` and commands run via `uv run`
-- Replaced `networkx` dependency with a custom `Graph` (DAG) implementation in
-  `alkymi/graph.py`; `networkx` is no longer a runtime dependency
 - Removed `markdown-it-py` as a direct dependency (it is pulled in transitively by `rich`)
 - Updated `actions/checkout` in CI from `v2` to `v4`
 - Migrated build backend from `setuptools` to `hatchling` to fix editable installs via `uv sync --dev`
 - Updated `alkymi/version.py` to use a static `__version__` string (required by hatchling's path-based version source)
 - Migrated build recipe in `labfile.py` from `python setup.py sdist bdist_wheel` to `uv build`
 - Migrated release recipes in `labfile.py` from `twine upload` to `uv publish`
+- Replaced `networkx` dependency with a custom `Graph` (DAG) implementation in
+  `alkymi/graph.py`; `networkx` is no longer a runtime dependency
 
 ### Removed
 - Removed `setup.py` (superseded by `pyproject.toml`)

@@ -17,7 +17,7 @@ from .types import Status, ProgressCallback, EvaluateProgress
 OutputsAndChecksums = Tuple[R, Optional[str]]
 
 
-def create_graph(recipe: Recipe[R]) -> Graph:
+def create_graph(recipe: Recipe[R]) -> Graph[Recipe]:
     """
     Create a Directed Acyclic Graph (DAG) based on the provided recipe
     Each node in the graph represents a recipe
@@ -31,7 +31,7 @@ def create_graph(recipe: Recipe[R]) -> Graph:
     return graph
 
 
-def _add_recipe_to_graph(recipe: Recipe, graph: Graph) -> None:
+def _add_recipe_to_graph(recipe: Recipe, graph: Graph[Recipe]) -> None:
     """
     Add a node representing a recipe to the graph, and recursively add dependencies of the provided recipe as nodes with
     edges to the current node
@@ -48,7 +48,7 @@ def _add_recipe_to_graph(recipe: Recipe, graph: Graph) -> None:
         graph.add_edge(_ingredient, recipe)
 
 
-def _compute_status(recipe: Recipe, graph: Graph, statuses: Dict[Recipe, Status]) -> Status:
+def _compute_status(recipe: Recipe, graph: Graph[Recipe], statuses: Dict[Recipe, Status]) -> Status:
     """
     Compute the status for the provided recipe (and recursively for dependencies) and add them all to the provided
     'statuses' dict
@@ -92,7 +92,7 @@ def _compute_status(recipe: Recipe, graph: Graph, statuses: Dict[Recipe, Status]
     return _store_and_return(status)
 
 
-def compute_recipe_status(recipe: Recipe[R], graph: Graph) -> Dict[Recipe, Status]:
+def compute_recipe_status(recipe: Recipe[R], graph: Graph[Recipe]) -> Dict[Recipe, Status]:
     """
     Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs)
 
@@ -322,7 +322,7 @@ async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.future
         return await invoke(recipe, inputs, input_checksums, loop, executor, progress_callback)
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: Graph, statuses: Dict[Recipe, Status], jobs: int,
+def evaluate_recipe(recipe: Recipe[R], graph: Graph[Recipe], statuses: Dict[Recipe, Status], jobs: int,
                     progress_type: Optional[ProgressType] = None) -> OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date

@@ -52,10 +52,6 @@ def test_create_graph() -> None:
     # Create a graph from the 'root' recipe (this will automatically traverse the dependencies)
     graph = alk.core.create_graph(root)
 
-    # Graph should be directed and not a multi-graph (no parallel edges)
-    assert graph.is_directed()
-    assert not graph.is_multigraph()
-
     # Graph should have one node for each recipe
     assert len(graph.nodes) == len([a, b, c, depends_a, foreach_a, depends_ab, root])
 
