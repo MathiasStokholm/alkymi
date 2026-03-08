@@ -26,7 +26,7 @@ def create_graph(recipe: Recipe[R]) -> Graph[Recipe]:
     :return: The constructed graph
     """
     log.debug(f'Building graph for {recipe.name}')
-    graph = Graph()
+    graph: Graph[Recipe] = Graph()
     _add_recipe_to_graph(recipe, graph)
     return graph
 
