@@ -1,18 +1,18 @@
 from typing import Dict, Optional, Iterable
 
-import networkx as nx
 import rich
 
 from rich.progress import TaskID, TextColumn, TimeElapsedColumn, BarColumn
 from rich.rule import Rule
 from rich.console import Group
 
+from .graph import Graph, topological_sort
 from .recipe import Recipe
 from .types import Status, EvaluateProgress
 
 
 class FancyProgress(rich.progress.Progress):
-    def __init__(self, graph: nx.DiGraph, statuses: Dict[Recipe, Status], target_recipe: Recipe,
+    def __init__(self, graph: Graph[Recipe], statuses: Dict[Recipe, Status], target_recipe: Recipe,
                  console: Optional[rich.console.Console] = None) -> None:
         """
         Prepare a progress object for the provided execution graph and statuses. Once created, call "start()" to begin
@@ -37,7 +37,7 @@ class FancyProgress(rich.progress.Progress):
         # Build the progress table by adding all required tasks sorted topographically (target recipe at the bottom)
         self._recipe_tasks: Dict[Recipe, TaskID] = {
             recipe: self.add_task(recipe.name, start=False, total=1, completed=0)
-            for recipe in nx.topological_sort(graph)
+            for recipe in topological_sort(graph)
         }
 
         # For all recipes that are already cached (Ok), mark them as completed from the beginning
