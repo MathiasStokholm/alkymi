@@ -4,11 +4,10 @@ import typing
 from asyncio import Future, AbstractEventLoop, Task
 from typing import Dict, Tuple, Optional, Any, Coroutine, Union
 
-import networkx as nx
-
 from . import checksums, utils
 from .config import ProgressType, AlkymiConfig
 from .foreach_recipe import ForeachRecipe, MappedOutputs, MappedInputs
+from .graph import DiGraph, topological_sort
 from .logging import log
 from .progress import FancyProgress
 from .recipe import Recipe, R
@@ -18,7 +17,7 @@ from .types import Status, ProgressCallback, EvaluateProgress
 OutputsAndChecksums = Tuple[R, Optional[str]]
 
 
-def create_graph(recipe: Recipe[R]) -> nx.DiGraph:
+def create_graph(recipe: Recipe[R]) -> DiGraph:
     """
     Create a Directed Acyclic Graph (DAG) based on the provided recipe
     Each node in the graph represents a recipe
@@ -27,12 +26,12 @@ def create_graph(recipe: Recipe[R]) -> nx.DiGraph:
     :return: The constructed graph
     """
     log.debug(f'Building graph for {recipe.name}')
-    graph = nx.DiGraph()
+    graph = DiGraph()
     _add_recipe_to_graph(recipe, graph)
     return graph
 
 
-def _add_recipe_to_graph(recipe: Recipe, graph: nx.DiGraph) -> None:
+def _add_recipe_to_graph(recipe: Recipe, graph: DiGraph) -> None:
     """
     Add a node representing a recipe to the graph, and recursively add dependencies of the provided recipe as nodes with
     edges to the current node
@@ -49,7 +48,7 @@ def _add_recipe_to_graph(recipe: Recipe, graph: nx.DiGraph) -> None:
         graph.add_edge(_ingredient, recipe)
 
 
-def _compute_status(recipe: Recipe, graph: nx.DiGraph, statuses: Dict[Recipe, Status]) -> Status:
+def _compute_status(recipe: Recipe, graph: DiGraph, statuses: Dict[Recipe, Status]) -> Status:
     """
     Compute the status for the provided recipe (and recursively for dependencies) and add them all to the provided
     'statuses' dict
@@ -93,7 +92,7 @@ def _compute_status(recipe: Recipe, graph: nx.DiGraph, statuses: Dict[Recipe, St
     return _store_and_return(status)
 
 
-def compute_recipe_status(recipe: Recipe[R], graph: nx.DiGraph) -> Dict[Recipe, Status]:
+def compute_recipe_status(recipe: Recipe[R], graph: DiGraph) -> Dict[Recipe, Status]:
     """
     Compute the Status for the provided recipe and all dependencies (ingredients or mapped inputs)
 
@@ -323,7 +322,7 @@ async def schedule(loop: AbstractEventLoop, executor: Optional[concurrent.future
         return await invoke(recipe, inputs, input_checksums, loop, executor, progress_callback)
 
 
-def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe, Status], jobs: int,
+def evaluate_recipe(recipe: Recipe[R], graph: DiGraph, statuses: Dict[Recipe, Status], jobs: int,
                     progress_type: Optional[ProgressType] = None) -> OutputsAndChecksums[R]:
     """
     Evaluate a Recipe, including any dependencies that are not up-to-date
@@ -367,7 +366,7 @@ def evaluate_recipe(recipe: Recipe[R], graph: nx.DiGraph, statuses: Dict[Recipe,
         async def _execute() -> OutputsAndChecksums[R]:
             # Sort the graph topographically, such that any recipe in the sorted list only depends on earlier recipes
             # This guarantees that futures only depend on already created futures
-            recipes = list(nx.topological_sort(graph))
+            recipes = list(topological_sort(graph))
 
             # Create coroutines to evaluate each recipe - then from the top-down, the coroutines will request inputs
             # that they need from other coroutines, which will be upgraded to tasks. This approach is used to avoid
