@@ -6,13 +6,13 @@ from rich.progress import TaskID, TextColumn, TimeElapsedColumn, BarColumn
 from rich.rule import Rule
 from rich.console import Group
 
-from .graph import DiGraph, topological_sort
+from .graph import Graph, topological_sort
 from .recipe import Recipe
 from .types import Status, EvaluateProgress
 
 
 class FancyProgress(rich.progress.Progress):
-    def __init__(self, graph: DiGraph, statuses: Dict[Recipe, Status], target_recipe: Recipe,
+    def __init__(self, graph: Graph, statuses: Dict[Recipe, Status], target_recipe: Recipe,
                  console: Optional[rich.console.Console] = None) -> None:
         """
         Prepare a progress object for the provided execution graph and statuses. Once created, call "start()" to begin

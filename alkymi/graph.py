@@ -4,10 +4,13 @@ from typing import Any, Deque, Dict, Generic, Iterator, Set, TypeVar
 N = TypeVar("N")
 
 
-class DiGraph(Generic[N]):
+class Graph(Generic[N]):
     """
-    A simple directed acyclic graph (DAG) implementation that replaces the networkx DiGraph dependency.
-    Supports the subset of the networkx DiGraph API used by alkymi.
+    A directed acyclic graph (DAG) used to represent recipe dependencies in alkymi.
+
+    Each node represents a Recipe, and each directed edge from node A to node B indicates that
+    recipe A is an ingredient (dependency) of recipe B. The graph is always directed, acyclic,
+    and contains no parallel edges.
     """
 
     def __init__(self) -> None:
@@ -65,7 +68,7 @@ class DiGraph(Generic[N]):
         return self._nodes
 
 
-def topological_sort(graph: DiGraph) -> Iterator[Any]:
+def topological_sort(graph: Graph) -> Iterator[Any]:
     """
     Perform a topological sort of the given directed acyclic graph using Kahn's algorithm.
     Returns nodes in an order where each node appears only after all its predecessors.
